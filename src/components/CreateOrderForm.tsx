@@ -21,6 +21,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
     status: 'pending' as Order['status'],
     priority: 'medium' as Order['priority'],
     customer: '',
+    customerRef: '',
     location: '',
     dueDate: ''
   });
@@ -166,6 +167,17 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
                   placeholder="Customer or company name"
                   value={formData.customer}
                   onChange={(e) => setFormData(prev => ({ ...prev, customer: e.target.value }))}
+                />
+              </div>
+
+              {/* Customer Reference */}
+              <div className="space-y-2">
+                <Label htmlFor="customerRef">Customer Reference Number</Label>
+                <Input
+                  id="customerRef"
+                  placeholder="e.g., REF-2024-001, PO-12345"
+                  value={formData.customerRef}
+                  onChange={(e) => setFormData(prev => ({ ...prev, customerRef: e.target.value }))}
                 />
               </div>
 

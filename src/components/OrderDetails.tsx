@@ -134,7 +134,12 @@ export const OrderDetails = ({
               {order.customer && (
                 <div className="flex items-center gap-3">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{order.customer}</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{order.customer}</span>
+                    {order.customerRef && (
+                      <span className="text-xs text-muted-foreground">Ref: {order.customerRef}</span>
+                    )}
+                  </div>
                 </div>
               )}
               

@@ -54,7 +54,12 @@ export const OrderCard = ({ order, onViewDetails, onUpdateStatus }: OrderCardPro
           {order.customer && (
             <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              <span className="truncate">{order.customer}</span>
+              <div className="flex flex-col">
+                <span className="truncate text-sm">{order.customer}</span>
+                {order.customerRef && (
+                  <span className="text-xs text-muted-foreground">Ref: {order.customerRef}</span>
+                )}
+              </div>
             </div>
           )}
           

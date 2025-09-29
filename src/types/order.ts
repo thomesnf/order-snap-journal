@@ -8,6 +8,7 @@ export interface Order {
   updatedAt: Date;
   dueDate?: Date;
   customer?: string;
+  customerRef?: string;
   location?: string;
   journalEntries: JournalEntry[];
   photos: Photo[];
