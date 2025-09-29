@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { useOrders } from '@/hooks/useOrders';
-import { Order } from '@/types/order';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Order, Photo } from '@/types/order';
 import { OrderList } from '@/components/OrderList';
 import { OrderDetails } from '@/components/OrderDetails';
 import { CreateOrderForm } from '@/components/CreateOrderForm';
+import { SettingsPanel } from '@/components/SettingsPanel';
 
-type View = 'list' | 'details' | 'create';
+type View = 'list' | 'details' | 'create' | 'settings';
 
 const Index = () => {
   const { orders, addOrder, updateOrder, addJournalEntry, addPhoto } = useOrders();
+  const { t } = useLanguage();
   const [currentView, setCurrentView] = useState<View>('list');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
@@ -25,8 +28,16 @@ const Index = () => {
     setCurrentView('create');
   };
 
+  const handleShowSettings = () => {
+    setCurrentView('settings');
+  };
+
   const handleOrderCreated = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'journalEntries' | 'photos'>) => {
     addOrder(orderData);
+  };
+
+  const handleAddJournalEntry = (orderId: string, content: string, photos?: Photo[]) => {
+    addJournalEntry(orderId, content, photos);
   };
 
   const handleBack = () => {
@@ -42,6 +53,7 @@ const Index = () => {
           onViewDetails={handleViewDetails}
           onUpdateStatus={handleUpdateStatus}
           onCreateOrder={handleCreateOrder}
+          onShowSettings={handleShowSettings}
         />
       )}
       
@@ -50,7 +62,7 @@ const Index = () => {
           order={selectedOrder}
           onBack={handleBack}
           onUpdateStatus={handleUpdateStatus}
-          onAddJournalEntry={addJournalEntry}
+          onAddJournalEntry={handleAddJournalEntry}
           onAddPhoto={addPhoto}
         />
       )}
@@ -60,6 +72,10 @@ const Index = () => {
           onBack={handleBack}
           onCreateOrder={handleOrderCreated}
         />
+      )}
+      
+      {currentView === 'settings' && (
+        <SettingsPanel onBack={handleBack} />
       )}
     </div>
   );

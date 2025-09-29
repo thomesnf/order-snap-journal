@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Order, JournalEntry, Photo } from '@/types/order';
 
 // Mock data for demo - in real app this would connect to a backend
@@ -20,7 +20,8 @@ const mockOrders: Order[] = [
         id: '1',
         content: 'Initial site survey completed. Found optimal camera placement locations.',
         createdAt: new Date('2024-01-15'),
-        orderId: '1'
+        orderId: '1',
+        photos: []
       }
     ],
     photos: []
@@ -67,12 +68,13 @@ export const useOrders = () => {
     ));
   };
 
-  const addJournalEntry = (orderId: string, content: string) => {
+  const addJournalEntry = (orderId: string, content: string, photos: Photo[] = []) => {
     const newEntry: JournalEntry = {
       id: Date.now().toString(),
       content,
       createdAt: new Date(),
-      orderId
+      orderId,
+      photos
     };
     
     setOrders(prev => prev.map(order =>

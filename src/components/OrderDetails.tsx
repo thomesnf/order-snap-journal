@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Order } from '@/types/order';
+import { Order, Photo } from '@/types/order';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,9 +14,9 @@ import {
   User, 
   Camera, 
   FileText, 
-  Plus,
   Send,
-  Edit3
+  Edit3,
+  ImagePlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -24,7 +25,7 @@ interface OrderDetailsProps {
   order: Order;
   onBack: () => void;
   onUpdateStatus: (orderId: string, status: Order['status']) => void;
-  onAddJournalEntry: (orderId: string, content: string) => void;
+  onAddJournalEntry: (orderId: string, content: string, photos?: Photo[]) => void;
   onAddPhoto: (orderId: string, url: string, caption?: string) => void;
 }
 
@@ -42,35 +43,45 @@ export const OrderDetails = ({
   onAddJournalEntry,
   onAddPhoto 
 }: OrderDetailsProps) => {
+  const { t } = useLanguage();
   const [newJournalEntry, setNewJournalEntry] = useState('');
   const [photoCaption, setPhotoCaption] = useState('');
+  const [journalPhotos, setJournalPhotos] = useState<Photo[]>([]);
 
   const handleAddJournalEntry = () => {
     if (newJournalEntry.trim()) {
-      onAddJournalEntry(order.id, newJournalEntry.trim());
+      onAddJournalEntry(order.id, newJournalEntry.trim(), journalPhotos);
       setNewJournalEntry('');
+      setJournalPhotos([]);
       toast({
-        title: "Journal entry added",
+        title: t('journalEntryAdded'),
         description: "Your note has been saved to the order."
       });
     }
   };
 
-  const handlePhotoCapture = async () => {
+  const handleAddPhotoToJournal = async () => {
     try {
       // In a real app, this would use Capacitor Camera plugin
-      // For demo, we'll simulate adding a photo
       const mockPhotoUrl = `https://picsum.photos/400/300?random=${Date.now()}`;
-      onAddPhoto(order.id, mockPhotoUrl, photoCaption || undefined);
+      const newPhoto: Photo = {
+        id: Date.now().toString(),
+        url: mockPhotoUrl,
+        caption: photoCaption || undefined,
+        createdAt: new Date(),
+        orderId: order.id
+      };
+      
+      setJournalPhotos(prev => [...prev, newPhoto]);
       setPhotoCaption('');
       toast({
-        title: "Photo added",
-        description: "Photo has been attached to the order."
+        title: t('photoAdded'),
+        description: "Photo will be attached to your next journal entry."
       });
     } catch (error) {
       toast({
-        title: "Camera error",
-        description: "Unable to access camera. Please try again.",
+        title: t('cameraError'),
+        description: t('unableToAccessCamera'),
         variant: "destructive"
       });
     }
@@ -83,7 +94,7 @@ export const OrderDetails = ({
         <div className="flex items-center gap-4 mb-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            {t('back')}
           </Button>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-foreground truncate">{order.title}</h1>
@@ -169,9 +180,9 @@ export const OrderDetails = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Add new entry */}
+            {/* Add new entry with photo support */}
             <div className="space-y-3">
-              <Label htmlFor="journal-entry">Add Note</Label>
+              <Label htmlFor="journal-entry">{t('addNote')}</Label>
               <Textarea
                 id="journal-entry"
                 placeholder="Write your notes, observations, or updates..."
@@ -179,6 +190,51 @@ export const OrderDetails = ({
                 onChange={(e) => setNewJournalEntry(e.target.value)}
                 className="min-h-[80px]"
               />
+              
+              {/* Photo caption for journal photos */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder={t('photoCaption')}
+                  value={photoCaption}
+                  onChange={(e) => setPhotoCaption(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleAddPhotoToJournal}
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Preview photos to be attached */}
+              {journalPhotos.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Photos to attach:</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {journalPhotos.map((photo) => (
+                      <div key={photo.id} className="relative">
+                        <img 
+                          src={photo.url} 
+                          alt={photo.caption || 'Preview'}
+                          className="w-full h-16 object-cover rounded border border-border/30"
+                        />
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
+                          onClick={() => setJournalPhotos(prev => prev.filter(p => p.id !== photo.id))}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <Button 
                 onClick={handleAddJournalEntry}
                 disabled={!newJournalEntry.trim()}
@@ -186,16 +242,37 @@ export const OrderDetails = ({
                 className="w-full"
               >
                 <Send className="h-4 w-4 mr-2" />
-                Add Entry
+                {t('addEntry')}
               </Button>
             </div>
             
-            {/* Entries list */}
+            {/* Entries list with photos */}
             <div className="space-y-3">
               {order.journalEntries.map((entry) => (
                 <div key={entry.id} className="p-3 bg-muted/50 rounded-lg border border-border/30">
                   <p className="text-sm mb-2">{entry.content}</p>
-                  <p className="text-xs text-muted-foreground">
+                  
+                  {/* Entry photos */}
+                  {entry.photos && entry.photos.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        {entry.photos.map((photo) => (
+                          <div key={photo.id} className="space-y-1">
+                            <img 
+                              src={photo.url} 
+                              alt={photo.caption || 'Journal photo'}
+                              className="w-full h-20 object-cover rounded border border-border/30"
+                            />
+                            {photo.caption && (
+                              <p className="text-xs text-muted-foreground">{photo.caption}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-muted-foreground mt-2">
                     {format(entry.createdAt, 'MMM dd, yyyy at hh:mm a')}
                   </p>
                 </div>
@@ -229,13 +306,13 @@ export const OrderDetails = ({
                 onChange={(e) => setPhotoCaption(e.target.value)}
               />
               <Button 
-                onClick={handlePhotoCapture}
+                onClick={handleAddPhotoToJournal}
                 size="sm"
                 className="w-full"
                 variant="outline"
               >
                 <Camera className="h-4 w-4 mr-2" />
-                Take Photo
+                {t('takePhoto')}
               </Button>
             </div>
             

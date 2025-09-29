@@ -4,16 +4,17 @@ import { OrderCard } from './OrderCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, Plus } from 'lucide-react';
+import { Search, Filter, Plus, Settings } from 'lucide-react';
 
 interface OrderListProps {
   orders: Order[];
   onViewDetails: (order: Order) => void;
   onUpdateStatus: (orderId: string, status: Order['status']) => void;
   onCreateOrder: () => void;
+  onShowSettings: () => void;
 }
 
-export const OrderList = ({ orders, onViewDetails, onUpdateStatus, onCreateOrder }: OrderListProps) => {
+export const OrderList = ({ orders, onViewDetails, onUpdateStatus, onCreateOrder, onShowSettings }: OrderListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
 
@@ -41,10 +42,15 @@ export const OrderList = ({ orders, onViewDetails, onUpdateStatus, onCreateOrder
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border/50 p-4 z-10">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-foreground">Orders</h1>
-          <Button onClick={onCreateOrder} size="sm" className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90">
-            <Plus className="h-4 w-4 mr-2" />
-            New Order
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={onShowSettings} variant="outline" size="sm">
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button onClick={onCreateOrder} size="sm" className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90">
+              <Plus className="h-4 w-4 mr-2" />
+              New Order
+            </Button>
+          </div>
         </div>
         
         {/* Search */}

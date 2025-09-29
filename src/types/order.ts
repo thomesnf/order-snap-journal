@@ -19,6 +19,7 @@ export interface JournalEntry {
   content: string;
   createdAt: Date;
   orderId: string;
+  photos?: Photo[];
 }
 
 export interface Photo {
