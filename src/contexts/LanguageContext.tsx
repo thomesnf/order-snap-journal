@@ -81,7 +81,23 @@ const translations: Translations = {
     'lightMode': 'Light Mode',
     'darkMode': 'Dark Mode',
     'english': 'English',
-    'swedish': 'Swedish'
+    'swedish': 'Swedish',
+    'authentication': 'Authentication',
+    'signIn': 'Sign In',
+    'signUp': 'Sign Up',
+    'signOut': 'Sign Out',
+    'email': 'Email',
+    'password': 'Password',
+    'fullName': 'Full Name',
+    'loading': 'Loading...',
+    'error': 'Error',
+    'success': 'Success',
+    'accountCreated': 'Account created successfully!',
+    'signInOrCreateAccount': 'Sign in or create a new account',
+    'userManagement': 'User Management',
+    'manageUserRoles': 'Manage user roles and permissions',
+    'makeAdmin': 'Make Admin',
+    'removeAdmin': 'Remove Admin'
   },
   sv: {
     // Navigation
@@ -156,7 +172,23 @@ const translations: Translations = {
     'lightMode': 'Ljust Läge',
     'darkMode': 'Mörkt Läge',
     'english': 'Engelska',
-    'swedish': 'Svenska'
+    'swedish': 'Svenska',
+    'authentication': 'Autentisering',
+    'signIn': 'Logga in',
+    'signUp': 'Registrera',
+    'signOut': 'Logga ut',
+    'email': 'E-post',
+    'password': 'Lösenord',
+    'fullName': 'Fullständigt namn',
+    'loading': 'Laddar...',
+    'error': 'Fel',
+    'success': 'Framgång',
+    'accountCreated': 'Konto skapat framgångsrikt!',
+    'signInOrCreateAccount': 'Logga in eller skapa ett nytt konto',
+    'userManagement': 'Användarhantering',
+    'manageUserRoles': 'Hantera användarroller och behörigheter',
+    'makeAdmin': 'Gör till Admin',
+    'removeAdmin': 'Ta bort Admin'
   }
 };
 

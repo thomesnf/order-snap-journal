@@ -14,16 +14,238 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      journal_entries: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          order_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          order_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          customer: string | null
+          customer_ref: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          location: string | null
+          priority: Database["public"]["Enums"]["order_priority"]
+          status: Database["public"]["Enums"]["order_status"]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer?: string | null
+          customer_ref?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          location?: string | null
+          priority?: Database["public"]["Enums"]["order_priority"]
+          status?: Database["public"]["Enums"]["order_status"]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer?: string | null
+          customer_ref?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          location?: string | null
+          priority?: Database["public"]["Enums"]["order_priority"]
+          status?: Database["public"]["Enums"]["order_status"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          journal_entry_id: string | null
+          order_id: string | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          order_id?: string | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          order_id?: string | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photos_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photos_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      restore_order: {
+        Args: { order_id: string }
+        Returns: undefined
+      }
+      soft_delete_order: {
+        Args: { order_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      order_priority: "low" | "medium" | "high"
+      order_status: "pending" | "in-progress" | "completed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +372,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      order_priority: ["low", "medium", "high"],
+      order_status: ["pending", "in-progress", "completed", "cancelled"],
+    },
   },
 } as const

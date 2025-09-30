@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Order, Photo } from '@/types/order';
+import { Order } from '@/hooks/useOrdersDB';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { takePhoto, pickImage } from '@/utils/camera';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -25,8 +26,9 @@ interface OrderDetailsProps {
   order: Order;
   onBack: () => void;
   onUpdateStatus: (orderId: string, status: Order['status']) => void;
-  onAddJournalEntry: (orderId: string, content: string, photos?: Photo[]) => void;
-  onAddPhoto: (orderId: string, url: string, caption?: string) => void;
+  onAddJournalEntry: (orderId: string, content: string) => void;
+  onAddPhoto: (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => void;
+  isAdmin: boolean;
 }
 
 const statusColors = {
@@ -41,42 +43,30 @@ export const OrderDetails = ({
   onBack, 
   onUpdateStatus, 
   onAddJournalEntry,
-  onAddPhoto 
+  onAddPhoto,
+  isAdmin
 }: OrderDetailsProps) => {
   const { t } = useLanguage();
   const [newJournalEntry, setNewJournalEntry] = useState('');
-  const [photoCaption, setPhotoCaption] = useState('');
-  const [journalPhotos, setJournalPhotos] = useState<Photo[]>([]);
 
   const handleAddJournalEntry = () => {
     if (newJournalEntry.trim()) {
-      onAddJournalEntry(order.id, newJournalEntry.trim(), journalPhotos);
+      onAddJournalEntry(order.id, newJournalEntry.trim());
       setNewJournalEntry('');
-      setJournalPhotos([]);
       toast({
         title: t('journalEntryAdded'),
-        description: "Your note has been saved to the order."
+        description: "Your note has been saved."
       });
     }
   };
 
-  const handleAddPhotoToJournal = async () => {
+  const handleTakePhoto = async () => {
     try {
-      // In a real app, this would use Capacitor Camera plugin
-      const mockPhotoUrl = `https://picsum.photos/400/300?random=${Date.now()}`;
-      const newPhoto: Photo = {
-        id: Date.now().toString(),
-        url: mockPhotoUrl,
-        caption: photoCaption || undefined,
-        createdAt: new Date(),
-        orderId: order.id
-      };
-      
-      setJournalPhotos(prev => [...prev, newPhoto]);
-      setPhotoCaption('');
+      const photoUrl = await takePhoto();
+      onAddPhoto(order.id, null, photoUrl);
       toast({
         title: t('photoAdded'),
-        description: "Photo will be attached to your next journal entry."
+        description: "Photo added successfully."
       });
     } catch (error) {
       toast({

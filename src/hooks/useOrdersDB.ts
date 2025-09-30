@@ -1,0 +1,269 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+export interface Order {
+  id: string;
+  title: string;
+  description: string | null;
+  status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high';
+  customer: string | null;
+  customer_ref: string | null;
+  location: string | null;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  order_id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+}
+
+export interface Photo {
+  id: string;
+  url: string;
+  caption: string | null;
+  created_at: string;
+  order_id: string | null;
+  journal_entry_id: string | null;
+  user_id: string;
+}
+
+export const useOrdersDB = () => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchOrders();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('orders_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addOrder = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('orders')
+        .insert([{ ...orderData, user_id: user.id }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Order created successfully",
+      });
+      
+      return data;
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const updateOrder = async (orderId: string, updates: Partial<Order>) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Order updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase.rpc('soft_delete_order', {
+        order_id: orderId
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Order deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addJournalEntry = async (orderId: string, content: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('journal_entries')
+        .insert([{
+          order_id: orderId,
+          content,
+          user_id: user.id
+        }]);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Journal entry added",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addPhoto = async (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('photos')
+        .insert([{
+          order_id: orderId,
+          journal_entry_id: journalEntryId,
+          url,
+          caption,
+          user_id: user.id
+        }]);
+
+      if (error) throw error;
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getJournalEntries = async (orderId: string): Promise<JournalEntry[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      return [];
+    }
+  };
+
+  const getPhotos = async (orderId?: string, journalEntryId?: string): Promise<Photo[]> => {
+    try {
+      let query = supabase.from('photos').select('*');
+      
+      if (orderId) {
+        query = query.eq('order_id', orderId);
+      }
+      if (journalEntryId) {
+        query = query.eq('journal_entry_id', journalEntryId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      return [];
+    }
+  };
+
+  return {
+    orders,
+    loading,
+    addOrder,
+    updateOrder,
+    deleteOrder,
+    addJournalEntry,
+    addPhoto,
+    getJournalEntries,
+    getPhotos,
+  };
+};

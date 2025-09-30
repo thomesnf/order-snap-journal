@@ -1,8 +1,8 @@
-import { Order } from '@/types/order';
+import { Order } from '@/hooks/useOrdersDB';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, User, Camera, FileText, MoreVertical } from 'lucide-react';
+import { Calendar, MapPin, User, MoreVertical } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface OrderCardProps {
@@ -56,8 +56,8 @@ export const OrderCard = ({ order, onViewDetails, onUpdateStatus }: OrderCardPro
               <User className="h-4 w-4" />
               <div className="flex flex-col">
                 <span className="truncate text-sm">{order.customer}</span>
-                {order.customerRef && (
-                  <span className="text-xs text-muted-foreground">Ref: {order.customerRef}</span>
+                {order.customer_ref && (
+                  <span className="text-xs text-muted-foreground">Ref: {order.customer_ref}</span>
                 )}
               </div>
             </div>
@@ -70,27 +70,17 @@ export const OrderCard = ({ order, onViewDetails, onUpdateStatus }: OrderCardPro
             </div>
           )}
           
-          {order.dueDate && (
+          {order.due_date && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              <span>Due {format(order.dueDate, 'MMM dd, yyyy')}</span>
+              <span>Due {format(new Date(order.due_date), 'MMM dd, yyyy')}</span>
             </div>
           )}
         </div>
         
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <FileText className="h-3 w-3" />
-              <span>{order.journalEntries.length}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Camera className="h-3 w-3" />
-              <span>{order.photos.length}</span>
-            </div>
-          </div>
           <span className="text-xs text-muted-foreground">
-            Updated {format(order.updatedAt, 'MMM dd')}
+            Updated {format(new Date(order.updated_at), 'MMM dd')}
           </span>
         </div>
       </CardContent>

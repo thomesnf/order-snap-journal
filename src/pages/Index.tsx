@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { useOrders } from '@/hooks/useOrders';
+import { useOrdersDB, Order } from '@/hooks/useOrdersDB';
+import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Order, Photo } from '@/types/order';
 import { OrderList } from '@/components/OrderList';
 import { OrderDetails } from '@/components/OrderDetails';
 import { CreateOrderForm } from '@/components/CreateOrderForm';
 import { SettingsPanel } from '@/components/SettingsPanel';
+import AdminPanel from '@/components/AdminPanel';
 
-type View = 'list' | 'details' | 'create' | 'settings';
+type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 
 const Index = () => {
-  const { orders, addOrder, updateOrder, addJournalEntry, addPhoto } = useOrders();
+  const { orders, addOrder, updateOrder, deleteOrder, addJournalEntry, addPhoto } = useOrdersDB();
+  const { isAdmin } = useAuth();
   const { t } = useLanguage();
   const [currentView, setCurrentView] = useState<View>('list');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -20,8 +22,8 @@ const Index = () => {
     setCurrentView('details');
   };
 
-  const handleUpdateStatus = (orderId: string, status: Order['status']) => {
-    updateOrder(orderId, { status });
+  const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
+    await updateOrder(orderId, { status });
   };
 
   const handleCreateOrder = () => {
@@ -32,12 +34,22 @@ const Index = () => {
     setCurrentView('settings');
   };
 
-  const handleOrderCreated = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'journalEntries' | 'photos'>) => {
-    addOrder(orderData);
+  const handleShowAdmin = () => {
+    setCurrentView('admin');
   };
 
-  const handleAddJournalEntry = (orderId: string, content: string, photos?: Photo[]) => {
-    addJournalEntry(orderId, content, photos);
+  const handleOrderCreated = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+    try {
+      const newOrder = await addOrder(orderData);
+      setSelectedOrder(newOrder);
+      setCurrentView('details');
+    } catch (error) {
+      console.error('Error creating order:', error);
+    }
+  };
+
+  const handleAddJournalEntry = async (orderId: string, content: string) => {
+    await addJournalEntry(orderId, content);
   };
 
   const handleBack = () => {
@@ -54,6 +66,8 @@ const Index = () => {
           onUpdateStatus={handleUpdateStatus}
           onCreateOrder={handleCreateOrder}
           onShowSettings={handleShowSettings}
+          onShowAdmin={handleShowAdmin}
+          isAdmin={isAdmin}
         />
       )}
       
@@ -64,6 +78,7 @@ const Index = () => {
           onUpdateStatus={handleUpdateStatus}
           onAddJournalEntry={handleAddJournalEntry}
           onAddPhoto={addPhoto}
+          isAdmin={isAdmin}
         />
       )}
       
@@ -76,6 +91,18 @@ const Index = () => {
       
       {currentView === 'settings' && (
         <SettingsPanel onBack={handleBack} />
+      )}
+
+      {currentView === 'admin' && isAdmin && (
+        <div className="p-4">
+          <button
+            onClick={handleBack}
+            className="mb-4 text-primary hover:underline"
+          >
+            ← {t('back')}
+          </button>
+          <AdminPanel />
+        </div>
       )}
     </div>
   );

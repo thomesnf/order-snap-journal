@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # Frontend application
+  app:
+    build: .
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      - supabase-db
+      - supabase-api
+    environment:
+      - VITE_SUPABASE_URL=http://supabase-api:8000
+      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+
+  # Supabase Database (PostgreSQL)
+  supabase-db:
+    image: supabase/postgres:15.1.1.78
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-super-secret-and-long-postgres-password}
+      POSTGRES_DB: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  # Supabase API (PostgREST)
+  supabase-api:
+    image: postgrest/postgrest:v12.2.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PGRST_DB_URI: postgres://postgres:${POSTGRES_PASSWORD:-your-super-secret-and-long-postgres-password}@supabase-db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+    depends_on:
+      - supabase-db
+
+  # Supabase Auth (GoTrue)
+  supabase-auth:
+    image: supabase/gotrue:v2.159.2
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://localhost
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-your-super-secret-and-long-postgres-password}@supabase-db:5432/postgres
+      GOTRUE_SITE_URL: http://localhost
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: false
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: true
+      GOTRUE_MAILER_AUTOCONFIRM: true
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@example.com
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-587}
+      GOTRUE_SMTP_USER: ${SMTP_USER}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME:-Order Snap Journal}
+    depends_on:
+      - supabase-db
+
+  # Supabase Storage
+  supabase-storage:
+    image: supabase/storage-api:v1.0.6
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      ANON_KEY: ${SUPABASE_ANON_KEY}
+      SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://supabase-api:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD:-your-super-secret-and-long-postgres-password}@supabase-db:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+    depends_on:
+      - supabase-db
+      - supabase-api
+    volumes:
+      - storage-data:/var/lib/storage
+
+volumes:
+  db-data:
+  storage-data:
