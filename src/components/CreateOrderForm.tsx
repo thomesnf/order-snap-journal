@@ -44,7 +44,13 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
     
     try {
       const orderData = {
-        ...formData,
+        title: formData.title,
+        description: formData.description,
+        status: formData.status,
+        priority: formData.priority,
+        customer: formData.customer,
+        customer_ref: formData.customerRef,
+        location: formData.location,
         dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined
       };
       
