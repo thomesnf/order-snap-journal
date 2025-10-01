@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Order } from '@/hooks/useOrdersDB';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,17 @@ const statusColors = {
   'cancelled': 'bg-destructive/10 text-destructive border-destructive/20'
 };
 
+type JournalEntry = Database['public']['Tables']['journal_entries']['Row'] & {
+  photos?: Database['public']['Tables']['photos']['Row'][];
+};
+
+type Photo = Database['public']['Tables']['photos']['Row'];
+
+type OrderWithRelations = Order & {
+  journal_entries?: JournalEntry[];
+  photos?: Photo[];
+};
+
 export const OrderDetails = ({ 
   order, 
   onBack, 
@@ -48,14 +60,40 @@ export const OrderDetails = ({
 }: OrderDetailsProps) => {
   const { t } = useLanguage();
   const [newJournalEntry, setNewJournalEntry] = useState('');
+  const [photoCaption, setPhotoCaption] = useState('');
+  const [journalPhotos, setJournalPhotos] = useState<Photo[]>([]);
 
   const handleAddJournalEntry = () => {
     if (newJournalEntry.trim()) {
       onAddJournalEntry(order.id, newJournalEntry.trim());
       setNewJournalEntry('');
+      setJournalPhotos([]);
       toast({
         title: t('journalEntryAdded'),
         description: "Your note has been saved."
+      });
+    }
+  };
+
+  const handleAddPhotoToJournal = async () => {
+    try {
+      const photoUrl = await takePhoto();
+      const newPhoto: Photo = {
+        id: crypto.randomUUID(),
+        url: photoUrl,
+        caption: photoCaption,
+        order_id: order.id,
+        journal_entry_id: null,
+        user_id: order.user_id,
+        created_at: new Date().toISOString()
+      };
+      setJournalPhotos(prev => [...prev, newPhoto]);
+      setPhotoCaption('');
+    } catch (error) {
+      toast({
+        title: t('cameraError'),
+        description: t('unableToAccessCamera'),
+        variant: "destructive"
       });
     }
   };
@@ -137,8 +175,8 @@ export const OrderDetails = ({
                   <User className="h-4 w-4 text-muted-foreground" />
                   <div className="flex flex-col">
                     <span className="text-sm font-medium">{order.customer}</span>
-                    {order.customerRef && (
-                      <span className="text-xs text-muted-foreground">Ref: {order.customerRef}</span>
+                    {order.customer_ref && (
+                      <span className="text-xs text-muted-foreground">Ref: {order.customer_ref}</span>
                     )}
                   </div>
                 </div>
@@ -151,10 +189,10 @@ export const OrderDetails = ({
                 </div>
               )}
               
-              {order.dueDate && (
+              {order.due_date && (
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">Due {format(order.dueDate, 'MMMM dd, yyyy')}</span>
+                  <span className="text-sm">Due {format(new Date(order.due_date), 'MMMM dd, yyyy')}</span>
                 </div>
               )}
             </div>
@@ -166,7 +204,7 @@ export const OrderDetails = ({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Journal Entries ({order.journalEntries.length})
+              Journal Entries ({(order as OrderWithRelations).journal_entries?.length || 0})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -238,7 +276,7 @@ export const OrderDetails = ({
             
             {/* Entries list with photos */}
             <div className="space-y-3">
-              {order.journalEntries.map((entry) => (
+              {((order as OrderWithRelations).journal_entries || []).map((entry) => (
                 <div key={entry.id} className="p-3 bg-muted/50 rounded-lg border border-border/30">
                   <p className="text-sm mb-2">{entry.content}</p>
                   
@@ -263,12 +301,12 @@ export const OrderDetails = ({
                   )}
                   
                   <p className="text-xs text-muted-foreground mt-2">
-                    {format(entry.createdAt, 'MMM dd, yyyy at hh:mm a')}
+                    {format(new Date(entry.created_at), 'MMM dd, yyyy at hh:mm a')}
                   </p>
                 </div>
               ))}
               
-              {order.journalEntries.length === 0 && (
+              {((order as OrderWithRelations).journal_entries?.length || 0) === 0 && (
                 <p className="text-muted-foreground text-sm text-center py-4">
                   No journal entries yet. Add your first note above.
                 </p>
@@ -282,7 +320,7 @@ export const OrderDetails = ({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Camera className="h-5 w-5" />
-              Photos ({order.photos.length})
+              Photos ({(order as OrderWithRelations).photos?.length || 0})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -307,9 +345,9 @@ export const OrderDetails = ({
             </div>
             
             {/* Photos grid */}
-            {order.photos.length > 0 && (
+            {((order as OrderWithRelations).photos?.length || 0) > 0 && (
               <div className="grid grid-cols-2 gap-3">
-                {order.photos.map((photo) => (
+                {((order as OrderWithRelations).photos || []).map((photo) => (
                   <div key={photo.id} className="space-y-2">
                     <img 
                       src={photo.url} 
@@ -320,14 +358,14 @@ export const OrderDetails = ({
                       <p className="text-xs text-muted-foreground">{photo.caption}</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      {format(photo.createdAt, 'MMM dd, hh:mm a')}
+                      {format(new Date(photo.created_at), 'MMM dd, hh:mm a')}
                     </p>
                   </div>
                 ))}
               </div>
             )}
             
-            {order.photos.length === 0 && (
+            {((order as OrderWithRelations).photos?.length || 0) === 0 && (
               <p className="text-muted-foreground text-sm text-center py-4">
                 No photos yet. Capture your first photo above.
               </p>
