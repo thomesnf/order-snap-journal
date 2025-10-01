@@ -1,6 +1,15 @@
 # Docker Deployment Guide
 
-This guide explains how to deploy Order Snap Journal on your own private server using Docker.
+This guide explains how to deploy the Order Management System on your own private server using Docker.
+
+## ⚠️ Important: Admin Setup First
+
+**Before deploying, you MUST create an admin user.** See `ADMIN_SETUP.md` for detailed instructions.
+
+Quick summary:
+1. Create user via Lovable Cloud backend
+2. Run SQL to grant admin role
+3. Then proceed with Docker deployment
 
 ## Prerequisites
 

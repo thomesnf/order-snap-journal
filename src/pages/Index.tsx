@@ -66,7 +66,7 @@ const Index = () => {
           onUpdateStatus={handleUpdateStatus}
           onCreateOrder={handleCreateOrder}
           onShowSettings={handleShowSettings}
-          onShowAdmin={handleShowAdmin}
+          onShowAdmin={isAdmin ? handleShowAdmin : undefined}
           isAdmin={isAdmin}
         />
       )}

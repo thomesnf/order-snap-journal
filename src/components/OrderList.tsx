@@ -13,7 +13,7 @@ interface OrderListProps {
   onUpdateStatus: (orderId: string, status: Order['status']) => void;
   onCreateOrder: () => void;
   onShowSettings: () => void;
-  onShowAdmin: () => void;
+  onShowAdmin?: () => void;
   isAdmin: boolean;
 }
 
@@ -58,7 +58,7 @@ export const OrderList = ({
             <Button onClick={onShowSettings} variant="outline" size="sm">
               <Settings className="h-4 w-4" />
             </Button>
-            {isAdmin && (
+            {isAdmin && onShowAdmin && (
               <Button onClick={onShowAdmin} variant="outline" size="sm">
                 <Shield className="h-4 w-4" />
               </Button>
