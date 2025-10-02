@@ -4,21 +4,21 @@ export interface Order {
   description: string;
   status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
-  createdAt: Date;
-  updatedAt: Date;
-  dueDate?: Date;
+  created_at: Date;
+  updated_at: Date;
+  due_date?: Date;
   customer?: string;
   customer_ref?: string;
   location?: string;
-  journalEntries: JournalEntry[];
+  journal_entries: JournalEntry[];
   photos: Photo[];
 }
 
 export interface JournalEntry {
   id: string;
   content: string;
-  createdAt: Date;
-  orderId: string;
+  created_at: Date;
+  order_id: string;
   photos?: Photo[];
 }
 
@@ -26,6 +26,6 @@ export interface Photo {
   id: string;
   url: string;
   caption?: string;
-  createdAt: Date;
-  orderId: string;
+  created_at: Date;
+  order_id: string;
 }

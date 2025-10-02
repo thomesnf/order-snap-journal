@@ -12,15 +12,15 @@ const mockOrders: Order[] = [
     customer: 'TechCorp Inc.',
     customer_ref: 'TC-2024-001',
     location: '123 Business St, Downtown',
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-16'),
-    dueDate: new Date('2024-01-20'),
-    journalEntries: [
+    created_at: new Date('2024-01-15'),
+    updated_at: new Date('2024-01-16'),
+    due_date: new Date('2024-01-20'),
+    journal_entries: [
       {
         id: '1',
         content: 'Initial site survey completed. Found optimal camera placement locations.',
-        createdAt: new Date('2024-01-15'),
-        orderId: '1',
+        created_at: new Date('2024-01-15'),
+        order_id: '1',
         photos: []
       }
     ],
@@ -35,10 +35,10 @@ const mockOrders: Order[] = [
     customer: 'QuickMart',
     customer_ref: 'QM-2024-0015',
     location: '456 Mall Ave, Shopping District',
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-10'),
-    dueDate: new Date('2024-01-25'),
-    journalEntries: [],
+    created_at: new Date('2024-01-10'),
+    updated_at: new Date('2024-01-10'),
+    due_date: new Date('2024-01-25'),
+    journal_entries: [],
     photos: []
   }
 ];
@@ -47,13 +47,13 @@ export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [loading, setLoading] = useState(false);
 
-  const addOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'journalEntries' | 'photos'>) => {
+  const addOrder = (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'journal_entries' | 'photos'>) => {
     const newOrder: Order = {
       ...orderData,
       id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      journalEntries: [],
+      created_at: new Date(),
+      updated_at: new Date(),
+      journal_entries: [],
       photos: []
     };
     setOrders(prev => [newOrder, ...prev]);
@@ -63,7 +63,7 @@ export const useOrders = () => {
   const updateOrder = (orderId: string, updates: Partial<Order>) => {
     setOrders(prev => prev.map(order => 
       order.id === orderId 
-        ? { ...order, ...updates, updatedAt: new Date() }
+        ? { ...order, ...updates, updated_at: new Date() }
         : order
     ));
   };
@@ -72,8 +72,8 @@ export const useOrders = () => {
     const newEntry: JournalEntry = {
       id: Date.now().toString(),
       content,
-      createdAt: new Date(),
-      orderId,
+      created_at: new Date(),
+      order_id: orderId,
       photos
     };
     
@@ -81,8 +81,8 @@ export const useOrders = () => {
       order.id === orderId
         ? { 
             ...order, 
-            journalEntries: [...order.journalEntries, newEntry],
-            updatedAt: new Date()
+            journal_entries: [...order.journal_entries, newEntry],
+            updated_at: new Date()
           }
         : order
     ));
@@ -93,8 +93,8 @@ export const useOrders = () => {
       id: Date.now().toString(),
       url,
       caption,
-      createdAt: new Date(),
-      orderId
+      created_at: new Date(),
+      order_id: orderId
     };
     
     setOrders(prev => prev.map(order =>
@@ -102,7 +102,7 @@ export const useOrders = () => {
         ? { 
             ...order, 
             photos: [...order.photos, newPhoto],
-            updatedAt: new Date()
+            updated_at: new Date()
           }
         : order
     ));

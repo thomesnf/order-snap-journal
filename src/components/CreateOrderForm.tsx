@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Order } from '@/types/order';
+import { Order } from '@/hooks/useOrdersDB';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +11,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface CreateOrderFormProps {
   onBack: () => void;
-  onCreateOrder: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'journalEntries' | 'photos'>) => void;
+  onCreateOrder: (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => void;
 }
 
 export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps) => {
@@ -45,13 +45,13 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
     try {
       const orderData = {
         title: formData.title,
-        description: formData.description,
+        description: formData.description || null,
         status: formData.status,
         priority: formData.priority,
-        customer: formData.customer,
-        customer_ref: formData.customerRef,
-        location: formData.location,
-        dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined
+        customer: formData.customer || null,
+        customer_ref: formData.customerRef || null,
+        location: formData.location || null,
+        due_date: formData.dueDate || null
       };
       
       onCreateOrder(orderData);
