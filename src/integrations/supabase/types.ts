@@ -192,6 +192,42 @@ export type Database = {
         }
         Relationships: []
       }
+      time_entries: {
+        Row: {
+          created_at: string
+          hours_worked: number
+          id: string
+          notes: string | null
+          order_id: string
+          technician_name: string
+          updated_at: string
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          hours_worked: number
+          id?: string
+          notes?: string | null
+          order_id: string
+          technician_name: string
+          updated_at?: string
+          user_id: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          hours_worked?: number
+          id?: string
+          notes?: string | null
+          order_id?: string
+          technician_name?: string
+          updated_at?: string
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

@@ -11,19 +11,26 @@ import AdminPanel from '@/components/AdminPanel';
 type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 
 const Index = () => {
-  const { orders, addOrder, updateOrder, deleteOrder, addJournalEntry, addPhoto } = useOrdersDB();
+  const { orders, addOrder, updateOrder, deleteOrder, addJournalEntry, addPhoto, getOrderWithDetails } = useOrdersDB();
   const { isAdmin } = useAuth();
   const { t } = useLanguage();
   const [currentView, setCurrentView] = useState<View>('list');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const handleViewDetails = (order: Order) => {
-    setSelectedOrder(order);
+  const handleViewDetails = async (order: Order) => {
+    // Fetch order with full details (journal entries and photos)
+    const orderWithDetails = await getOrderWithDetails(order.id);
+    setSelectedOrder(orderWithDetails);
     setCurrentView('details');
   };
 
   const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
     await updateOrder(orderId, { status });
+    // Refetch order to update UI
+    if (selectedOrder?.id === orderId) {
+      const updatedOrder = await getOrderWithDetails(orderId);
+      setSelectedOrder(updatedOrder);
+    }
   };
 
   const handleCreateOrder = () => {
@@ -41,7 +48,8 @@ const Index = () => {
   const handleOrderCreated = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
     try {
       const newOrder = await addOrder(orderData);
-      setSelectedOrder(newOrder);
+      const orderWithDetails = await getOrderWithDetails(newOrder.id);
+      setSelectedOrder(orderWithDetails);
       setCurrentView('details');
     } catch (error) {
       console.error('Error creating order:', error);
@@ -50,6 +58,22 @@ const Index = () => {
 
   const handleAddJournalEntry = async (orderId: string, content: string) => {
     await addJournalEntry(orderId, content);
+    // Refetch the order to update the UI with the new journal entry
+    const updatedOrder = await getOrderWithDetails(orderId);
+    if (updatedOrder) {
+      setSelectedOrder(updatedOrder);
+    }
+  };
+
+  const handleAddPhoto = async (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => {
+    await addPhoto(orderId, journalEntryId, url, caption);
+    // Refetch the order to update the UI with the new photo
+    if (orderId) {
+      const updatedOrder = await getOrderWithDetails(orderId);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
   };
 
   const handleBack = () => {
@@ -77,7 +101,7 @@ const Index = () => {
           onBack={handleBack}
           onUpdateStatus={handleUpdateStatus}
           onAddJournalEntry={handleAddJournalEntry}
-          onAddPhoto={addPhoto}
+          onAddPhoto={handleAddPhoto}
           isAdmin={isAdmin}
         />
       )}

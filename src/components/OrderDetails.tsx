@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { takePhoto, pickImage } from '@/utils/camera';
+import { TimeCalendar } from '@/components/TimeCalendar';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -134,22 +135,60 @@ export const OrderDetails = ({
             {order.status.replace('-', ' ')}
           </Badge>
           <div className="flex gap-2">
+            {/* Status Progression Buttons */}
             {order.status === 'pending' && (
+              <>
+                <Button 
+                  size="sm" 
+                  onClick={() => onUpdateStatus(order.id, 'in-progress')}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  Start Work
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => onUpdateStatus(order.id, 'cancelled')}
+                  variant="outline"
+                  className="border-destructive text-destructive hover:bg-destructive/10"
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
+            {order.status === 'in-progress' && (
+              <>
+                <Button 
+                  size="sm" 
+                  onClick={() => onUpdateStatus(order.id, 'pending')}
+                  variant="outline"
+                >
+                  Back to Pending
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => onUpdateStatus(order.id, 'completed')}
+                  className="bg-success hover:bg-success/90"
+                >
+                  Complete
+                </Button>
+              </>
+            )}
+            {order.status === 'completed' && (
               <Button 
                 size="sm" 
                 onClick={() => onUpdateStatus(order.id, 'in-progress')}
-                className="bg-primary hover:bg-primary/90"
+                variant="outline"
               >
-                Start Work
+                Reopen
               </Button>
             )}
-            {order.status === 'in-progress' && (
+            {order.status === 'cancelled' && (
               <Button 
                 size="sm" 
-                onClick={() => onUpdateStatus(order.id, 'completed')}
-                className="bg-success hover:bg-success/90"
+                onClick={() => onUpdateStatus(order.id, 'pending')}
+                variant="outline"
               >
-                Complete
+                Restore
               </Button>
             )}
           </div>
@@ -314,6 +353,9 @@ export const OrderDetails = ({
             </div>
           </CardContent>
         </Card>
+
+        {/* Time Calendar */}
+        <TimeCalendar orderId={order.id} />
 
         {/* Photos */}
         <Card>

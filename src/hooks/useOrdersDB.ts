@@ -255,6 +255,52 @@ export const useOrdersDB = () => {
     }
   };
 
+  const getOrderWithDetails = async (orderId: string): Promise<Order & { journal_entries?: JournalEntry[]; photos?: Photo[] } | null> => {
+    try {
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .is('deleted_at', null)
+        .single();
+
+      if (orderError) throw orderError;
+      if (!order) return null;
+
+      // Fetch journal entries with their photos
+      const { data: journalEntries, error: journalError } = await supabase
+        .from('journal_entries')
+        .select('*, photos(*)')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+
+      if (journalError) throw journalError;
+
+      // Fetch order-level photos (not attached to journal entries)
+      const { data: orderPhotos, error: photosError } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('order_id', orderId)
+        .is('journal_entry_id', null)
+        .order('created_at', { ascending: false });
+
+      if (photosError) throw photosError;
+
+      return {
+        ...order,
+        journal_entries: journalEntries || [],
+        photos: orderPhotos || []
+      };
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
   return {
     orders,
     loading,
@@ -265,5 +311,6 @@ export const useOrdersDB = () => {
     addPhoto,
     getJournalEntries,
     getPhotos,
+    getOrderWithDetails,
   };
 };
