@@ -11,7 +11,7 @@ import AdminPanel from '@/components/AdminPanel';
 type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 
 const Index = () => {
-  const { orders, addOrder, updateOrder, deleteOrder, addJournalEntry, addPhoto, getOrderWithDetails } = useOrdersDB();
+  const { orders, addOrder, updateOrder, deleteOrder, addJournalEntry, updateJournalEntry, deleteJournalEntry, addPhoto, getOrderWithDetails } = useOrdersDB();
   const { isAdmin } = useAuth();
   const { t } = useLanguage();
   const [currentView, setCurrentView] = useState<View>('list');
@@ -65,6 +65,28 @@ const Index = () => {
     }
   };
 
+  const handleUpdateJournalEntry = async (entryId: string, content: string) => {
+    await updateJournalEntry(entryId, content);
+    // Refetch the order to update the UI
+    if (selectedOrder) {
+      const updatedOrder = await getOrderWithDetails(selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  };
+
+  const handleDeleteJournalEntry = async (entryId: string) => {
+    await deleteJournalEntry(entryId);
+    // Refetch the order to update the UI
+    if (selectedOrder) {
+      const updatedOrder = await getOrderWithDetails(selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  };
+
   const handleAddPhoto = async (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => {
     await addPhoto(orderId, journalEntryId, url, caption);
     // Refetch the order to update the UI with the new photo
@@ -111,6 +133,8 @@ const Index = () => {
           onUpdateStatus={handleUpdateStatus}
           onUpdateOrder={handleUpdateOrder}
           onAddJournalEntry={handleAddJournalEntry}
+          onUpdateJournalEntry={handleUpdateJournalEntry}
+          onDeleteJournalEntry={handleDeleteJournalEntry}
           onAddPhoto={handleAddPhoto}
           isAdmin={isAdmin}
         />

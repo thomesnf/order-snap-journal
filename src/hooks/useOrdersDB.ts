@@ -185,6 +185,50 @@ export const useOrdersDB = () => {
     }
   };
 
+  const updateJournalEntry = async (entryId: string, content: string) => {
+    try {
+      const { error } = await supabase
+        .from('journal_entries')
+        .update({ content })
+        .eq('id', entryId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Journal entry updated",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteJournalEntry = async (entryId: string) => {
+    try {
+      const { error } = await supabase
+        .from('journal_entries')
+        .delete()
+        .eq('id', entryId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Journal entry deleted",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const addPhoto = async (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -308,6 +352,8 @@ export const useOrdersDB = () => {
     updateOrder,
     deleteOrder,
     addJournalEntry,
+    updateJournalEntry,
+    deleteJournalEntry,
     addPhoto,
     getJournalEntries,
     getPhotos,

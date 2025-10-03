@@ -114,7 +114,12 @@ const translations: Translations = {
     'uploadedFiles': 'Uploaded Files',
     'download': 'Download',
     'timeTracking': 'Time Tracking',
-    'totalHours': 'Total Hours'
+    'totalHours': 'Total Hours',
+    'editEntry': 'Edit Entry',
+    'deleteEntry': 'Delete Entry',
+    'updateEntry': 'Update Entry',
+    'entryUpdated': 'Entry updated successfully',
+    'entryDeleted': 'Entry deleted successfully'
   },
   sv: {
     // Navigation
@@ -222,7 +227,12 @@ const translations: Translations = {
     'uploadedFiles': 'Uppladdade Filer',
     'download': 'Ladda ner',
     'timeTracking': 'Tidsregistrering',
-    'totalHours': 'Totalt Antal Timmar'
+    'totalHours': 'Totalt Antal Timmar',
+    'editEntry': 'Redigera Inlägg',
+    'deleteEntry': 'Ta bort Inlägg',
+    'updateEntry': 'Uppdatera Inlägg',
+    'entryUpdated': 'Inlägg uppdaterat',
+    'entryDeleted': 'Inlägg borttaget'
   }
 };
 

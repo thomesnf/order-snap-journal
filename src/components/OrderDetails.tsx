@@ -21,8 +21,20 @@ import {
   Send,
   Edit3,
   ImagePlus,
-  Edit
+  Edit,
+  Pencil,
+  Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 
@@ -32,6 +44,8 @@ interface OrderDetailsProps {
   onUpdateStatus: (orderId: string, status: Order['status']) => void;
   onUpdateOrder: (orderId: string, updates: Partial<Order>) => void;
   onAddJournalEntry: (orderId: string, content: string) => void;
+  onUpdateJournalEntry: (entryId: string, content: string) => void;
+  onDeleteJournalEntry: (entryId: string) => void;
   onAddPhoto: (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => void;
   isAdmin: boolean;
 }
@@ -60,6 +74,8 @@ export const OrderDetails = ({
   onUpdateStatus,
   onUpdateOrder,
   onAddJournalEntry,
+  onUpdateJournalEntry,
+  onDeleteJournalEntry,
   onAddPhoto,
   isAdmin
 }: OrderDetailsProps) => {
@@ -68,6 +84,9 @@ export const OrderDetails = ({
   const [photoCaption, setPhotoCaption] = useState('');
   const [journalPhotos, setJournalPhotos] = useState<Photo[]>([]);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<string | null>(null);
+  const [editEntryContent, setEditEntryContent] = useState('');
+  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
 
   const handleAddJournalEntry = () => {
     if (newJournalEntry.trim()) {
@@ -110,6 +129,34 @@ export const OrderDetails = ({
       title: t('success'),
       description: t('orderUpdated')
     });
+  };
+
+  const handleEditEntry = (entryId: string, content: string) => {
+    setEditingEntry(entryId);
+    setEditEntryContent(content);
+  };
+
+  const handleUpdateEntry = () => {
+    if (editingEntry && editEntryContent.trim()) {
+      onUpdateJournalEntry(editingEntry, editEntryContent.trim());
+      setEditingEntry(null);
+      setEditEntryContent('');
+      toast({
+        title: t('success'),
+        description: t('entryUpdated')
+      });
+    }
+  };
+
+  const handleDeleteEntry = () => {
+    if (entryToDelete) {
+      onDeleteJournalEntry(entryToDelete);
+      setEntryToDelete(null);
+      toast({
+        title: t('success'),
+        description: t('entryDeleted')
+      });
+    }
   };
 
   return (
@@ -319,7 +366,52 @@ export const OrderDetails = ({
             <div className="space-y-3">
               {((order as OrderWithRelations).journal_entries || []).map((entry) => (
                 <div key={entry.id} className="p-3 bg-muted/50 rounded-lg border border-border/30">
-                  <p className="text-sm mb-2">{entry.content}</p>
+                  {editingEntry === entry.id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editEntryContent}
+                        onChange={(e) => setEditEntryContent(e.target.value)}
+                        className="min-h-[80px]"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleUpdateEntry}>
+                          {t('updateEntry')}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => {
+                            setEditingEntry(null);
+                            setEditEntryContent('');
+                          }}
+                        >
+                          {t('cancel')}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <p className="text-sm flex-1">{entry.content}</p>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditEntry(entry.id, entry.content)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEntryToDelete(entry.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                   
                   {/* Entry photos */}
                   {entry.photos && entry.photos.length > 0 && (
@@ -369,6 +461,23 @@ export const OrderDetails = ({
         onOpenChange={setEditDialogOpen}
         onSave={handleEditOrder}
       />
+
+      <AlertDialog open={!!entryToDelete} onOpenChange={() => setEntryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('confirmDelete')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The journal entry will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEntry}>
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
