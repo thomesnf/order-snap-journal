@@ -76,6 +76,15 @@ const Index = () => {
     }
   };
 
+  const handleUpdateOrder = async (orderId: string, updates: Partial<Order>) => {
+    await updateOrder(orderId, updates);
+    // Refetch order to update UI
+    const updatedOrder = await getOrderWithDetails(orderId);
+    if (updatedOrder) {
+      setSelectedOrder(updatedOrder);
+    }
+  };
+
   const handleBack = () => {
     setCurrentView('list');
     setSelectedOrder(null);
@@ -100,6 +109,7 @@ const Index = () => {
           order={selectedOrder}
           onBack={handleBack}
           onUpdateStatus={handleUpdateStatus}
+          onUpdateOrder={handleUpdateOrder}
           onAddJournalEntry={handleAddJournalEntry}
           onAddPhoto={handleAddPhoto}
           isAdmin={isAdmin}

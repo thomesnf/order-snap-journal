@@ -10,16 +10,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { takePhoto, pickImage } from '@/utils/camera';
 import { TimeCalendar } from '@/components/TimeCalendar';
+import { EditOrderDialog } from '@/components/EditOrderDialog';
+import { OrderBasisFiles } from '@/components/OrderBasisFiles';
 import { 
   ArrowLeft, 
   Calendar, 
   MapPin, 
   User, 
-  Camera, 
   FileText, 
   Send,
   Edit3,
-  ImagePlus
+  ImagePlus,
+  Edit
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -28,6 +30,7 @@ interface OrderDetailsProps {
   order: Order;
   onBack: () => void;
   onUpdateStatus: (orderId: string, status: Order['status']) => void;
+  onUpdateOrder: (orderId: string, updates: Partial<Order>) => void;
   onAddJournalEntry: (orderId: string, content: string) => void;
   onAddPhoto: (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => void;
   isAdmin: boolean;
@@ -54,7 +57,8 @@ type OrderWithRelations = Order & {
 export const OrderDetails = ({ 
   order, 
   onBack, 
-  onUpdateStatus, 
+  onUpdateStatus,
+  onUpdateOrder,
   onAddJournalEntry,
   onAddPhoto,
   isAdmin
@@ -63,6 +67,7 @@ export const OrderDetails = ({
   const [newJournalEntry, setNewJournalEntry] = useState('');
   const [photoCaption, setPhotoCaption] = useState('');
   const [journalPhotos, setJournalPhotos] = useState<Photo[]>([]);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const handleAddJournalEntry = () => {
     if (newJournalEntry.trim()) {
@@ -99,21 +104,12 @@ export const OrderDetails = ({
     }
   };
 
-  const handleTakePhoto = async () => {
-    try {
-      const photoUrl = await takePhoto();
-      onAddPhoto(order.id, null, photoUrl);
-      toast({
-        title: t('photoAdded'),
-        description: "Photo added successfully."
-      });
-    } catch (error) {
-      toast({
-        title: t('cameraError'),
-        description: t('unableToAccessCamera'),
-        variant: "destructive"
-      });
-    }
+  const handleEditOrder = (orderId: string, updates: Partial<Order>) => {
+    onUpdateOrder(orderId, updates);
+    toast({
+      title: t('success'),
+      description: t('orderUpdated')
+    });
   };
 
   return (
@@ -200,10 +196,16 @@ export const OrderDetails = ({
         {/* Order Info */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Edit3 className="h-5 w-5" />
-              Order Information
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Edit3 className="h-5 w-5" />
+                {t('orderInformation')}
+              </CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setEditDialogOpen(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                {t('edit')}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">{order.description}</p>
@@ -357,64 +359,16 @@ export const OrderDetails = ({
         {/* Time Calendar */}
         <TimeCalendar orderId={order.id} />
 
-        {/* Photos */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" />
-              Photos ({(order as OrderWithRelations).photos?.length || 0})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Add photo */}
-            <div className="space-y-3">
-              <Label htmlFor="photo-caption">Photo Caption (Optional)</Label>
-              <Input
-                id="photo-caption"
-                placeholder="Describe this photo..."
-                value={photoCaption}
-                onChange={(e) => setPhotoCaption(e.target.value)}
-              />
-              <Button 
-                onClick={handleAddPhotoToJournal}
-                size="sm"
-                className="w-full"
-                variant="outline"
-              >
-                <Camera className="h-4 w-4 mr-2" />
-                {t('takePhoto')}
-              </Button>
-            </div>
-            
-            {/* Photos grid */}
-            {((order as OrderWithRelations).photos?.length || 0) > 0 && (
-              <div className="grid grid-cols-2 gap-3">
-                {((order as OrderWithRelations).photos || []).map((photo) => (
-                  <div key={photo.id} className="space-y-2">
-                    <img 
-                      src={photo.url} 
-                      alt={photo.caption || 'Order photo'}
-                      className="w-full h-32 object-cover rounded-lg border border-border/30"
-                    />
-                    {photo.caption && (
-                      <p className="text-xs text-muted-foreground">{photo.caption}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(photo.created_at), 'MMM dd, hh:mm a')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {((order as OrderWithRelations).photos?.length || 0) === 0 && (
-              <p className="text-muted-foreground text-sm text-center py-4">
-                No photos yet. Capture your first photo above.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Order Basis Files */}
+        <OrderBasisFiles orderId={order.id} />
       </div>
+      
+      <EditOrderDialog
+        order={order}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSave={handleEditOrder}
+      />
     </div>
   );
 };

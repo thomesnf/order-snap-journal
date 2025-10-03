@@ -97,7 +97,24 @@ const translations: Translations = {
     'userManagement': 'User Management',
     'manageUserRoles': 'Manage user roles and permissions',
     'makeAdmin': 'Make Admin',
-    'removeAdmin': 'Remove Admin'
+    'removeAdmin': 'Remove Admin',
+    'admin': 'Admin',
+    'deleteUser': 'Delete User',
+    'confirmDelete': 'Are you sure you want to delete this user?',
+    'userDeleted': 'User deleted successfully',
+    'cancel': 'Cancel',
+    'delete': 'Delete',
+    'edit': 'Edit',
+    'save': 'Save',
+    'editOrder': 'Edit Order',
+    'orderUpdated': 'Order updated successfully',
+    'orderBasis': 'Order Basis',
+    'uploadFiles': 'Upload Files',
+    'noFilesUploaded': 'No files uploaded yet',
+    'uploadedFiles': 'Uploaded Files',
+    'download': 'Download',
+    'timeTracking': 'Time Tracking',
+    'totalHours': 'Total Hours'
   },
   sv: {
     // Navigation
@@ -188,7 +205,24 @@ const translations: Translations = {
     'userManagement': 'Användarhantering',
     'manageUserRoles': 'Hantera användarroller och behörigheter',
     'makeAdmin': 'Gör till Admin',
-    'removeAdmin': 'Ta bort Admin'
+    'removeAdmin': 'Ta bort Admin',
+    'admin': 'Admin',
+    'deleteUser': 'Ta bort Användare',
+    'confirmDelete': 'Är du säker på att du vill ta bort denna användare?',
+    'userDeleted': 'Användare borttagen',
+    'cancel': 'Avbryt',
+    'delete': 'Ta bort',
+    'edit': 'Redigera',
+    'save': 'Spara',
+    'editOrder': 'Redigera Beställning',
+    'orderUpdated': 'Beställning uppdaterad',
+    'orderBasis': 'Beställningsunderlag',
+    'uploadFiles': 'Ladda upp Filer',
+    'noFilesUploaded': 'Inga filer uppladdade ännu',
+    'uploadedFiles': 'Uppladdade Filer',
+    'download': 'Ladda ner',
+    'timeTracking': 'Tidsregistrering',
+    'totalHours': 'Totalt Antal Timmar'
   }
 };
 
@@ -201,12 +235,15 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>('sv');
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') as Language;
     if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'sv')) {
       setLanguage(savedLanguage);
+    } else {
+      // Set Swedish as default
+      localStorage.setItem('language', 'sv');
     }
   }, []);
 

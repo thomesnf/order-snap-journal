@@ -4,8 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, ShieldOff } from 'lucide-react';
+import { Shield, ShieldOff, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface UserWithRole {
   id: string;
@@ -17,6 +27,7 @@ interface UserWithRole {
 export default function AdminPanel() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const { toast } = useToast();
   const { t } = useLanguage();
 
@@ -74,25 +85,51 @@ export default function AdminPanel() {
       }
 
       toast({
-        title: "Success",
+        title: t('success'),
         description: isCurrentlyAdmin ? "Admin role removed" : "Admin role granted",
       });
 
       fetchUsers();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: t('error'),
         description: error.message,
         variant: "destructive",
       });
     }
   };
 
+  const deleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      const { error } = await supabase.auth.admin.deleteUser(userToDelete);
+
+      if (error) throw error;
+
+      toast({
+        title: t('success'),
+        description: t('userDeleted'),
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUserToDelete(null);
+    }
+  };
+
   if (loading) {
-    return <div className="p-4">Loading...</div>;
+    return <div className="p-4">{t('loading')}</div>;
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>{t('userManagement')}</CardTitle>
@@ -115,27 +152,54 @@ export default function AdminPanel() {
                   ))}
                 </div>
               </div>
-              <Button
-                variant={isAdmin ? "destructive" : "outline"}
-                size="sm"
-                onClick={() => toggleAdminRole(user.id, isAdmin)}
-              >
-                {isAdmin ? (
-                  <>
-                    <ShieldOff className="w-4 h-4 mr-2" />
-                    {t('removeAdmin')}
-                  </>
-                ) : (
-                  <>
-                    <Shield className="w-4 h-4 mr-2" />
-                    {t('makeAdmin')}
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant={isAdmin ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={() => toggleAdminRole(user.id, isAdmin)}
+                >
+                  {isAdmin ? (
+                    <>
+                      <ShieldOff className="w-4 h-4 mr-2" />
+                      {t('removeAdmin')}
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4 mr-2" />
+                      {t('makeAdmin')}
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setUserToDelete(user.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           );
         })}
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('confirmDelete')}</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. The user account and all associated data will be permanently deleted.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+          <AlertDialogAction onClick={deleteUser}>
+            {t('delete')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
