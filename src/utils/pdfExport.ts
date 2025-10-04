@@ -172,6 +172,22 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
   // Calculate total man hours from time_entries
   const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
 
+  // Group hours by day
+  const hoursByDay = order.time_entries?.reduce((acc, entry) => {
+    const date = new Date(entry.work_date).toLocaleDateString();
+    acc[date] = (acc[date] || 0) + Number(entry.hours_worked || 0);
+    return acc;
+  }, {} as Record<string, number>) || {};
+
+  const hoursByDayHTML = Object.keys(hoursByDay).length > 0 ? `
+    <div class="hours-by-day">
+      ${Object.entries(hoursByDay)
+        .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
+        .map(([date, hours]) => `<div>${date}: ${hours.toFixed(2)} ${t.hours}</div>`)
+        .join('')}
+    </div>
+  ` : '';
+
   const logoHTML = logoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
 
   const orderDetailsHTML = `
@@ -188,6 +204,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
       </div>
       <div class="man-hours">
         <strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours}
+        ${hoursByDayHTML}
       </div>
     </div>
   `;
@@ -265,6 +282,16 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
             background: #fff;
             border-left: 4px solid #2563eb;
             font-size: 16px;
+          }
+          .hours-by-day {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+            color: #666;
+          }
+          .hours-by-day > div {
+            padding: 3px 0;
           }
           .entry {
             margin: 30px 0;
