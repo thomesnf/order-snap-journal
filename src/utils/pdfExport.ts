@@ -1,8 +1,9 @@
-import { JournalEntry, Order, Photo } from '@/hooks/useOrdersDB';
+import { JournalEntry, Order, Photo, SummaryEntry } from '@/hooks/useOrdersDB';
 
 interface PDFTranslations {
   orderDetails: string;
   summary: string;
+  summaryEntries: string;
   status: string;
   priority: string;
   customer: string;
@@ -23,6 +24,7 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
   en: {
     orderDetails: 'Order Details',
     summary: 'Summary',
+    summaryEntries: 'Summary Entries',
     status: 'Status',
     priority: 'Priority',
     customer: 'Customer',
@@ -41,6 +43,7 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
   sv: {
     orderDetails: 'Orderdetaljer',
     summary: 'Sammanfattning',
+    summaryEntries: 'Sammanfattningsanteckningar',
     status: 'Status',
     priority: 'Prioritet',
     customer: 'Kund',
@@ -166,7 +169,7 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   printWindow.document.close();
 };
 
-export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order, language: 'en' | 'sv' = 'en', logoUrl?: string, entryPhotos?: Record<string, Photo[]>) => {
+export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order, language: 'en' | 'sv' = 'en', logoUrl?: string, entryPhotos?: Record<string, Photo[]>, summaryEntries?: SummaryEntry[]) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
@@ -197,6 +200,25 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
     <div class="order-summary">
       <h2>${t.summary}</h2>
       <p>${order.summary.replace(/\n/g, '<br>')}</p>
+    </div>
+  ` : '';
+
+  const summaryEntriesHTML = summaryEntries && summaryEntries.length > 0 ? `
+    <div class="summary-entries-section">
+      <h2>${t.summaryEntries}</h2>
+      ${summaryEntries.map(entry => {
+        const date = new Date(entry.created_at).toLocaleDateString();
+        return `
+          <div class="summary-entry">
+            <div class="entry-header">
+              <strong>${t.entryDate}:</strong> ${date}
+            </div>
+            <div class="entry-content">
+              ${entry.content.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+        `;
+      }).join('')}
     </div>
   ` : '';
 
@@ -314,6 +336,16 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
           .hours-by-day > div {
             padding: 3px 0;
           }
+          .summary-entries-section {
+            margin: 20px 0;
+          }
+          .summary-entry {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f0f9ff;
+            border-left: 4px solid #2563eb;
+            border-radius: 4px;
+          }
           .entry {
             margin: 30px 0;
             padding: 15px;
@@ -361,6 +393,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
         ${logoHTML}
         ${orderDetailsHTML}
         ${summaryHTML}
+        ${summaryEntriesHTML}
         <h2>${t.journalEntries}</h2>
         ${entriesHTML}
         <script>

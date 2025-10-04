@@ -274,7 +274,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos)}
+            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos, summaryEntries)}
             disabled={journalEntries.length === 0}
           >
             <FileDown className="h-4 w-4 mr-2" />
