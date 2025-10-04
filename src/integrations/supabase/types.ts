@@ -200,6 +200,7 @@ export type Database = {
           app_logo_url: string | null
           company_logo_url: string | null
           created_at: string
+          date_format: string | null
           id: string
           updated_at: string
         }
@@ -207,6 +208,7 @@ export type Database = {
           app_logo_url?: string | null
           company_logo_url?: string | null
           created_at?: string
+          date_format?: string | null
           id?: string
           updated_at?: string
         }
@@ -214,6 +216,7 @@ export type Database = {
           app_logo_url?: string | null
           company_logo_url?: string | null
           created_at?: string
+          date_format?: string | null
           id?: string
           updated_at?: string
         }

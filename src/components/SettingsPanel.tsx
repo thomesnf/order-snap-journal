@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
+import { DateFormatType } from '@/utils/dateFormat';
 
 interface SettingsPanelProps {
   onBack: () => void;
@@ -23,10 +24,11 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const [appLogoUrl, setAppLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
 
   useEffect(() => {
     checkAdminStatus();
-    fetchCompanyLogo();
+    fetchSettings();
   }, []);
 
   const checkAdminStatus = async () => {
@@ -43,18 +45,40 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     setIsAdmin(!!data);
   };
 
-  const fetchCompanyLogo = async () => {
+  const fetchSettings = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url, app_logo_url')
+      .select('company_logo_url, app_logo_url, date_format')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
-    if (data?.company_logo_url) {
-      setCompanyLogoUrl(data.company_logo_url);
+    if (data) {
+      if (data.company_logo_url) setCompanyLogoUrl(data.company_logo_url);
+      if (data.app_logo_url) setAppLogoUrl(data.app_logo_url);
+      if (data.date_format) setDateFormat(data.date_format as DateFormatType);
     }
-    if (data?.app_logo_url) {
-      setAppLogoUrl(data.app_logo_url);
+  };
+
+  const handleDateFormatChange = async (newFormat: DateFormatType) => {
+    try {
+      const { error } = await supabase
+        .from('settings')
+        .update({ date_format: newFormat })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setDateFormat(newFormat);
+      toast({
+        title: "Success",
+        description: "Date format updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -174,6 +198,37 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                 <SelectContent>
                   <SelectItem value="en">🇺🇸 {t('english')}</SelectItem>
                   <SelectItem value="sv">🇸🇪 {t('swedish')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Date Format Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Date Format
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <Label className="text-base">
+                Preferred Date Format
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Choose how dates should be displayed throughout the app
+              </p>
+              <Select value={dateFormat} onValueChange={(value: DateFormatType) => handleDateFormatChange(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY (US)</SelectItem>
+                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY (European)</SelectItem>
+                  <SelectItem value="YYYY-MM-DD">YYYY-MM-DD (ISO)</SelectItem>
+                  <SelectItem value="DD.MM.YYYY">DD.MM.YYYY (German)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
