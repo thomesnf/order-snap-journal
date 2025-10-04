@@ -88,15 +88,22 @@ export const useOrdersDB = () => {
 
   const fetchOrders = async () => {
     try {
+      // Debug: Check current user
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Current user:', user?.id, user?.email);
+      
       const { data, error } = await supabase
         .from('orders')
         .select('*')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
+      console.log('Orders query result:', { data, error, count: data?.length });
+      
       if (error) throw error;
       setOrders(data || []);
     } catch (error: any) {
+      console.error('Error fetching orders:', error);
       toast({
         title: "Error",
         description: error.message,
