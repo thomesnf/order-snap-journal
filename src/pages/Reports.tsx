@@ -28,10 +28,7 @@ const Reports = () => {
   const fetchTimeEntries = async () => {
     const { data, error } = await supabase
       .from('time_entries')
-      .select(`
-        *,
-        order:orders(title, customer)
-      `)
+      .select('*')
       .order('work_date', { ascending: false });
 
     if (error) {
