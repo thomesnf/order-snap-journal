@@ -45,20 +45,20 @@ export const exportOrdersToExcel = (orders: Order[], filename: string = 'orders'
 
 export const exportTimeEntriesToExcel = (timeEntries: any[], filename: string = 'time_entries') => {
   const data = timeEntries.map(entry => ({
+    'Order': entry.order_title || '-',
     'Date': format(new Date(entry.work_date), 'MM/dd/yyyy'),
     'Technician': entry.technician_name,
     'Hours': entry.hours_worked,
-    'Notes': entry.notes || '-',
-    'Order': entry.order?.title || '-'
+    'Notes': entry.notes || '-'
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(data);
   const colWidths = [
-    { wch: 12 },
-    { wch: 20 },
-    { wch: 10 },
-    { wch: 40 },
-    { wch: 30 }
+    { wch: 30 }, // Order
+    { wch: 12 }, // Date
+    { wch: 20 }, // Technician
+    { wch: 10 }, // Hours
+    { wch: 40 }  // Notes
   ];
   worksheet['!cols'] = colWidths;
 

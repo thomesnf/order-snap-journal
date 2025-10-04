@@ -106,9 +106,26 @@ const Reports = () => {
     toast.success(`Exported ${filtered.length} orders to Excel`);
   };
 
-  const handleExportTimeEntries = () => {
+  const handleExportTimeEntries = async () => {
     const filtered = getFilteredTimeEntries();
-    exportTimeEntriesToExcel(filtered);
+    
+    // Fetch order titles for each time entry
+    const enrichedEntries = await Promise.all(
+      filtered.map(async (entry) => {
+        const { data: order } = await supabase
+          .from('orders')
+          .select('title')
+          .eq('id', entry.order_id)
+          .single();
+        
+        return {
+          ...entry,
+          order_title: order?.title || 'Unknown Order'
+        };
+      })
+    );
+    
+    exportTimeEntriesToExcel(enrichedEntries);
     toast.success(`Exported ${filtered.length} time entries to Excel`);
   };
 
