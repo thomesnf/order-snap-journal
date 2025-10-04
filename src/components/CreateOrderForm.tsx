@@ -14,7 +14,6 @@ import { z } from 'zod';
 const orderSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
   description: z.string().trim().min(1, 'Description is required').max(2000, 'Description must be less than 2000 characters'),
-  summary: z.string().trim().max(1000, 'Summary must be less than 1000 characters').optional(),
   customer: z.string().trim().max(200, 'Customer name must be less than 200 characters').optional(),
   customerRef: z.string().trim().max(100, 'Customer reference must be less than 100 characters').optional(),
   location: z.string().trim().max(300, 'Location must be less than 300 characters').optional(),
@@ -29,7 +28,6 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    summary: '',
     status: 'pending' as Order['status'],
     priority: 'medium' as Order['priority'],
     customer: '',
@@ -50,7 +48,6 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
       const validationResult = orderSchema.safeParse({
         title: formData.title,
         description: formData.description,
-        summary: formData.summary,
         customer: formData.customer,
         customerRef: formData.customerRef,
         location: formData.location,
@@ -70,7 +67,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
       const orderData = {
         title: validationResult.data.title,
         description: validationResult.data.description,
-        summary: validationResult.data.summary || null,
+        summary: null,
         status: formData.status,
         priority: formData.priority,
         customer: validationResult.data.customer || null,
@@ -141,18 +138,6 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   required
                   className="min-h-[100px]"
-                />
-              </div>
-
-              {/* Summary */}
-              <div className="space-y-2">
-                <Label htmlFor="summary">Summary</Label>
-                <Textarea
-                  id="summary"
-                  placeholder="Brief summary of the order..."
-                  value={formData.summary}
-                  onChange={(e) => setFormData(prev => ({ ...prev, summary: e.target.value }))}
-                  className="min-h-[80px]"
                 />
               </div>
 

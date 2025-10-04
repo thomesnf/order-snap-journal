@@ -14,7 +14,6 @@ import { z } from 'zod';
 const orderSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
   description: z.string().trim().max(2000, 'Description must be less than 2000 characters').optional(),
-  summary: z.string().trim().max(1000, 'Summary must be less than 1000 characters').optional(),
   customer: z.string().trim().max(200, 'Customer name must be less than 200 characters').optional(),
   customer_ref: z.string().trim().max(100, 'Customer reference must be less than 100 characters').optional(),
   location: z.string().trim().max(300, 'Location must be less than 300 characters').optional(),
@@ -31,7 +30,6 @@ export const EditOrderDialog = ({ order, onUpdate }: EditOrderDialogProps) => {
   const [formData, setFormData] = useState({
     title: order.title,
     description: order.description || '',
-    summary: order.summary || '',
     customer: order.customer || '',
     customer_ref: order.customer_ref || '',
     location: order.location || '',
@@ -98,16 +96,6 @@ export const EditOrderDialog = ({ order, onUpdate }: EditOrderDialogProps) => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={4}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="summary">{t('summary')}</Label>
-            <Textarea
-              id="summary"
-              value={formData.summary}
-              onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-              rows={3}
             />
           </div>
 

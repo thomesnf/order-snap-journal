@@ -3,7 +3,7 @@ import { Order } from '@/hooks/useOrdersDB';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
@@ -164,38 +164,78 @@ export const OrderCard = ({
             <h3 className="font-semibold text-foreground leading-tight mb-2">{order.title}</h3>
             <p className="text-sm text-muted-foreground line-clamp-2">{order.description}</p>
           </div>
-          {isAdmin ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="ml-2" onClick={(e) => e.stopPropagation()}>
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenAssignDialog();
-                }}>
-                  <UserCog className="h-4 w-4 mr-2" />
-                  Manage Assignments
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="text-destructive focus:text-destructive"
-                  onClick={(e) => {
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="ml-2" onClick={(e) => e.stopPropagation()}>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                onUpdateStatus(order.id, 'pending');
+              }}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Set to Pending
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                onUpdateStatus(order.id, 'in-progress');
+              }}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Set to In Progress
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                onUpdateStatus(order.id, 'completed');
+              }}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Set to Completed
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                onUpdateStatus(order.id, 'invoiced');
+              }}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Set to Invoiced
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                onUpdateStatus(order.id, 'paid');
+              }}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Set to Paid
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                onUpdateStatus(order.id, 'cancelled');
+              }}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Set to Cancelled
+              </DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem onClick={(e) => {
                     e.stopPropagation();
-                    setShowDeleteDialog(true);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Order
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button variant="ghost" size="sm" className="ml-2" onClick={(e) => e.stopPropagation()}>
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          )}
+                    handleOpenAssignDialog();
+                  }}>
+                    <UserCog className="h-4 w-4 mr-2" />
+                    Manage Assignments
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="text-destructive focus:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteDialog(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Order
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         
         <div className="flex items-center gap-2 mt-3">
