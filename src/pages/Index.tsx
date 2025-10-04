@@ -149,15 +149,7 @@ const Index = () => {
       )}
 
       {currentView === 'admin' && isAdmin && (
-        <div className="p-4">
-          <button
-            onClick={handleBack}
-            className="mb-4 text-primary hover:underline"
-          >
-            ← {t('back')}
-          </button>
-          <AdminPanel />
-        </div>
+        <AdminPanel onBack={handleBack} />
       )}
     </div>
   );

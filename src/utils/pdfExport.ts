@@ -1,4 +1,4 @@
-import { JournalEntry } from '@/hooks/useOrdersDB';
+import { JournalEntry, Order } from '@/hooks/useOrdersDB';
 
 export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: string) => {
   // Simple implementation - creates a printable HTML page
@@ -62,9 +62,30 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   printWindow.document.close();
 };
 
-export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string) => {
+export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
+
+  // Calculate total man hours from time_entries
+  const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
+
+  const orderDetailsHTML = `
+    <div class="order-details">
+      <h2>Order Details</h2>
+      <div class="detail-grid">
+        <div><strong>Status:</strong> ${order.status}</div>
+        <div><strong>Priority:</strong> ${order.priority}</div>
+        ${order.customer ? `<div><strong>Customer:</strong> ${order.customer}</div>` : ''}
+        ${order.customer_ref ? `<div><strong>Customer Ref:</strong> ${order.customer_ref}</div>` : ''}
+        ${order.location ? `<div><strong>Location:</strong> ${order.location}</div>` : ''}
+        ${order.due_date ? `<div><strong>Due Date:</strong> ${new Date(order.due_date).toLocaleDateString()}</div>` : ''}
+        ${order.description ? `<div class="description"><strong>Description:</strong> ${order.description}</div>` : ''}
+      </div>
+      <div class="man-hours">
+        <strong>Total Man Hours:</strong> ${totalHours.toFixed(2)} hours
+      </div>
+    </div>
+  `;
 
   const entriesHTML = entries.map(entry => {
     const date = new Date(entry.created_at).toLocaleString();
@@ -97,6 +118,36 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
             border-bottom: 2px solid #2563eb;
             padding-bottom: 10px;
           }
+          h2 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+          }
+          .order-details {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+          }
+          .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 10px 0;
+          }
+          .detail-grid > div {
+            padding: 5px 0;
+          }
+          .description {
+            grid-column: 1 / -1;
+          }
+          .man-hours {
+            margin-top: 15px;
+            padding: 10px;
+            background: #fff;
+            border-left: 4px solid #2563eb;
+            font-size: 16px;
+          }
           .entry {
             margin: 30px 0;
             padding: 15px;
@@ -123,6 +174,8 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
       </head>
       <body>
         <h1>${orderTitle} - All Journal Entries</h1>
+        ${orderDetailsHTML}
+        <h2>Journal Entries</h2>
         ${entriesHTML}
         <script>
           window.onload = function() {

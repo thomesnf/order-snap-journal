@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, ShieldOff, Trash2, Plus } from 'lucide-react';
+import { Shield, ShieldOff, Trash2, Plus, Edit, ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AlertDialog,
@@ -27,7 +27,11 @@ interface UserWithRole {
   roles: string[];
 }
 
-export default function AdminPanel() {
+interface AdminPanelProps {
+  onBack: () => void;
+}
+
+export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
@@ -35,6 +39,11 @@ export default function AdminPanel() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
   const [addUserOpen, setAddUserOpen] = useState(false);
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
+  const [editEmail, setEditEmail] = useState('');
+  const [editFullName, setEditFullName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const { toast } = useToast();
   const { t } = useLanguage();
 
@@ -110,9 +119,23 @@ export default function AdminPanel() {
     if (!userToDelete) return;
 
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userToDelete);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      if (error) throw error;
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-manage-users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'deleteUser',
+          userId: userToDelete,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
 
       toast({
         title: t('success'),
@@ -134,22 +157,27 @@ export default function AdminPanel() {
   const addUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const { data, error } = await supabase.auth.admin.createUser({
-      email: newUserEmail,
-      password: newUserPassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: newUserFullName,
-      },
-    });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-    if (error) {
-      toast({
-        title: t('error'),
-        description: error.message,
-        variant: 'destructive',
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-manage-users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'createUser',
+          email: newUserEmail,
+          password: newUserPassword,
+          fullName: newUserFullName,
+        }),
       });
-    } else {
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+
       toast({
         title: t('success'),
         description: 'User created successfully',
@@ -159,6 +187,99 @@ export default function AdminPanel() {
       setNewUserFullName('');
       setAddUserOpen(false);
       fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const openEditUser = (user: UserWithRole) => {
+    setEditingUser(user);
+    setEditEmail(user.email || '');
+    setEditFullName(user.full_name || '');
+    setEditPassword('');
+    setEditUserOpen(true);
+  };
+
+  const updateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-manage-users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateUser',
+          userId: editingUser.id,
+          email: editEmail,
+          fullName: editFullName,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+
+      toast({
+        title: t('success'),
+        description: 'User updated successfully',
+      });
+      
+      setEditUserOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const updatePassword = async () => {
+    if (!editingUser || !editPassword) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-manage-users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updatePassword',
+          userId: editingUser.id,
+          password: editPassword,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+
+      toast({
+        title: t('success'),
+        description: 'Password updated successfully',
+      });
+      
+      setEditPassword('');
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -167,15 +288,22 @@ export default function AdminPanel() {
   }
 
   return (
-    <>
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <div>
-          <CardTitle>{t('userManagement')}</CardTitle>
-          <CardDescription>
-            {t('manageUserRoles')}
-          </CardDescription>
-        </div>
+    <div className="p-4">
+      <div className="mb-4">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+      </div>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle>{t('userManagement')}</CardTitle>
+            <CardDescription>
+              {t('manageUserRoles')}
+            </CardDescription>
+          </div>
         <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -242,6 +370,14 @@ export default function AdminPanel() {
               </div>
               <div className="flex gap-2">
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openEditUser(user)}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
                   variant={isAdmin ? "destructive" : "outline"}
                   size="sm"
                   onClick={() => toggleAdminRole(user.id, isAdmin)}
@@ -270,24 +406,72 @@ export default function AdminPanel() {
           );
         })}
       </CardContent>
-    </Card>
+      </Card>
 
-    <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t('confirmDelete')}</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone. The user account and all associated data will be permanently deleted.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-          <AlertDialogAction onClick={deleteUser}>
-            {t('delete')}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-    </>
+      <Dialog open={editUserOpen} onOpenChange={setEditUserOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={updateUser} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editFullName">{t('fullName')}</Label>
+              <Input
+                id="editFullName"
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editEmail">{t('email')}</Label>
+              <Input
+                id="editEmail"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editPassword">{t('password')} (optional - leave blank to keep current)</Label>
+              <Input
+                id="editPassword"
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                minLength={6}
+                placeholder="Leave blank to keep current password"
+              />
+              {editPassword && (
+                <Button type="button" variant="outline" size="sm" onClick={updatePassword}>
+                  Update Password Only
+                </Button>
+              )}
+            </div>
+            <Button type="submit" className="w-full">
+              Update User
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('confirmDelete')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The user account and all associated data will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteUser}>
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

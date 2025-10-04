@@ -45,6 +45,8 @@ export const OrderList = ({
     pending: orders.filter(o => o.status === 'pending').length,
     'in-progress': orders.filter(o => o.status === 'in-progress').length,
     completed: orders.filter(o => o.status === 'completed').length,
+    invoiced: orders.filter(o => o.status === 'invoiced').length,
+    paid: orders.filter(o => o.status === 'paid').length,
     cancelled: orders.filter(o => o.status === 'cancelled').length
   };
 
@@ -86,7 +88,7 @@ export const OrderList = ({
         
         {/* Status Filter */}
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {(['all', 'pending', 'in-progress', 'completed', 'cancelled'] as const).map((status) => (
+          {(['all', 'pending', 'in-progress', 'completed', 'invoiced', 'paid', 'cancelled'] as const).map((status) => (
             <Badge
               key={status}
               variant={statusFilter === status ? "default" : "outline"}

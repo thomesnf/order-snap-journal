@@ -2,6 +2,18 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+export interface TimeEntry {
+  id: string;
+  order_id: string;
+  work_date: string;
+  hours_worked: number;
+  technician_name: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+}
+
 export interface Order {
   id: string;
   title: string;
@@ -15,6 +27,7 @@ export interface Order {
   created_at: string;
   updated_at: string;
   user_id: string;
+  time_entries?: TimeEntry[];
 }
 
 export interface JournalEntry {
@@ -330,10 +343,20 @@ export const useOrdersDB = () => {
 
       if (photosError) throw photosError;
 
+      // Fetch time entries
+      const { data: timeEntries, error: timeError } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('work_date', { ascending: false });
+
+      if (timeError) throw timeError;
+
       return {
         ...order,
         journal_entries: journalEntries || [],
-        photos: orderPhotos || []
+        photos: orderPhotos || [],
+        time_entries: timeEntries || []
       };
     } catch (error: any) {
       toast({

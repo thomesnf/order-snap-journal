@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown } from 'lucide-react';
+import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown, ArrowLeft, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +14,7 @@ import { EditOrderDialog } from './EditOrderDialog';
 import { exportJournalEntryToPDF, exportMultipleEntriesToPDF } from '@/utils/pdfExport';
 import { OrderBasisFiles } from './OrderBasisFiles';
 import { TimeCalendar } from './TimeCalendar';
+import { capturePhoto } from '@/utils/camera';
 
 interface OrderDetailsProps {
   order: Order;
@@ -42,6 +43,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
   const [editedContent, setEditedContent] = useState('');
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [entryPhotos, setEntryPhotos] = useState<Record<string, Photo[]>>({});
+  const [currentEntryForPhoto, setCurrentEntryForPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (order) {
@@ -139,15 +141,52 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
     }
   };
 
+  const handleAddPhoto = async (entryId: string) => {
+    try {
+      const photoUrl = await capturePhoto();
+      if (!photoUrl) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('photos')
+        .insert({
+          url: photoUrl,
+          journal_entry_id: entryId,
+          order_id: order.id,
+          user_id: user.id,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: t('success'),
+        description: 'Photo added successfully',
+      });
+
+      fetchAllPhotos();
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 p-4">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-foreground">{order.title}</h2>
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          {t('back')}
+        </Button>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title)}
+            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order)}
             disabled={journalEntries.length === 0}
           >
             <FileDown className="h-4 w-4 mr-2" />
@@ -156,6 +195,8 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
           <EditOrderDialog order={order} onUpdate={onUpdate} />
         </div>
       </div>
+      
+      <h2 className="text-2xl font-bold text-foreground">{order.title}</h2>
 
       <div className="flex items-center gap-2">
         <Badge className={`${statusColors[order.status]} text-sm`}>
@@ -276,7 +317,15 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
                         </div>
                       )}
                       
-                      <div className="flex gap-2 mt-2">
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAddPhoto(entry.id)}
+                        >
+                          <Camera className="h-4 w-4 mr-1" />
+                          Add Photo
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
