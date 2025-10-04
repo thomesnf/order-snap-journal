@@ -220,7 +220,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl)}
+            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos)}
             disabled={journalEntries.length === 0}
           >
             <FileDown className="h-4 w-4 mr-2" />
@@ -363,7 +363,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => exportJournalEntryToPDF(entry, order.title, language, companyLogoUrl)}
+                          onClick={() => exportJournalEntryToPDF(entry, order.title, language, companyLogoUrl, entryPhotos[entry.id])}
                         >
                           <FileDown className="h-4 w-4 mr-1" />
                           {t('exportPDF')}

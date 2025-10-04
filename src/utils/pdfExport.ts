@@ -1,4 +1,4 @@
-import { JournalEntry, Order } from '@/hooks/useOrdersDB';
+import { JournalEntry, Order, Photo } from '@/hooks/useOrdersDB';
 
 interface PDFTranslations {
   orderDetails: string;
@@ -55,7 +55,7 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
   }
 };
 
-export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: string, language: 'en' | 'sv' = 'en', logoUrl?: string) => {
+export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: string, language: 'en' | 'sv' = 'en', logoUrl?: string, photos?: Photo[]) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
@@ -63,6 +63,20 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   const date = new Date(entry.created_at).toLocaleString();
   
   const logoHTML = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
+  
+  const photosHTML = photos && photos.length > 0 ? `
+    <div class="photos">
+      <h3>Photos</h3>
+      <div class="photo-grid">
+        ${photos.map(photo => `
+          <div class="photo-item">
+            <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" />
+            ${photo.caption ? `<p class="photo-caption">${photo.caption}</p>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
   
   const html = `
     <!DOCTYPE html>
@@ -90,9 +104,37 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
             line-height: 1.6;
             margin: 20px 0;
           }
+          .photos {
+            margin: 20px 0;
+          }
+          .photos h3 {
+            color: #333;
+            margin-bottom: 15px;
+          }
+          .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+          }
+          .photo-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+          }
+          .photo-caption {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+          }
           @media print {
             body {
               padding: 0;
+            }
+            .photo-grid {
+              page-break-inside: avoid;
             }
           }
         </style>
@@ -107,6 +149,7 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
         <div class="content">
           ${entry.content.replace(/\n/g, '<br>')}
         </div>
+        ${photosHTML}
         <script>
           window.onload = function() {
             window.print();
@@ -120,7 +163,7 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   printWindow.document.close();
 };
 
-export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order, language: 'en' | 'sv' = 'en', logoUrl?: string) => {
+export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order, language: 'en' | 'sv' = 'en', logoUrl?: string, entryPhotos?: Record<string, Photo[]>) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
@@ -151,6 +194,18 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
 
   const entriesHTML = entries.map(entry => {
     const date = new Date(entry.created_at).toLocaleString();
+    const photos = entryPhotos?.[entry.id] || [];
+    const photosHTML = photos.length > 0 ? `
+      <div class="entry-photos">
+        ${photos.map(photo => `
+          <div class="photo-item">
+            <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" />
+            ${photo.caption ? `<p class="photo-caption">${photo.caption}</p>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+    
     return `
       <div class="entry">
         <div class="entry-header">
@@ -159,6 +214,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
         <div class="entry-content">
           ${entry.content.replace(/\n/g, '<br>')}
         </div>
+        ${photosHTML}
       </div>
     `;
   }).join('');
@@ -223,6 +279,24 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
           }
           .entry-content {
             line-height: 1.6;
+          }
+          .entry-photos {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+          }
+          .photo-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+          }
+          .photo-caption {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
           }
           @media print {
             body {
