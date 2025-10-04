@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Order } from '@/hooks/useOrdersDB';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +26,7 @@ interface CreateOrderFormProps {
 }
 
 export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -56,7 +58,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
       if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
         toast({
-          title: "Validation Error",
+          title: t('validationError'),
           description: firstError.message,
           variant: "destructive"
         });
@@ -79,15 +81,15 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
       onCreateOrder(orderData);
       
       toast({
-        title: "Order Created",
-        description: "Your new order has been created successfully."
+        title: t('orderCreated'),
+        description: t('orderCreatedSuccess')
       });
       
       onBack();
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to create order. Please try again.",
+        title: t('error'),
+        description: t('failedToCreateOrder'),
         variant: "destructive"
       });
     } finally {
@@ -102,9 +104,9 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            {t('back')}
           </Button>
-          <h1 className="text-xl font-bold text-foreground">Create New Order</h1>
+          <h1 className="text-xl font-bold text-foreground">{t('createNewOrder')}</h1>
         </div>
       </div>
       
@@ -113,12 +115,12 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
         <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
           <Card>
             <CardHeader>
-              <CardTitle>Order Details</CardTitle>
+              <CardTitle>{t('orderDetails')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Title */}
               <div className="space-y-2">
-                <Label htmlFor="title">Order Title *</Label>
+                <Label htmlFor="title">{t('orderTitle')} *</Label>
                 <Input
                   id="title"
                   placeholder="e.g., Installation Service - Office Building"
@@ -130,7 +132,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
 
               {/* Description */}
               <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
+                <Label htmlFor="description">{t('description')} *</Label>
                 <Textarea
                   id="description"
                   placeholder="Provide detailed description of the work to be done..."
@@ -144,7 +146,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
               {/* Priority and Status */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
+                  <Label htmlFor="priority">{t('priority')}</Label>
                   <Select value={formData.priority} onValueChange={(value: Order['priority']) => 
                     setFormData(prev => ({ ...prev, priority: value }))
                   }>
@@ -152,15 +154,15 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="low">{t('low')}</SelectItem>
+                      <SelectItem value="medium">{t('medium')}</SelectItem>
+                      <SelectItem value="high">{t('high')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
+                  <Label htmlFor="status">{t('status')}</Label>
                   <Select value={formData.status} onValueChange={(value: Order['status']) => 
                     setFormData(prev => ({ ...prev, status: value }))
                   }>
@@ -168,10 +170,10 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="pending">{t('pending')}</SelectItem>
+                      <SelectItem value="in-progress">{t('inProgress')}</SelectItem>
+                      <SelectItem value="completed">{t('completed')}</SelectItem>
+                      <SelectItem value="cancelled">{t('cancelled')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -181,14 +183,14 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
 
           <Card>
             <CardHeader>
-              <CardTitle>Additional Information</CardTitle>
+              <CardTitle>{t('additionalInformation')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Customer */}
               <div className="space-y-2">
                 <Label htmlFor="customer" className="flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  Customer
+                  {t('customer')}
                 </Label>
                 <Input
                   id="customer"
@@ -200,7 +202,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
 
               {/* Customer Reference */}
               <div className="space-y-2">
-                <Label htmlFor="customerRef">Customer Reference Number</Label>
+                <Label htmlFor="customerRef">{t('customerRef')}</Label>
                 <Input
                   id="customerRef"
                   placeholder="e.g., REF-2024-001, PO-12345"
@@ -213,7 +215,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
               <div className="space-y-2">
                 <Label htmlFor="location" className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
-                  Location
+                  {t('location')}
                 </Label>
                 <Input
                   id="location"
@@ -227,7 +229,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
               <div className="space-y-2">
                 <Label htmlFor="dueDate" className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  Due Date
+                  {t('dueDate')}
                 </Label>
                 <Input
                   id="dueDate"
@@ -247,7 +249,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
               disabled={isSubmitting}
             >
               <Save className="h-4 w-4 mr-2" />
-              {isSubmitting ? 'Creating Order...' : 'Create Order'}
+              {isSubmitting ? t('creatingOrder') : t('createOrder')}
             </Button>
           </div>
         </form>

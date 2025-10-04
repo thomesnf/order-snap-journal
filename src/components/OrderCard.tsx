@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Order } from '@/hooks/useOrdersDB';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +68,7 @@ export const OrderCard = ({
   onDeleteOrder,
   onChangeAssignments 
 }: OrderCardProps) => {
+  const { t } = useLanguage();
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
@@ -176,42 +178,42 @@ export const OrderCard = ({
                 onUpdateStatus(order.id, 'pending');
               }}>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Set to Pending
+                {t('setPending')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
                 onUpdateStatus(order.id, 'in-progress');
               }}>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Set to In Progress
+                {t('setInProgress')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
                 onUpdateStatus(order.id, 'completed');
               }}>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Set to Completed
+                {t('setCompleted')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
                 onUpdateStatus(order.id, 'invoiced');
               }}>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Set to Invoiced
+                {t('setInvoiced')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
                 onUpdateStatus(order.id, 'paid');
               }}>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Set to Paid
+                {t('setPaid')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
                 onUpdateStatus(order.id, 'cancelled');
               }}>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Set to Cancelled
+                {t('setCancelled')}
               </DropdownMenuItem>
               {isAdmin && (
                 <>
@@ -220,7 +222,7 @@ export const OrderCard = ({
                     handleOpenAssignDialog();
                   }}>
                     <UserCog className="h-4 w-4 mr-2" />
-                    Manage Assignments
+                    {t('manageAssignments')}
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="text-destructive focus:text-destructive"
@@ -230,7 +232,7 @@ export const OrderCard = ({
                     }}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Order
+                    {t('deleteOrder')}
                   </DropdownMenuItem>
                 </>
               )}
@@ -256,7 +258,7 @@ export const OrderCard = ({
               <div className="flex flex-col">
                 <span className="truncate text-sm">{order.customer}</span>
                 {order.customer_ref && (
-                  <span className="text-xs text-muted-foreground">Ref: {order.customer_ref}</span>
+                  <span className="text-xs text-muted-foreground">{t('ref')}: {order.customer_ref}</span>
                 )}
               </div>
             </div>
@@ -272,14 +274,14 @@ export const OrderCard = ({
           {order.due_date && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              <span>Due {formatDate(order.due_date, dateFormat)}</span>
+              <span>{t('due')} {formatDate(order.due_date, dateFormat)}</span>
             </div>
           )}
         </div>
         
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
           <span className="text-xs text-muted-foreground">
-            Updated {formatDate(order.updated_at, dateFormat)}
+            {t('updated')} {formatDate(order.updated_at, dateFormat)}
           </span>
         </div>
       </CardContent>
@@ -288,15 +290,15 @@ export const OrderCard = ({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Order</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteOrder')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{order.title}"? This action cannot be undone.
+              {t('deleteOrderConfirm')} "{order.title}"? {t('cannotBeUndone')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-              Delete
+              {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -306,7 +308,7 @@ export const OrderCard = ({
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Manage Order Assignments</DialogTitle>
+            <DialogTitle>{t('manageAssignments')}</DialogTitle>
             <DialogDescription>
               Select users who should have access to this order. Multiple users can be assigned.
             </DialogDescription>
@@ -332,7 +334,7 @@ export const OrderCard = ({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button onClick={handleChangeAssignments}>
               Update Assignments ({selectedUserIds.length} selected)

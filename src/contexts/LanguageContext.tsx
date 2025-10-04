@@ -128,7 +128,25 @@ const translations: Translations = {
     'addUser': 'Add User',
     'addNewUser': 'Add New User',
     'createUser': 'Create User',
-    'enterCredentials': ''
+    'enterCredentials': '',
+    'manageAssignments': 'Manage Assignments',
+    'deleteOrder': 'Delete Order',
+    'deleteOrderConfirm': 'Are you sure you want to delete',
+    'cannotBeUndone': 'This action cannot be undone.',
+    'orderDetails': 'Order Details',
+    'additionalInformation': 'Additional Information',
+    'orderCreatedSuccess': 'Your new order has been created successfully.',
+    'failedToCreateOrder': 'Failed to create order. Please try again.',
+    'failedToUpdateOrder': 'Failed to update order. Please try again.',
+    'setPending': 'Set to Pending',
+    'setInProgress': 'Set to In Progress',
+    'setCompleted': 'Set to Completed',
+    'setInvoiced': 'Set to Invoiced',
+    'setPaid': 'Set to Paid',
+    'setCancelled': 'Set to Cancelled',
+    'updated': 'Updated',
+    'due': 'Due',
+    'ref': 'Ref'
   },
   sv: {
     // Navigation
@@ -250,7 +268,25 @@ const translations: Translations = {
     'addUser': 'Lägg till Användare',
     'addNewUser': 'Lägg till Ny Användare',
     'createUser': 'Skapa Användare',
-    'enterCredentials': ''
+    'enterCredentials': '',
+    'manageAssignments': 'Hantera Uppdrag',
+    'deleteOrder': 'Ta bort Beställning',
+    'deleteOrderConfirm': 'Är du säker på att du vill ta bort',
+    'cannotBeUndone': 'Denna åtgärd kan inte ångras.',
+    'orderDetails': 'Beställningsdetaljer',
+    'additionalInformation': 'Ytterligare Information',
+    'orderCreatedSuccess': 'Din nya beställning har skapats framgångsrikt.',
+    'failedToCreateOrder': 'Misslyckades med att skapa beställning. Försök igen.',
+    'failedToUpdateOrder': 'Misslyckades med att uppdatera beställning. Försök igen.',
+    'setPending': 'Sätt till Väntande',
+    'setInProgress': 'Sätt till Pågående',
+    'setCompleted': 'Sätt till Slutförd',
+    'setInvoiced': 'Sätt till Fakturerad',
+    'setPaid': 'Sätt till Betald',
+    'setCancelled': 'Sätt till Avbruten',
+    'updated': 'Uppdaterad',
+    'due': 'Förfaller',
+    'ref': 'Ref'
   }
 };
 
