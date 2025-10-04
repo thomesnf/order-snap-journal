@@ -8,6 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Save, MapPin, User, Calendar } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+// Validation schema
+const orderSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
+  description: z.string().trim().min(1, 'Description is required').max(2000, 'Description must be less than 2000 characters'),
+  summary: z.string().trim().max(1000, 'Summary must be less than 1000 characters').optional(),
+  customer: z.string().trim().max(200, 'Customer name must be less than 200 characters').optional(),
+  customerRef: z.string().trim().max(100, 'Customer reference must be less than 100 characters').optional(),
+  location: z.string().trim().max(300, 'Location must be less than 300 characters').optional(),
+});
 
 interface CreateOrderFormProps {
   onBack: () => void;
@@ -32,27 +43,39 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.title.trim() || !formData.description.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsSubmitting(true);
     
     try {
-      const orderData = {
+      // Validate input data
+      const validationResult = orderSchema.safeParse({
         title: formData.title,
-        description: formData.description || null,
-        summary: formData.summary || null,
+        description: formData.description,
+        summary: formData.summary,
+        customer: formData.customer,
+        customerRef: formData.customerRef,
+        location: formData.location,
+      });
+
+      if (!validationResult.success) {
+        const firstError = validationResult.error.errors[0];
+        toast({
+          title: "Validation Error",
+          description: firstError.message,
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const orderData = {
+        title: validationResult.data.title,
+        description: validationResult.data.description,
+        summary: validationResult.data.summary || null,
         status: formData.status,
         priority: formData.priority,
-        customer: formData.customer || null,
-        customer_ref: formData.customerRef || null,
-        location: formData.location || null,
+        customer: validationResult.data.customer || null,
+        customer_ref: validationResult.data.customerRef || null,
+        location: validationResult.data.location || null,
         due_date: formData.dueDate || null
       };
       

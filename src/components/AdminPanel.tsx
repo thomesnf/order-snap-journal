@@ -19,6 +19,19 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { z } from 'zod';
+
+// Validation schemas
+const emailSchema = z.string().email('Invalid email address').max(255, 'Email must be less than 255 characters');
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(72, 'Password must be less than 72 characters')
+  .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
+const fullNameSchema = z.string()
+  .trim()
+  .min(1, 'Full name is required')
+  .max(100, 'Full name must be less than 100 characters')
+  .regex(/^[a-zA-ZäöåÄÖÅ\s-']+$/, 'Full name can only contain letters, spaces, hyphens, and apostrophes');
 
 interface UserWithRole {
   id: string;
@@ -182,6 +195,37 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     e.preventDefault();
     
     try {
+      // Validate inputs
+      const emailValidation = emailSchema.safeParse(newUserEmail);
+      if (!emailValidation.success) {
+        toast({
+          title: t('error'),
+          description: emailValidation.error.errors[0].message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const passwordValidation = passwordSchema.safeParse(newUserPassword);
+      if (!passwordValidation.success) {
+        toast({
+          title: t('error'),
+          description: passwordValidation.error.errors[0].message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const fullNameValidation = fullNameSchema.safeParse(newUserFullName);
+      if (!fullNameValidation.success) {
+        toast({
+          title: t('error'),
+          description: fullNameValidation.error.errors[0].message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
@@ -193,9 +237,9 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         },
         body: JSON.stringify({
           action: 'createUser',
-          email: newUserEmail,
-          password: newUserPassword,
-          fullName: newUserFullName,
+          email: emailValidation.data,
+          password: passwordValidation.data,
+          fullName: fullNameValidation.data,
         }),
       });
 
@@ -233,6 +277,27 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     if (!editingUser) return;
 
     try {
+      // Validate inputs
+      const emailValidation = emailSchema.safeParse(editEmail);
+      if (!emailValidation.success) {
+        toast({
+          title: t('error'),
+          description: emailValidation.error.errors[0].message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const fullNameValidation = fullNameSchema.safeParse(editFullName);
+      if (!fullNameValidation.success) {
+        toast({
+          title: t('error'),
+          description: fullNameValidation.error.errors[0].message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
@@ -245,8 +310,8 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         body: JSON.stringify({
           action: 'updateUser',
           userId: editingUser.id,
-          email: editEmail,
-          fullName: editFullName,
+          email: emailValidation.data,
+          fullName: fullNameValidation.data,
         }),
       });
 
@@ -270,9 +335,20 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   };
 
   const updatePassword = async () => {
-    if (!editingUser || !editPassword) return;
+    if (!editingUser) return;
 
     try {
+      // Validate password
+      const passwordValidation = passwordSchema.safeParse(editPassword);
+      if (!passwordValidation.success) {
+        toast({
+          title: t('error'),
+          description: passwordValidation.error.errors[0].message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
@@ -285,7 +361,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         body: JSON.stringify({
           action: 'updatePassword',
           userId: editingUser.id,
-          password: editPassword,
+          password: passwordValidation.data,
         }),
       });
 

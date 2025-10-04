@@ -1,10 +1,52 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Input validation schemas
+const emailSchema = z.string().email().max(255)
+const passwordSchema = z.string().min(8).max(72).regex(
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+  'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+)
+const fullNameSchema = z.string().trim().min(1).max(100).regex(
+  /^[a-zA-ZäöåÄÖÅ\s-']+$/,
+  'Full name can only contain letters, spaces, hyphens, and apostrophes'
+)
+const uuidSchema = z.string().uuid()
+
+const createUserSchema = z.object({
+  action: z.literal('createUser'),
+  email: emailSchema,
+  password: passwordSchema,
+  fullName: fullNameSchema,
+})
+
+const updateUserSchema = z.object({
+  action: z.literal('updateUser'),
+  userId: uuidSchema,
+  email: emailSchema,
+  fullName: fullNameSchema,
+})
+
+const updatePasswordSchema = z.object({
+  action: z.literal('updatePassword'),
+  userId: uuidSchema,
+  password: passwordSchema,
+})
+
+const deleteUserSchema = z.object({
+  action: z.literal('deleteUser'),
+  userId: uuidSchema,
+})
+
+const listUsersSchema = z.object({
+  action: z.literal('listUsers'),
+})
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -58,7 +100,36 @@ serve(async (req) => {
       throw new Error('User is not an admin')
     }
 
-    const { action, userId, email, password, fullName } = await req.json()
+    const body = await req.json()
+    
+    // Validate input based on action type
+    let validatedData
+    try {
+      switch (body.action) {
+        case 'createUser':
+          validatedData = createUserSchema.parse(body)
+          break
+        case 'updateUser':
+          validatedData = updateUserSchema.parse(body)
+          break
+        case 'updatePassword':
+          validatedData = updatePasswordSchema.parse(body)
+          break
+        case 'deleteUser':
+          validatedData = deleteUserSchema.parse(body)
+          break
+        case 'listUsers':
+          validatedData = listUsersSchema.parse(body)
+          break
+        default:
+          throw new Error('Invalid action')
+      }
+    } catch (validationError) {
+      console.error('Validation error:', validationError)
+      throw new Error('Invalid input data')
+    }
+
+    const { action } = validatedData
 
     let result
 
@@ -72,29 +143,29 @@ serve(async (req) => {
 
       case 'createUser':
         result = await supabaseAdmin.auth.admin.createUser({
-          email,
-          password,
+          email: validatedData.email,
+          password: validatedData.password,
           email_confirm: true,
           user_metadata: {
-            full_name: fullName,
+            full_name: validatedData.fullName,
           },
         })
         break
 
       case 'updatePassword':
         result = await supabaseAdmin.auth.admin.updateUserById(
-          userId,
-          { password }
+          validatedData.userId,
+          { password: validatedData.password }
         )
         break
 
       case 'updateUser':
         // Update auth.users
         result = await supabaseAdmin.auth.admin.updateUserById(
-          userId,
+          validatedData.userId,
           {
-            email,
-            user_metadata: { full_name: fullName },
+            email: validatedData.email,
+            user_metadata: { full_name: validatedData.fullName },
           }
         )
         
@@ -102,8 +173,8 @@ serve(async (req) => {
         if (!result.error) {
           const { error: profileError } = await supabaseAdmin
             .from('profiles')
-            .update({ full_name: fullName })
-            .eq('id', userId)
+            .update({ full_name: validatedData.fullName })
+            .eq('id', validatedData.userId)
           
           if (profileError) {
             console.error('Error updating profile:', profileError)
@@ -112,7 +183,7 @@ serve(async (req) => {
         break
 
       case 'deleteUser':
-        result = await supabaseAdmin.auth.admin.deleteUser(userId)
+        result = await supabaseAdmin.auth.admin.deleteUser(validatedData.userId)
         break
 
       default:
@@ -131,11 +202,20 @@ serve(async (req) => {
       }
     )
   } catch (error: any) {
+    console.error('Admin manage users error:', error)
+    
+    // Return generic error message to prevent information leakage
+    const safeErrorMessage = error.message === 'User is not an admin' 
+      ? 'Unauthorized access' 
+      : error.message === 'Invalid input data'
+      ? 'Invalid request data'
+      : 'An error occurred while processing your request'
+    
     return new Response(
-      JSON.stringify({ error: error.message || 'An error occurred' }),
+      JSON.stringify({ error: safeErrorMessage }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: error.message === 'User is not an admin' ? 403 : 400,
       }
     )
   }
