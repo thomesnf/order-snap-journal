@@ -347,6 +347,9 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
             border-left: 4px solid #2563eb;
             border-radius: 4px;
           }
+          .journal-entries-section {
+            page-break-before: always;
+          }
           .entry {
             margin: 30px 0;
             padding: 15px;
@@ -395,8 +398,10 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
         ${orderDetailsHTML}
         ${summaryHTML}
         ${summaryEntriesHTML}
-        <h2>${t.journalEntries}</h2>
-        ${entriesHTML}
+        <div class="journal-entries-section">
+          <h2>${t.journalEntries}</h2>
+          ${entriesHTML}
+        </div>
         <script>
           window.onload = function() {
             window.print();
