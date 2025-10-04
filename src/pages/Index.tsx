@@ -153,6 +153,19 @@ const Index = () => {
     }
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    await deleteOrder(orderId);
+    // If we're viewing the deleted order, go back to list
+    if (selectedOrder?.id === orderId) {
+      setCurrentView('list');
+      setSelectedOrder(null);
+    }
+  };
+
+  const handleChangeAssignment = async (orderId: string, newUserId: string) => {
+    await updateOrder(orderId, { user_id: newUserId } as Partial<Order>);
+  };
+
   const handleBack = () => {
     setCurrentView('list');
     setSelectedOrder(null);
@@ -170,6 +183,8 @@ const Index = () => {
           onShowAdmin={isAdmin ? handleShowAdmin : undefined}
           isAdmin={isAdmin}
           companyLogoUrl={companyLogoUrl}
+          onDeleteOrder={isAdmin ? handleDeleteOrder : undefined}
+          onChangeAssignment={isAdmin ? handleChangeAssignment : undefined}
         />
       )}
       

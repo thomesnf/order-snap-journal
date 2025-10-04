@@ -16,6 +16,8 @@ interface OrderListProps {
   onShowAdmin?: () => void;
   isAdmin: boolean;
   companyLogoUrl?: string | null;
+  onDeleteOrder?: (orderId: string) => void;
+  onChangeAssignment?: (orderId: string, newUserId: string) => void;
 }
 
 export const OrderList = ({ 
@@ -26,7 +28,9 @@ export const OrderList = ({
   onShowSettings,
   onShowAdmin,
   isAdmin,
-  companyLogoUrl
+  companyLogoUrl,
+  onDeleteOrder,
+  onChangeAssignment
 }: OrderListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
@@ -145,6 +149,9 @@ export const OrderList = ({
                 order={order}
                 onViewDetails={onViewDetails}
                 onUpdateStatus={onUpdateStatus}
+                isAdmin={isAdmin}
+                onDeleteOrder={onDeleteOrder}
+                onChangeAssignment={onChangeAssignment}
               />
             ))}
           </div>
