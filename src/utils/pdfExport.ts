@@ -1,4 +1,5 @@
 import { JournalEntry, Order, Photo, SummaryEntry } from '@/hooks/useOrdersDB';
+import { formatDate, DateFormatType } from './dateFormat';
 
 interface PDFTranslations {
   orderDetails: string;
@@ -61,12 +62,12 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
   }
 };
 
-export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: string, language: 'en' | 'sv' = 'en', logoUrl?: string, photos?: Photo[]) => {
+export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: string, language: 'en' | 'sv' = 'en', logoUrl?: string, photos?: Photo[], dateFormat: DateFormatType = 'MM/DD/YYYY') => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
   const t = translations[language];
-  const date = new Date(entry.created_at).toLocaleDateString();
+  const date = formatDate(entry.created_at, dateFormat);
   
   const logoHTML = logoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
   
@@ -169,7 +170,7 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   printWindow.document.close();
 };
 
-export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order, language: 'en' | 'sv' = 'en', logoUrl?: string, entryPhotos?: Record<string, Photo[]>, summaryEntries?: SummaryEntry[]) => {
+export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order, language: 'en' | 'sv' = 'en', logoUrl?: string, entryPhotos?: Record<string, Photo[]>, summaryEntries?: SummaryEntry[], dateFormat: DateFormatType = 'MM/DD/YYYY') => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
@@ -180,7 +181,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
 
   // Group hours by day
   const hoursByDay = order.time_entries?.reduce((acc, entry) => {
-    const date = new Date(entry.work_date).toLocaleDateString();
+    const date = formatDate(entry.work_date, dateFormat);
     acc[date] = (acc[date] || 0) + Number(entry.hours_worked || 0);
     return acc;
   }, {} as Record<string, number>) || {};
@@ -207,7 +208,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
     <div class="summary-entries-section">
       <h2>${t.summaryEntries}</h2>
       ${summaryEntries.map(entry => {
-        const date = new Date(entry.created_at).toLocaleDateString();
+        const date = formatDate(entry.created_at, dateFormat);
         return `
           <div class="summary-entry">
             <div class="entry-header">
@@ -231,7 +232,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
         ${order.customer ? `<div><strong>${t.customer}:</strong> ${order.customer}</div>` : ''}
         ${order.customer_ref ? `<div><strong>${t.customerRef}:</strong> ${order.customer_ref}</div>` : ''}
         ${order.location ? `<div><strong>${t.location}:</strong> ${order.location}</div>` : ''}
-        ${order.due_date ? `<div><strong>${t.dueDate}:</strong> ${new Date(order.due_date).toLocaleDateString()}</div>` : ''}
+        ${order.due_date ? `<div><strong>${t.dueDate}:</strong> ${formatDate(order.due_date, dateFormat)}</div>` : ''}
         ${order.description ? `<div class="description"><strong>${t.description}:</strong> ${order.description}</div>` : ''}
       </div>
       <div class="man-hours">
@@ -242,7 +243,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
   `;
 
   const entriesHTML = entries.map(entry => {
-    const date = new Date(entry.created_at).toLocaleDateString();
+    const date = formatDate(entry.created_at, dateFormat);
     const photos = entryPhotos?.[entry.id] || [];
     const photosHTML = photos.length > 0 ? `
       <div class="entry-photos">

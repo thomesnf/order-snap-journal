@@ -1,9 +1,12 @@
+import { useState, useEffect } from 'react';
 import { Order } from '@/hooks/useOrdersDB';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, User, MoreVertical } from 'lucide-react';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { formatDate, DateFormatType } from '@/utils/dateFormat';
 
 interface OrderCardProps {
   order: Order;
@@ -27,6 +30,24 @@ const priorityColors = {
 };
 
 export const OrderCard = ({ order, onViewDetails, onUpdateStatus }: OrderCardProps) => {
+  const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
+
+  useEffect(() => {
+    fetchDateFormat();
+  }, []);
+
+  const fetchDateFormat = async () => {
+    const { data } = await supabase
+      .from('settings')
+      .select('date_format')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    
+    if (data?.date_format) {
+      setDateFormat(data.date_format as DateFormatType);
+    }
+  };
+
   return (
     <Card className="bg-card shadow-card border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer" 
           onClick={() => onViewDetails(order)}>
@@ -75,14 +96,14 @@ export const OrderCard = ({ order, onViewDetails, onUpdateStatus }: OrderCardPro
           {order.due_date && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              <span>Due {format(new Date(order.due_date), 'MMM dd, yyyy')}</span>
+              <span>Due {formatDate(order.due_date, dateFormat)}</span>
             </div>
           )}
         </div>
         
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
           <span className="text-xs text-muted-foreground">
-            Updated {format(new Date(order.updated_at), 'MMM dd')}
+            Updated {formatDate(order.updated_at, dateFormat)}
           </span>
         </div>
       </CardContent>

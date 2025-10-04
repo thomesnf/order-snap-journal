@@ -15,6 +15,7 @@ import { exportJournalEntryToPDF, exportMultipleEntriesToPDF } from '@/utils/pdf
 import { OrderBasisFiles } from './OrderBasisFiles';
 import { TimeCalendar } from './TimeCalendar';
 import { capturePhoto } from '@/utils/camera';
+import { formatDate, DateFormatType } from '@/utils/dateFormat';
 
 interface OrderDetailsProps {
   order: Order;
@@ -53,6 +54,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const [entryPhotos, setEntryPhotos] = useState<Record<string, Photo[]>>({});
   const [currentEntryForPhoto, setCurrentEntryForPhoto] = useState<string | null>(null);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>();
+  const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
 
   useEffect(() => {
     if (order) {
@@ -60,6 +62,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
       fetchJournalEntries();
     }
     fetchCompanyLogo();
+    fetchDateFormat();
   }, [order?.id]);
 
   const fetchSummaryEntries = async () => {
@@ -90,6 +93,18 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     
     if (data?.company_logo_url) {
       setCompanyLogoUrl(data.company_logo_url);
+    }
+  };
+
+  const fetchDateFormat = async () => {
+    const { data } = await supabase
+      .from('settings')
+      .select('date_format')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    
+    if (data?.date_format) {
+      setDateFormat(data.date_format as DateFormatType);
     }
   };
 
@@ -274,7 +289,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos, summaryEntries)}
+            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos, summaryEntries, dateFormat)}
             disabled={journalEntries.length === 0}
           >
             <FileDown className="h-4 w-4 mr-2" />
@@ -322,7 +337,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
           {order.due_date && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              <span>Due {format(new Date(order.due_date), 'MMM dd, yyyy')}</span>
+              <span>Due {formatDate(order.due_date, dateFormat)}</span>
             </div>
           )}
         </CardContent>
@@ -377,7 +392,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                 <>
                   <div className="flex justify-between items-start">
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(entry.created_at), 'MMM dd, yyyy')}
+                      {formatDate(entry.created_at, dateFormat)}
                     </p>
                     <div className="flex gap-2">
                       <Button
@@ -521,7 +536,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                       </div>
 
                       <p className="text-xs text-muted-foreground mt-2">
-                        {format(new Date(entry.created_at), 'MMM dd, yyyy at hh:mm a')}
+                        {formatDate(entry.created_at, dateFormat)} at {format(new Date(entry.created_at), 'hh:mm a')}
                       </p>
                     </>
                   )}

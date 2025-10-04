@@ -12,6 +12,7 @@ import { Clock, Calendar as CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { formatDate, DateFormatType } from '@/utils/dateFormat';
 
 interface TimeEntry {
   id: string;
@@ -36,10 +37,24 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
   const [hoursWorked, setHoursWorked] = useState('');
   const [notes, setNotes] = useState('');
   const [isAddingEntry, setIsAddingEntry] = useState(false);
+  const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
 
   useEffect(() => {
     fetchTimeEntries();
+    fetchDateFormat();
   }, [orderId]);
+
+  const fetchDateFormat = async () => {
+    const { data } = await supabase
+      .from('settings')
+      .select('date_format')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    
+    if (data?.date_format) {
+      setDateFormat(data.date_format as DateFormatType);
+    }
+  };
 
   const fetchTimeEntries = async () => {
     const { data, error } = await supabase
@@ -253,7 +268,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         {/* Entries for Selected Date */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">
-            Entries for {selectedDate ? format(selectedDate, 'MMM dd, yyyy') : 'selected date'}
+            Entries for {selectedDate ? formatDate(selectedDate, dateFormat) : 'selected date'}
           </Label>
           {entriesForSelectedDate.length > 0 ? (
             <div className="space-y-2">
@@ -302,7 +317,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
                   <div>
                     <span className="font-medium">{entry.technician_name}</span>
                     <span className="text-muted-foreground mx-2">•</span>
-                    <span>{format(new Date(entry.work_date), 'MMM dd')}</span>
+                    <span>{formatDate(entry.work_date, dateFormat)}</span>
                   </div>
                   <span className="font-medium">{parseFloat(entry.hours_worked.toString()).toFixed(2)}h</span>
                 </div>
