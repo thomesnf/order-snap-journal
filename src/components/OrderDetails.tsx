@@ -467,13 +467,13 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                               {editedDate ? formatDate(editedDate, dateFormat) : <span>Pick a date</span>}
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
+                          <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
                             <CalendarComponent
                               mode="single"
                               selected={editedDate}
                               onSelect={setEditedDate}
                               initialFocus
-                              className="pointer-events-auto"
+                              className={cn("p-3 pointer-events-auto")}
                             />
                           </PopoverContent>
                         </Popover>
