@@ -62,7 +62,7 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   const t = translations[language];
   const date = new Date(entry.created_at).toLocaleString();
   
-  const logoHTML = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
+  const logoHTML = logoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
   
   const photosHTML = photos && photos.length > 0 ? `
     <div class="photos">
@@ -140,8 +140,8 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
         </style>
       </head>
       <body>
-        ${logoHTML}
         <h1>${orderTitle}</h1>
+        ${logoHTML}
         <div class="meta">
           <strong>${t.date}:</strong> ${date}<br>
           <strong>${t.entryId}:</strong> ${entry.id}
@@ -172,7 +172,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
   // Calculate total man hours from time_entries
   const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
 
-  const logoHTML = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
+  const logoHTML = logoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
 
   const orderDetailsHTML = `
     <div class="order-details">
@@ -309,8 +309,8 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
         </style>
       </head>
       <body>
-        ${logoHTML}
         <h1>${orderTitle} - ${t.allJournalEntries}</h1>
+        ${logoHTML}
         ${orderDetailsHTML}
         <h2>${t.journalEntries}</h2>
         ${entriesHTML}
