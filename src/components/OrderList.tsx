@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Filter, Plus, Settings, Shield, LogOut } from 'lucide-react';
+import { Search, Filter, Plus, Settings, Shield, LogOut, FileBarChart } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface OrderListProps {
   orders: Order[];
@@ -37,6 +38,7 @@ export const OrderList = ({
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
   const [fullName, setFullName] = useState<string>('');
   const { signOut, user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -94,6 +96,9 @@ export const OrderList = ({
             <p className="text-sm font-medium text-foreground">{fullName || user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button onClick={() => navigate('/reports')} variant="outline" size="sm">
+              <FileBarChart className="h-4 w-4" />
+            </Button>
             <Button onClick={onShowSettings} variant="outline" size="sm">
               <Settings className="h-4 w-4" />
             </Button>
