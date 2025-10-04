@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOrdersDB, Order } from '@/hooks/useOrdersDB';
 import { useAuth } from '@/hooks/useAuth';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { OrderList } from '@/components/OrderList';
 import { OrderDetails } from '@/components/OrderDetails';
 import { CreateOrderForm } from '@/components/CreateOrderForm';
@@ -15,7 +14,6 @@ type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 const Index = () => {
   const { orders, addOrder, updateOrder, deleteOrder, addSummaryEntry, updateSummaryEntry, deleteSummaryEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry, addPhoto, getOrderWithDetails } = useOrdersDB();
   const { isAdmin } = useAuth();
-  const { t } = useLanguage();
   const [currentView, setCurrentView] = useState<View>('list');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
