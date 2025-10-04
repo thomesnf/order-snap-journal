@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Order } from '@/hooks/useOrdersDB';
 import { OrderCard } from './OrderCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Search, Filter, Plus, Settings, Shield, LogOut } from 'lucide-react';
 
 interface OrderListProps {
@@ -34,7 +35,26 @@ export const OrderList = ({
 }: OrderListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const [fullName, setFullName] = useState<string>('');
   const { signOut, user } = useAuth();
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (data?.full_name) {
+          setFullName(data.full_name);
+        }
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -71,7 +91,7 @@ export const OrderList = ({
             <h1 className="text-2xl font-bold text-foreground">Orders</h1>
           )}
           <div className="flex-1 flex justify-center">
-            <p className="text-sm font-medium text-foreground">{user?.email}</p>
+            <p className="text-sm font-medium text-foreground">{fullName || user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={onShowSettings} variant="outline" size="sm">
