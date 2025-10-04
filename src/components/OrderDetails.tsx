@@ -188,7 +188,6 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
         .insert({
           url: signedUrlData.signedUrl,
           journal_entry_id: entryId,
-          order_id: order.id,
           user_id: user.id,
         });
 
