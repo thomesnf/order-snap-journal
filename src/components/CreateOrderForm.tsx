@@ -18,6 +18,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    summary: '',
     status: 'pending' as Order['status'],
     priority: 'medium' as Order['priority'],
     customer: '',
@@ -46,6 +47,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
       const orderData = {
         title: formData.title,
         description: formData.description || null,
+        summary: formData.summary || null,
         status: formData.status,
         priority: formData.priority,
         customer: formData.customer || null,
@@ -116,6 +118,18 @@ export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps)
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   required
                   className="min-h-[100px]"
+                />
+              </div>
+
+              {/* Summary */}
+              <div className="space-y-2">
+                <Label htmlFor="summary">Summary</Label>
+                <Textarea
+                  id="summary"
+                  placeholder="Brief summary of the order..."
+                  value={formData.summary}
+                  onChange={(e) => setFormData(prev => ({ ...prev, summary: e.target.value }))}
+                  className="min-h-[80px]"
                 />
               </div>
 

@@ -2,6 +2,7 @@ export interface Order {
   id: string;
   title: string;
   description: string;
+  summary?: string;
   status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
   created_at: Date;

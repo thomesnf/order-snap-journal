@@ -274,6 +274,17 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
         </CardContent>
       </Card>
 
+      {order.summary && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('summary')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-foreground whitespace-pre-wrap">{order.summary}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <OrderBasisFiles orderId={order.id} />
 
       <Card>

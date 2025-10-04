@@ -42,6 +42,7 @@ const translations: Translations = {
     
     // Order details
     'orderInformation': 'Order Information',
+    'summary': 'Summary',
     'journalEntries': 'Journal Entries',
     'photos': 'Photos',
     'addNote': 'Add Note',
@@ -163,6 +164,7 @@ const translations: Translations = {
     
     // Order details
     'orderInformation': 'Beställningsinformation',
+    'summary': 'Sammanfattning',
     'journalEntries': 'Journalanteckningar',
     'photos': 'Foton',
     'addNote': 'Lägg till Anteckning',

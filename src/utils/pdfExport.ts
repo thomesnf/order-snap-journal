@@ -2,6 +2,7 @@ import { JournalEntry, Order, Photo } from '@/hooks/useOrdersDB';
 
 interface PDFTranslations {
   orderDetails: string;
+  summary: string;
   status: string;
   priority: string;
   customer: string;
@@ -21,6 +22,7 @@ interface PDFTranslations {
 const translations: Record<'en' | 'sv', PDFTranslations> = {
   en: {
     orderDetails: 'Order Details',
+    summary: 'Summary',
     status: 'Status',
     priority: 'Priority',
     customer: 'Customer',
@@ -38,6 +40,7 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
   },
   sv: {
     orderDetails: 'Orderdetaljer',
+    summary: 'Sammanfattning',
     status: 'Status',
     priority: 'Prioritet',
     customer: 'Kund',
@@ -190,6 +193,13 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
 
   const logoHTML = logoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
 
+  const summaryHTML = order.summary ? `
+    <div class="order-summary">
+      <h2>${t.summary}</h2>
+      <p>${order.summary.replace(/\n/g, '<br>')}</p>
+    </div>
+  ` : '';
+
   const orderDetailsHTML = `
     <div class="order-details">
       <h2>${t.orderDetails}</h2>
@@ -263,6 +273,17 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
             padding: 15px;
             background: #f9fafb;
             border-radius: 8px;
+          }
+          .order-summary {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f0f9ff;
+            border-left: 4px solid #2563eb;
+            border-radius: 4px;
+          }
+          .order-summary p {
+            margin: 10px 0 0 0;
+            line-height: 1.6;
           }
           .detail-grid {
             display: grid;
@@ -339,6 +360,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
         <h1>${orderTitle} - ${t.allJournalEntries}</h1>
         ${logoHTML}
         ${orderDetailsHTML}
+        ${summaryHTML}
         <h2>${t.journalEntries}</h2>
         ${entriesHTML}
         <script>

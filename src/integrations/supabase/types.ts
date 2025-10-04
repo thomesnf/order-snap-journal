@@ -66,6 +66,7 @@ export type Database = {
           location: string | null
           priority: Database["public"]["Enums"]["order_priority"]
           status: Database["public"]["Enums"]["order_status"]
+          summary: string | null
           title: string
           updated_at: string
           user_id: string
@@ -82,6 +83,7 @@ export type Database = {
           location?: string | null
           priority?: Database["public"]["Enums"]["order_priority"]
           status?: Database["public"]["Enums"]["order_status"]
+          summary?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -98,6 +100,7 @@ export type Database = {
           location?: string | null
           priority?: Database["public"]["Enums"]["order_priority"]
           status?: Database["public"]["Enums"]["order_status"]
+          summary?: string | null
           title?: string
           updated_at?: string
           user_id?: string

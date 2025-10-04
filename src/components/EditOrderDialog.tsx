@@ -20,6 +20,7 @@ export const EditOrderDialog = ({ order, onUpdate }: EditOrderDialogProps) => {
   const [formData, setFormData] = useState({
     title: order.title,
     description: order.description || '',
+    summary: order.summary || '',
     customer: order.customer || '',
     customer_ref: order.customer_ref || '',
     location: order.location || '',
@@ -62,6 +63,16 @@ export const EditOrderDialog = ({ order, onUpdate }: EditOrderDialogProps) => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={4}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="summary">{t('summary')}</Label>
+            <Textarea
+              id="summary"
+              value={formData.summary}
+              onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+              rows={3}
             />
           </div>
 
