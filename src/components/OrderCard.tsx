@@ -242,10 +242,10 @@ export const OrderCard = ({
         
         <div className="flex items-center gap-2 mt-3">
           <Badge className={`${statusColors[order.status]} text-xs font-medium`}>
-            {order.status.replace('-', ' ')}
+            {t(order.status === 'in-progress' ? 'inProgress' : order.status)}
           </Badge>
           <Badge variant="outline" className={`${priorityColors[order.priority]} text-xs`}>
-            {order.priority}
+            {t(order.priority)}
           </Badge>
         </div>
       </CardHeader>

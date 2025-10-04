@@ -310,10 +310,10 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
 
       <div className="flex items-center gap-2">
         <Badge className={`${statusColors[order.status]} text-sm`}>
-          {order.status.replace('-', ' ')}
+          {t(order.status === 'in-progress' ? 'inProgress' : order.status)}
         </Badge>
         <Badge variant="outline" className="text-sm">
-          {order.priority}
+          {t(order.priority)}
         </Badge>
       </div>
 

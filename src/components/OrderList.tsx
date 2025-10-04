@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Order } from '@/hooks/useOrdersDB';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { OrderCard } from './OrderCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ export const OrderList = ({
   onDeleteOrder,
   onChangeAssignments
 }: OrderListProps) => {
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
   const [fullName, setFullName] = useState<string>('');
@@ -90,7 +92,7 @@ export const OrderList = ({
               className="h-10 object-contain"
             />
           ) : (
-            <h1 className="text-2xl font-bold text-foreground">Orders</h1>
+            <h1 className="text-2xl font-bold text-foreground">{t('orders')}</h1>
           )}
           <div className="flex-1 flex justify-center">
             <p className="text-sm font-medium text-foreground">{fullName || user?.email}</p>
@@ -112,7 +114,7 @@ export const OrderList = ({
             </Button>
             <Button onClick={onCreateOrder} size="sm" className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90">
               <Plus className="h-4 w-4 mr-2" />
-              New Order
+              {t('newOrder')}
             </Button>
           </div>
         </div>
@@ -121,7 +123,7 @@ export const OrderList = ({
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search orders..."
+            placeholder={t('searchOrders')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 bg-card border-border/50"
@@ -141,7 +143,7 @@ export const OrderList = ({
               }`}
               onClick={() => setStatusFilter(status)}
             >
-              {status === 'all' ? 'All' : status.replace('-', ' ')} ({statusCounts[status]})
+              {status === 'all' ? t('all') : t(status === 'in-progress' ? 'inProgress' : status)} ({statusCounts[status]})
             </Badge>
           ))}
         </div>
@@ -152,17 +154,17 @@ export const OrderList = ({
         {filteredOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Filter className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No orders found</h3>
+            <h3 className="text-lg font-medium text-foreground mb-2">{t('noOrdersFound')}</h3>
             <p className="text-muted-foreground mb-4">
               {searchTerm || statusFilter !== 'all' 
-                ? 'Try adjusting your search or filters'
-                : 'Get started by creating your first order'
+                ? t('tryAdjusting')
+                : t('getStarted')
               }
             </p>
             {!searchTerm && statusFilter === 'all' && (
               <Button onClick={onCreateOrder} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Create First Order
+                {t('createFirstOrder')}
               </Button>
             )}
           </div>
