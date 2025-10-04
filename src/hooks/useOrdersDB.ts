@@ -207,11 +207,16 @@ export const useOrdersDB = () => {
     }
   };
 
-  const updateJournalEntry = async (entryId: string, content: string) => {
+  const updateJournalEntry = async (entryId: string, content: string, created_at?: Date) => {
     try {
+      const updateData: any = { content };
+      if (created_at) {
+        updateData.created_at = created_at.toISOString();
+      }
+
       const { error } = await supabase
         .from('journal_entries')
-        .update({ content })
+        .update(updateData)
         .eq('id', entryId);
 
       if (error) throw error;
@@ -228,6 +233,7 @@ export const useOrdersDB = () => {
       });
     }
   };
+
 
   const deleteJournalEntry = async (entryId: string) => {
     try {

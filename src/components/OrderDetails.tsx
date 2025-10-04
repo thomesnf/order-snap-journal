@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown, ArrowLeft, Camera } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown, ArrowLeft, Camera, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +17,9 @@ import { OrderBasisFiles } from './OrderBasisFiles';
 import { TimeCalendar } from './TimeCalendar';
 import { capturePhoto } from '@/utils/camera';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 interface OrderDetailsProps {
   order: Order;
@@ -25,7 +29,7 @@ interface OrderDetailsProps {
   onUpdateSummaryEntry: (entryId: string, content: string) => Promise<void>;
   onDeleteSummaryEntry: (entryId: string) => Promise<void>;
   onAddJournalEntry: (orderId: string, content: string) => Promise<void>;
-  onUpdateJournalEntry: (entryId: string, content: string) => Promise<void>;
+  onUpdateJournalEntry: (entryId: string, content: string, created_at?: Date) => Promise<void>;
   onDeleteJournalEntry: (entryId: string) => Promise<void>;
 }
 
@@ -50,6 +54,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState('');
+  const [editedDate, setEditedDate] = useState<Date | undefined>(undefined);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [entryPhotos, setEntryPhotos] = useState<Record<string, Photo[]>>({});
   const [currentEntryForPhoto, setCurrentEntryForPhoto] = useState<string | null>(null);
@@ -189,9 +194,10 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const handleUpdateEntry = async () => {
     if (!editingEntryId || !editedContent.trim()) return;
     
-    await onUpdateJournalEntry(editingEntryId, editedContent);
+    await onUpdateJournalEntry(editingEntryId, editedContent, editedDate);
     setEditingEntryId(null);
     setEditedContent('');
+    setEditedDate(undefined);
     fetchJournalEntries();
   };
 
@@ -445,7 +451,32 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
               <Card key={entry.id}>
                 <CardContent className="pt-4">
                   {editingEntryId === entry.id ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label>Entry Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                'w-full justify-start text-left font-normal',
+                                !editedDate && 'text-muted-foreground'
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {editedDate ? formatDate(editedDate, dateFormat) : <span>Pick a date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={editedDate}
+                              onSelect={setEditedDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <Textarea
                         value={editedContent}
                         onChange={(e) => setEditedContent(e.target.value)}
@@ -461,6 +492,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                           onClick={() => {
                             setEditingEntryId(null);
                             setEditedContent('');
+                            setEditedDate(undefined);
                           }}
                         >
                           {t('cancel')}
@@ -520,6 +552,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                           onClick={() => {
                             setEditingEntryId(entry.id);
                             setEditedContent(entry.content);
+                            setEditedDate(new Date(entry.created_at));
                           }}
                         >
                           <Pencil className="h-4 w-4 mr-1" />

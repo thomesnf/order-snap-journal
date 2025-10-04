@@ -111,8 +111,8 @@ const Index = () => {
     }
   };
 
-  const handleUpdateJournalEntry = async (entryId: string, content: string) => {
-    await updateJournalEntry(entryId, content);
+  const handleUpdateJournalEntry = async (entryId: string, content: string, created_at?: Date) => {
+    await updateJournalEntry(entryId, content, created_at);
     // Refetch the order to update the UI
     if (selectedOrder) {
       const updatedOrder = await getOrderWithDetails(selectedOrder.id);
