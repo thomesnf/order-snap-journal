@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOrdersDB, Order } from '@/hooks/useOrdersDB';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -7,6 +7,7 @@ import { OrderDetails } from '@/components/OrderDetails';
 import { CreateOrderForm } from '@/components/CreateOrderForm';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import AdminPanel from '@/components/AdminPanel';
+import { supabase } from '@/integrations/supabase/client';
 
 type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 
@@ -16,6 +17,23 @@ const Index = () => {
   const { t } = useLanguage();
   const [currentView, setCurrentView] = useState<View>('list');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCompanyLogo();
+  }, []);
+
+  const fetchCompanyLogo = async () => {
+    const { data } = await supabase
+      .from('settings')
+      .select('company_logo_url')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    
+    if (data?.company_logo_url) {
+      setCompanyLogoUrl(data.company_logo_url);
+    }
+  };
 
   const handleViewDetails = async (order: Order) => {
     // Fetch order with full details (journal entries and photos)
@@ -123,6 +141,7 @@ const Index = () => {
           onShowSettings={handleShowSettings}
           onShowAdmin={isAdmin ? handleShowAdmin : undefined}
           isAdmin={isAdmin}
+          companyLogoUrl={companyLogoUrl}
         />
       )}
       

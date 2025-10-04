@@ -14,6 +14,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -24,7 +25,20 @@ export default function Auth() {
         navigate('/');
       }
     });
+    fetchCompanyLogo();
   }, [navigate]);
+
+  const fetchCompanyLogo = async () => {
+    const { data } = await supabase
+      .from('settings')
+      .select('company_logo_url')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    
+    if (data?.company_logo_url) {
+      setCompanyLogoUrl(data.company_logo_url);
+    }
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +96,15 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
+          {companyLogoUrl && (
+            <div className="flex justify-center mb-4">
+              <img 
+                src={companyLogoUrl} 
+                alt="Company Logo" 
+                className="max-h-20 max-w-full object-contain"
+              />
+            </div>
+          )}
           <CardTitle className="text-2xl text-center">
             {t('signIn')}
           </CardTitle>

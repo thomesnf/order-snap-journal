@@ -1,11 +1,68 @@
 import { JournalEntry, Order } from '@/hooks/useOrdersDB';
 
-export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: string) => {
-  // Simple implementation - creates a printable HTML page
+interface PDFTranslations {
+  orderDetails: string;
+  status: string;
+  priority: string;
+  customer: string;
+  customerRef: string;
+  location: string;
+  dueDate: string;
+  description: string;
+  totalManHours: string;
+  hours: string;
+  journalEntries: string;
+  entryDate: string;
+  date: string;
+  entryId: string;
+  allJournalEntries: string;
+}
+
+const translations: Record<'en' | 'sv', PDFTranslations> = {
+  en: {
+    orderDetails: 'Order Details',
+    status: 'Status',
+    priority: 'Priority',
+    customer: 'Customer',
+    customerRef: 'Customer Ref',
+    location: 'Location',
+    dueDate: 'Due Date',
+    description: 'Description',
+    totalManHours: 'Total Man Hours',
+    hours: 'hours',
+    journalEntries: 'Journal Entries',
+    entryDate: 'Entry Date',
+    date: 'Date',
+    entryId: 'Entry ID',
+    allJournalEntries: 'All Journal Entries'
+  },
+  sv: {
+    orderDetails: 'Orderdetaljer',
+    status: 'Status',
+    priority: 'Prioritet',
+    customer: 'Kund',
+    customerRef: 'Kundreferens',
+    location: 'Plats',
+    dueDate: 'Förfallodatum',
+    description: 'Beskrivning',
+    totalManHours: 'Totala Arbetstimmar',
+    hours: 'timmar',
+    journalEntries: 'Journalanteckningar',
+    entryDate: 'Anteckningsdatum',
+    date: 'Datum',
+    entryId: 'Antecknings-ID',
+    allJournalEntries: 'Alla Journalanteckningar'
+  }
+};
+
+export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: string, language: 'en' | 'sv' = 'en', logoUrl?: string) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
+  const t = translations[language];
   const date = new Date(entry.created_at).toLocaleString();
+  
+  const logoHTML = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
   
   const html = `
     <!DOCTYPE html>
@@ -41,10 +98,11 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
         </style>
       </head>
       <body>
+        ${logoHTML}
         <h1>${orderTitle}</h1>
         <div class="meta">
-          <strong>Date:</strong> ${date}<br>
-          <strong>Entry ID:</strong> ${entry.id}
+          <strong>${t.date}:</strong> ${date}<br>
+          <strong>${t.entryId}:</strong> ${entry.id}
         </div>
         <div class="content">
           ${entry.content.replace(/\n/g, '<br>')}
@@ -62,27 +120,31 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   printWindow.document.close();
 };
 
-export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order) => {
+export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order, language: 'en' | 'sv' = 'en', logoUrl?: string) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
+  const t = translations[language];
+  
   // Calculate total man hours from time_entries
   const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
 
+  const logoHTML = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
+
   const orderDetailsHTML = `
     <div class="order-details">
-      <h2>Order Details</h2>
+      <h2>${t.orderDetails}</h2>
       <div class="detail-grid">
-        <div><strong>Status:</strong> ${order.status}</div>
-        <div><strong>Priority:</strong> ${order.priority}</div>
-        ${order.customer ? `<div><strong>Customer:</strong> ${order.customer}</div>` : ''}
-        ${order.customer_ref ? `<div><strong>Customer Ref:</strong> ${order.customer_ref}</div>` : ''}
-        ${order.location ? `<div><strong>Location:</strong> ${order.location}</div>` : ''}
-        ${order.due_date ? `<div><strong>Due Date:</strong> ${new Date(order.due_date).toLocaleDateString()}</div>` : ''}
-        ${order.description ? `<div class="description"><strong>Description:</strong> ${order.description}</div>` : ''}
+        <div><strong>${t.status}:</strong> ${order.status}</div>
+        <div><strong>${t.priority}:</strong> ${order.priority}</div>
+        ${order.customer ? `<div><strong>${t.customer}:</strong> ${order.customer}</div>` : ''}
+        ${order.customer_ref ? `<div><strong>${t.customerRef}:</strong> ${order.customer_ref}</div>` : ''}
+        ${order.location ? `<div><strong>${t.location}:</strong> ${order.location}</div>` : ''}
+        ${order.due_date ? `<div><strong>${t.dueDate}:</strong> ${new Date(order.due_date).toLocaleDateString()}</div>` : ''}
+        ${order.description ? `<div class="description"><strong>${t.description}:</strong> ${order.description}</div>` : ''}
       </div>
       <div class="man-hours">
-        <strong>Total Man Hours:</strong> ${totalHours.toFixed(2)} hours
+        <strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours}
       </div>
     </div>
   `;
@@ -92,7 +154,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
     return `
       <div class="entry">
         <div class="entry-header">
-          <strong>Entry Date:</strong> ${date}
+          <strong>${t.entryDate}:</strong> ${date}
         </div>
         <div class="entry-content">
           ${entry.content.replace(/\n/g, '<br>')}
@@ -105,7 +167,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Journal Entries - ${orderTitle}</title>
+        <title>${t.journalEntries} - ${orderTitle}</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -173,9 +235,10 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
         </style>
       </head>
       <body>
-        <h1>${orderTitle} - All Journal Entries</h1>
+        ${logoHTML}
+        <h1>${orderTitle} - ${t.allJournalEntries}</h1>
         ${orderDetailsHTML}
-        <h2>Journal Entries</h2>
+        <h2>${t.journalEntries}</h2>
         ${entriesHTML}
         <script>
           window.onload = function() {

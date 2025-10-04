@@ -36,7 +36,7 @@ const statusColors = {
 
 export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpdateJournalEntry, onDeleteJournalEntry }: OrderDetailsProps) => {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [newEntry, setNewEntry] = useState('');
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -44,19 +44,33 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [entryPhotos, setEntryPhotos] = useState<Record<string, Photo[]>>({});
   const [currentEntryForPhoto, setCurrentEntryForPhoto] = useState<string | null>(null);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>();
 
   useEffect(() => {
     if (order) {
       fetchJournalEntries();
     }
+    fetchCompanyLogo();
   }, [order?.id]);
+
+  const fetchCompanyLogo = async () => {
+    const { data } = await supabase
+      .from('settings')
+      .select('company_logo_url')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    
+    if (data?.company_logo_url) {
+      setCompanyLogoUrl(data.company_logo_url);
+    }
+  };
 
   const fetchJournalEntries = async () => {
     const { data, error } = await supabase
       .from('journal_entries')
       .select('*')
       .eq('order_id', order.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true }); // oldest first
 
     if (error) {
       toast({
@@ -143,16 +157,34 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
 
   const handleAddPhoto = async (entryId: string) => {
     try {
-      const photoUrl = await capturePhoto();
-      if (!photoUrl) return;
+      const photoDataUrl = await capturePhoto();
+      if (!photoDataUrl) return;
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Upload to Supabase storage
+      const fileName = `${entryId}_${Date.now()}.jpg`;
+      const base64Data = photoDataUrl.split(',')[1];
+      const blob = await fetch(photoDataUrl).then(res => res.blob());
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('order-basis')
+        .upload(`journal-photos/${fileName}`, blob, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('order-basis')
+        .getPublicUrl(`journal-photos/${fileName}`);
+
       const { error } = await supabase
         .from('photos')
         .insert({
-          url: photoUrl,
+          url: publicUrl,
           journal_entry_id: entryId,
           order_id: order.id,
           user_id: user.id,
@@ -186,7 +218,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order)}
+            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl)}
             disabled={journalEntries.length === 0}
           >
             <FileDown className="h-4 w-4 mr-2" />
@@ -329,7 +361,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => exportJournalEntryToPDF(entry, order.title)}
+                          onClick={() => exportJournalEntryToPDF(entry, order.title, language, companyLogoUrl)}
                         >
                           <FileDown className="h-4 w-4 mr-1" />
                           {t('exportPDF')}

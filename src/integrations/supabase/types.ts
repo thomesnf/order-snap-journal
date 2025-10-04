@@ -192,6 +192,27 @@ export type Database = {
         }
         Relationships: []
       }
+      settings: {
+        Row: {
+          company_logo_url: string | null
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          company_logo_url?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          company_logo_url?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       time_entries: {
         Row: {
           created_at: string

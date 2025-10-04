@@ -15,6 +15,7 @@ interface OrderListProps {
   onShowSettings: () => void;
   onShowAdmin?: () => void;
   isAdmin: boolean;
+  companyLogoUrl?: string | null;
 }
 
 export const OrderList = ({ 
@@ -24,7 +25,8 @@ export const OrderList = ({
   onCreateOrder, 
   onShowSettings,
   onShowAdmin,
-  isAdmin 
+  isAdmin,
+  companyLogoUrl
 }: OrderListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
@@ -55,7 +57,15 @@ export const OrderList = ({
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border/50 p-4 z-10">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-foreground">Orders</h1>
+          {companyLogoUrl ? (
+            <img 
+              src={companyLogoUrl} 
+              alt="Company Logo" 
+              className="h-10 object-contain"
+            />
+          ) : (
+            <h1 className="text-2xl font-bold text-foreground">Orders</h1>
+          )}
           <div className="flex items-center gap-2">
             <Button onClick={onShowSettings} variant="outline" size="sm">
               <Settings className="h-4 w-4" />
