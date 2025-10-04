@@ -165,7 +165,6 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
 
       // Upload to Supabase storage
       const fileName = `${entryId}_${Date.now()}.jpg`;
-      const base64Data = photoDataUrl.split(',')[1];
       const blob = await fetch(photoDataUrl).then(res => res.blob());
 
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -177,14 +176,17 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Get a signed URL for the private bucket (valid for 1 year)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('order-basis')
-        .getPublicUrl(`journal-photos/${fileName}`);
+        .createSignedUrl(`journal-photos/${fileName}`, 31536000); // 1 year in seconds
+
+      if (signedUrlError) throw signedUrlError;
 
       const { error } = await supabase
         .from('photos')
         .insert({
-          url: publicUrl,
+          url: signedUrlData.signedUrl,
           journal_entry_id: entryId,
           order_id: order.id,
           user_id: user.id,
@@ -199,9 +201,10 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
 
       fetchAllPhotos();
     } catch (error: any) {
+      console.error('Photo upload error:', error);
       toast({
         title: t('error'),
-        description: error.message,
+        description: error.message || 'Failed to add photo',
         variant: 'destructive',
       });
     }
