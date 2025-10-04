@@ -6,7 +6,7 @@ export interface Order {
   id: string;
   title: string;
   description: string | null;
-  status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'in-progress' | 'completed' | 'cancelled' | 'invoiced' | 'paid';
   priority: 'low' | 'medium' | 'high';
   customer: string | null;
   customer_ref: string | null;

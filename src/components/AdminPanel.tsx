@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, ShieldOff, Trash2 } from 'lucide-react';
+import { Shield, ShieldOff, Trash2, Plus } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AlertDialog,
@@ -16,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface UserWithRole {
   id: string;
@@ -28,6 +31,10 @@ export default function AdminPanel() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserFullName, setNewUserFullName] = useState('');
+  const [addUserOpen, setAddUserOpen] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
 
@@ -124,6 +131,37 @@ export default function AdminPanel() {
     }
   };
 
+  const addUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const { data, error } = await supabase.auth.admin.createUser({
+      email: newUserEmail,
+      password: newUserPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: newUserFullName,
+      },
+    });
+
+    if (error) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: t('success'),
+        description: 'User created successfully',
+      });
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserFullName('');
+      setAddUserOpen(false);
+      fetchUsers();
+    }
+  };
+
   if (loading) {
     return <div className="p-4">{t('loading')}</div>;
   }
@@ -131,11 +169,61 @@ export default function AdminPanel() {
   return (
     <>
     <Card>
-      <CardHeader>
-        <CardTitle>{t('userManagement')}</CardTitle>
-        <CardDescription>
-          {t('manageUserRoles')}
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <div>
+          <CardTitle>{t('userManagement')}</CardTitle>
+          <CardDescription>
+            {t('manageUserRoles')}
+          </CardDescription>
+        </div>
+        <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              {t('addUser')}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('addNewUser')}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={addUser} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">{t('fullName')}</Label>
+                <Input
+                  id="fullName"
+                  value={newUserFullName}
+                  onChange={(e) => setNewUserFullName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">{t('email')}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">{t('password')}</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                {t('createUser')}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent className="space-y-4">
         {users.map(user => {

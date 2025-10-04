@@ -18,6 +18,8 @@ const translations: Translations = {
     'pending': 'Pending',
     'inProgress': 'In Progress',
     'completed': 'Completed',
+    'invoiced': 'Invoiced',
+    'paid': 'Paid',
     'cancelled': 'Cancelled',
     
     // Priority
@@ -119,7 +121,13 @@ const translations: Translations = {
     'deleteEntry': 'Delete Entry',
     'updateEntry': 'Update Entry',
     'entryUpdated': 'Entry updated successfully',
-    'entryDeleted': 'Entry deleted successfully'
+    'entryDeleted': 'Entry deleted successfully',
+    'exportPDF': 'Export PDF',
+    'exportAllEntries': 'Export All Entries',
+    'addUser': 'Add User',
+    'addNewUser': 'Add New User',
+    'createUser': 'Create User',
+    'enterCredentials': ''
   },
   sv: {
     // Navigation
@@ -131,6 +139,8 @@ const translations: Translations = {
     'pending': 'Väntande',
     'inProgress': 'Pågående',
     'completed': 'Slutförd',
+    'invoiced': 'Fakturerad',
+    'paid': 'Betald',
     'cancelled': 'Avbruten',
     
     // Priority
@@ -232,7 +242,13 @@ const translations: Translations = {
     'deleteEntry': 'Ta bort Inlägg',
     'updateEntry': 'Uppdatera Inlägg',
     'entryUpdated': 'Inlägg uppdaterat',
-    'entryDeleted': 'Inlägg borttaget'
+    'entryDeleted': 'Inlägg borttaget',
+    'exportPDF': 'Exportera PDF',
+    'exportAllEntries': 'Exportera alla inlägg',
+    'addUser': 'Lägg till Användare',
+    'addNewUser': 'Lägg till Ny Användare',
+    'createUser': 'Skapa Användare',
+    'enterCredentials': ''
   }
 };
 

@@ -1,33 +1,22 @@
 import { useState } from 'react';
 import { Order } from '@/hooks/useOrdersDB';
 import { useLanguage } from '@/contexts/LanguageContext';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Pencil } from 'lucide-react';
 
 interface EditOrderDialogProps {
   order: Order;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (orderId: string, updates: Partial<Order>) => void;
+  onUpdate: (orderId: string, updates: Partial<Order>) => Promise<void>;
 }
 
-export const EditOrderDialog = ({ order, open, onOpenChange, onSave }: EditOrderDialogProps) => {
+export const EditOrderDialog = ({ order, onUpdate }: EditOrderDialogProps) => {
   const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     title: order.title,
     description: order.description || '',
@@ -39,13 +28,18 @@ export const EditOrderDialog = ({ order, open, onOpenChange, onSave }: EditOrder
     status: order.status,
   });
 
-  const handleSave = () => {
-    onSave(order.id, formData);
-    onOpenChange(false);
+  const handleSave = async () => {
+    await onUpdate(order.id, formData);
+    setOpen(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="icon">
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('editOrder')}</DialogTitle>
@@ -106,6 +100,8 @@ export const EditOrderDialog = ({ order, open, onOpenChange, onSave }: EditOrder
                   <SelectItem value="pending">{t('pending')}</SelectItem>
                   <SelectItem value="in-progress">{t('inProgress')}</SelectItem>
                   <SelectItem value="completed">{t('completed')}</SelectItem>
+                  <SelectItem value="invoiced">{t('invoiced')}</SelectItem>
+                  <SelectItem value="paid">{t('paid')}</SelectItem>
                   <SelectItem value="cancelled">{t('cancelled')}</SelectItem>
                 </SelectContent>
               </Select>
@@ -151,7 +147,7 @@ export const EditOrderDialog = ({ order, open, onOpenChange, onSave }: EditOrder
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => setOpen(false)}>
             {t('cancel')}
           </Button>
           <Button onClick={handleSave}>

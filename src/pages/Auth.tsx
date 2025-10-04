@@ -85,9 +85,6 @@ export default function Auth() {
           <CardTitle className="text-2xl text-center">
             {t('signIn')}
           </CardTitle>
-          <CardDescription className="text-center">
-            {t('enterCredentials')}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignIn} className="space-y-4">

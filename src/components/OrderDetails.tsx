@@ -1,388 +1,245 @@
-import { useState } from 'react';
-import { Order } from '@/hooks/useOrdersDB';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Database } from '@/integrations/supabase/types';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
+import { Order, JournalEntry, Photo } from '@/hooks/useOrdersDB';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { takePhoto, pickImage } from '@/utils/camera';
-import { TimeCalendar } from '@/components/TimeCalendar';
-import { EditOrderDialog } from '@/components/EditOrderDialog';
-import { OrderBasisFiles } from '@/components/OrderBasisFiles';
-import { 
-  ArrowLeft, 
-  Calendar, 
-  MapPin, 
-  User, 
-  FileText, 
-  Send,
-  Edit3,
-  ImagePlus,
-  Edit,
-  Pencil,
-  Trash2
-} from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
-import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { EditOrderDialog } from './EditOrderDialog';
+import { exportJournalEntryToPDF, exportMultipleEntriesToPDF } from '@/utils/pdfExport';
+import { OrderBasisFiles } from './OrderBasisFiles';
+import { TimeCalendar } from './TimeCalendar';
 
 interface OrderDetailsProps {
   order: Order;
   onBack: () => void;
-  onUpdateStatus: (orderId: string, status: Order['status']) => void;
-  onUpdateOrder: (orderId: string, updates: Partial<Order>) => void;
-  onAddJournalEntry: (orderId: string, content: string) => void;
-  onUpdateJournalEntry: (entryId: string, content: string) => void;
-  onDeleteJournalEntry: (entryId: string) => void;
-  onAddPhoto: (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => void;
-  isAdmin: boolean;
+  onUpdate: (orderId: string, updates: Partial<Order>) => Promise<void>;
+  onAddJournalEntry: (orderId: string, content: string) => Promise<void>;
+  onUpdateJournalEntry: (entryId: string, content: string) => Promise<void>;
+  onDeleteJournalEntry: (entryId: string) => Promise<void>;
 }
 
 const statusColors = {
   'pending': 'bg-warning/10 text-warning border-warning/20',
   'in-progress': 'bg-primary/10 text-primary border-primary/20',
   'completed': 'bg-success/10 text-success border-success/20',
-  'cancelled': 'bg-destructive/10 text-destructive border-destructive/20'
+  'cancelled': 'bg-destructive/10 text-destructive border-destructive/20',
+  'invoiced': 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  'paid': 'bg-green-500/10 text-green-500 border-green-500/20'
 };
 
-type JournalEntry = Database['public']['Tables']['journal_entries']['Row'] & {
-  photos?: Database['public']['Tables']['photos']['Row'][];
-};
-
-type Photo = Database['public']['Tables']['photos']['Row'];
-
-type OrderWithRelations = Order & {
-  journal_entries?: JournalEntry[];
-  photos?: Photo[];
-};
-
-export const OrderDetails = ({ 
-  order, 
-  onBack, 
-  onUpdateStatus,
-  onUpdateOrder,
-  onAddJournalEntry,
-  onUpdateJournalEntry,
-  onDeleteJournalEntry,
-  onAddPhoto,
-  isAdmin
-}: OrderDetailsProps) => {
+export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpdateJournalEntry, onDeleteJournalEntry }: OrderDetailsProps) => {
+  const { toast } = useToast();
   const { t } = useLanguage();
-  const [newJournalEntry, setNewJournalEntry] = useState('');
-  const [photoCaption, setPhotoCaption] = useState('');
-  const [journalPhotos, setJournalPhotos] = useState<Photo[]>([]);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<string | null>(null);
-  const [editEntryContent, setEditEntryContent] = useState('');
-  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
+  const [newEntry, setNewEntry] = useState('');
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState('');
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
+  const [entryPhotos, setEntryPhotos] = useState<Record<string, Photo[]>>({});
 
-  const handleAddJournalEntry = () => {
-    if (newJournalEntry.trim()) {
-      onAddJournalEntry(order.id, newJournalEntry.trim());
-      setNewJournalEntry('');
-      setJournalPhotos([]);
+  useEffect(() => {
+    if (order) {
+      fetchJournalEntries();
+    }
+  }, [order?.id]);
+
+  const fetchJournalEntries = async () => {
+    const { data, error } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .eq('order_id', order.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
       toast({
-        title: t('journalEntryAdded'),
-        description: "Your note has been saved."
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
       });
+    } else {
+      setJournalEntries(data || []);
     }
   };
 
-  const handleAddPhotoToJournal = async () => {
+  const fetchAllPhotos = async () => {
+    if (!journalEntries.length) return;
+    
+    const photosMap: Record<string, Photo[]> = {};
+    
+    for (const entry of journalEntries) {
+      const { data, error } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('journal_entry_id', entry.id)
+        .order('created_at', { ascending: false });
+      
+      if (!error && data) {
+        photosMap[entry.id] = data;
+      }
+    }
+    
+    setEntryPhotos(photosMap);
+  };
+
+  useEffect(() => {
+    if (journalEntries.length > 0) {
+      fetchAllPhotos();
+    }
+  }, [journalEntries]);
+
+  const handleAddEntry = async () => {
+    if (!newEntry.trim()) return;
+    
+    await onAddJournalEntry(order.id, newEntry);
+    setNewEntry('');
+    fetchJournalEntries();
+  };
+
+  const handleUpdateEntry = async () => {
+    if (!editingEntryId || !editedContent.trim()) return;
+    
+    await onUpdateJournalEntry(editingEntryId, editedContent);
+    setEditingEntryId(null);
+    setEditedContent('');
+    fetchJournalEntries();
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!deleteEntryId) return;
+    
+    await onDeleteJournalEntry(deleteEntryId);
+    setDeleteEntryId(null);
+    fetchJournalEntries();
+  };
+
+  const downloadPhoto = async (url: string, caption: string | null) => {
     try {
-      const photoUrl = await takePhoto();
-      const newPhoto: Photo = {
-        id: crypto.randomUUID(),
-        url: photoUrl,
-        caption: photoCaption,
-        order_id: order.id,
-        journal_entry_id: null,
-        user_id: order.user_id,
-        created_at: new Date().toISOString()
-      };
-      setJournalPhotos(prev => [...prev, newPhoto]);
-      setPhotoCaption('');
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = caption || 'photo.jpg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       toast({
-        title: t('cameraError'),
-        description: t('unableToAccessCamera'),
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleEditOrder = (orderId: string, updates: Partial<Order>) => {
-    onUpdateOrder(orderId, updates);
-    toast({
-      title: t('success'),
-      description: t('orderUpdated')
-    });
-  };
-
-  const handleEditEntry = (entryId: string, content: string) => {
-    setEditingEntry(entryId);
-    setEditEntryContent(content);
-  };
-
-  const handleUpdateEntry = () => {
-    if (editingEntry && editEntryContent.trim()) {
-      onUpdateJournalEntry(editingEntry, editEntryContent.trim());
-      setEditingEntry(null);
-      setEditEntryContent('');
-      toast({
-        title: t('success'),
-        description: t('entryUpdated')
-      });
-    }
-  };
-
-  const handleDeleteEntry = () => {
-    if (entryToDelete) {
-      onDeleteJournalEntry(entryToDelete);
-      setEntryToDelete(null);
-      toast({
-        title: t('success'),
-        description: t('entryDeleted')
+        title: t('error'),
+        description: 'Failed to download photo',
+        variant: 'destructive',
       });
     }
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border/50 p-4 z-10">
-        <div className="flex items-center gap-4 mb-4">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {t('back')}
+    <div className="space-y-6 p-4">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-foreground">{order.title}</h2>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title)}
+            disabled={journalEntries.length === 0}
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            {t('exportAllEntries')}
           </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold text-foreground truncate">{order.title}</h1>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <Badge className={`${statusColors[order.status]} text-sm font-medium`}>
-            {order.status.replace('-', ' ')}
-          </Badge>
-          <div className="flex gap-2">
-            {/* Status Progression Buttons */}
-            {order.status === 'pending' && (
-              <>
-                <Button 
-                  size="sm" 
-                  onClick={() => onUpdateStatus(order.id, 'in-progress')}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  Start Work
-                </Button>
-                <Button 
-                  size="sm" 
-                  onClick={() => onUpdateStatus(order.id, 'cancelled')}
-                  variant="outline"
-                  className="border-destructive text-destructive hover:bg-destructive/10"
-                >
-                  Cancel
-                </Button>
-              </>
-            )}
-            {order.status === 'in-progress' && (
-              <>
-                <Button 
-                  size="sm" 
-                  onClick={() => onUpdateStatus(order.id, 'pending')}
-                  variant="outline"
-                >
-                  Back to Pending
-                </Button>
-                <Button 
-                  size="sm" 
-                  onClick={() => onUpdateStatus(order.id, 'completed')}
-                  className="bg-success hover:bg-success/90"
-                >
-                  Complete
-                </Button>
-              </>
-            )}
-            {order.status === 'completed' && (
-              <Button 
-                size="sm" 
-                onClick={() => onUpdateStatus(order.id, 'in-progress')}
-                variant="outline"
-              >
-                Reopen
-              </Button>
-            )}
-            {order.status === 'cancelled' && (
-              <Button 
-                size="sm" 
-                onClick={() => onUpdateStatus(order.id, 'pending')}
-                variant="outline"
-              >
-                Restore
-              </Button>
-            )}
-          </div>
+          <EditOrderDialog order={order} onUpdate={onUpdate} />
         </div>
       </div>
-      
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Order Info */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Edit3 className="h-5 w-5" />
-                {t('orderInformation')}
-              </CardTitle>
-              <Button size="sm" variant="outline" onClick={() => setEditDialogOpen(true)}>
-                <Edit className="h-4 w-4 mr-2" />
-                {t('edit')}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">{order.description}</p>
-            
-            <div className="grid grid-cols-1 gap-3">
-              {order.customer && (
-                <div className="flex items-center gap-3">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{order.customer}</span>
-                    {order.customer_ref && (
-                      <span className="text-xs text-muted-foreground">Ref: {order.customer_ref}</span>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {order.location && (
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{order.location}</span>
-                </div>
-              )}
-              
-              {order.due_date && (
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">Due {format(new Date(order.due_date), 'MMMM dd, yyyy')}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Journal Entries */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Journal Entries ({(order as OrderWithRelations).journal_entries?.length || 0})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Add new entry with photo support */}
-            <div className="space-y-3">
-              <Label htmlFor="journal-entry">{t('addNote')}</Label>
-              <Textarea
-                id="journal-entry"
-                placeholder="Write your notes, observations, or updates..."
-                value={newJournalEntry}
-                onChange={(e) => setNewJournalEntry(e.target.value)}
-                className="min-h-[80px]"
-              />
-              
-              {/* Photo caption for journal photos */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder={t('photoCaption')}
-                  value={photoCaption}
-                  onChange={(e) => setPhotoCaption(e.target.value)}
-                  className="flex-1"
-                />
-                <Button 
-                  onClick={handleAddPhotoToJournal}
-                  size="sm"
-                  variant="outline"
-                  type="button"
-                >
-                  <ImagePlus className="h-4 w-4" />
-                </Button>
+      <div className="flex items-center gap-2">
+        <Badge className={`${statusColors[order.status]} text-sm`}>
+          {order.status.replace('-', ' ')}
+        </Badge>
+        <Badge variant="outline" className="text-sm">
+          {order.priority}
+        </Badge>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('orderInformation')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {order.description && <p className="text-muted-foreground">{order.description}</p>}
+          
+          {order.customer && (
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <div>
+                <span>{order.customer}</span>
+                {order.customer_ref && <span className="text-sm text-muted-foreground ml-2">Ref: {order.customer_ref}</span>}
               </div>
-              
-              {/* Preview photos to be attached */}
-              {journalPhotos.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">Photos to attach:</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {journalPhotos.map((photo) => (
-                      <div key={photo.id} className="relative">
-                        <img 
-                          src={photo.url} 
-                          alt={photo.caption || 'Preview'}
-                          className="w-full h-16 object-cover rounded border border-border/30"
-                        />
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
-                          onClick={() => setJournalPhotos(prev => prev.filter(p => p.id !== photo.id))}
-                        >
-                          ×
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <Button 
-                onClick={handleAddJournalEntry}
-                disabled={!newJournalEntry.trim()}
-                size="sm"
-                className="w-full"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {t('addEntry')}
-              </Button>
             </div>
-            
-            {/* Entries list with photos */}
-            <div className="space-y-3">
-              {((order as OrderWithRelations).journal_entries || []).map((entry) => (
-                <div key={entry.id} className="p-3 bg-muted/50 rounded-lg border border-border/30">
-                  {editingEntry === entry.id ? (
+          )}
+          
+          {order.location && (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              <span>{order.location}</span>
+            </div>
+          )}
+          
+          {order.due_date && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span>Due {format(new Date(order.due_date), 'MMM dd, yyyy')}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <OrderBasisFiles orderId={order.id} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('journalEntries')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Textarea
+              placeholder={t('addNote')}
+              value={newEntry}
+              onChange={(e) => setNewEntry(e.target.value)}
+              className="min-h-[100px]"
+            />
+            <Button onClick={handleAddEntry} disabled={!newEntry.trim()}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('addEntry')}
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {journalEntries.map((entry) => (
+              <Card key={entry.id}>
+                <CardContent className="pt-4">
+                  {editingEntryId === entry.id ? (
                     <div className="space-y-2">
                       <Textarea
-                        value={editEntryContent}
-                        onChange={(e) => setEditEntryContent(e.target.value)}
-                        className="min-h-[80px]"
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        className="min-h-[100px]"
                       />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={handleUpdateEntry}>
-                          {t('updateEntry')}
+                          {t('save')}
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => {
-                            setEditingEntry(null);
-                            setEditEntryContent('');
+                            setEditingEntryId(null);
+                            setEditedContent('');
                           }}
                         >
                           {t('cancel')}
@@ -391,83 +248,88 @@ export const OrderDetails = ({
                     </div>
                   ) : (
                     <>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <p className="text-sm flex-1">{entry.content}</p>
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEditEntry(entry.id, entry.content)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEntryToDelete(entry.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                      <p className="text-foreground whitespace-pre-wrap mb-4">{entry.content}</p>
+                      
+                      {/* Photos for this entry */}
+                      {entryPhotos[entry.id] && entryPhotos[entry.id].length > 0 && (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                          {entryPhotos[entry.id].map((photo) => (
+                            <div key={photo.id} className="relative group">
+                              <img
+                                src={photo.url}
+                                alt={photo.caption || 'Journal photo'}
+                                className="w-full h-32 object-cover rounded-lg"
+                              />
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => downloadPhoto(photo.url, photo.caption)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              {photo.caption && (
+                                <p className="text-xs text-muted-foreground mt-1">{photo.caption}</p>
+                              )}
+                            </div>
+                          ))}
                         </div>
+                      )}
+                      
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => exportJournalEntryToPDF(entry, order.title)}
+                        >
+                          <FileDown className="h-4 w-4 mr-1" />
+                          {t('exportPDF')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingEntryId(entry.id);
+                            setEditedContent(entry.content);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />
+                          {t('edit')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteEntryId(entry.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          {t('delete')}
+                        </Button>
                       </div>
+
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {format(new Date(entry.created_at), 'MMM dd, yyyy at hh:mm a')}
+                      </p>
                     </>
                   )}
-                  
-                  {/* Entry photos */}
-                  {entry.photos && entry.photos.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        {entry.photos.map((photo) => (
-                          <div key={photo.id} className="space-y-1">
-                            <img 
-                              src={photo.url} 
-                              alt={photo.caption || 'Journal photo'}
-                              className="w-full h-20 object-cover rounded border border-border/30"
-                            />
-                            {photo.caption && (
-                              <p className="text-xs text-muted-foreground">{photo.caption}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {format(new Date(entry.created_at), 'MMM dd, yyyy at hh:mm a')}
-                  </p>
-                </div>
-              ))}
-              
-              {((order as OrderWithRelations).journal_entries?.length || 0) === 0 && (
-                <p className="text-muted-foreground text-sm text-center py-4">
-                  No journal entries yet. Add your first note above.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            ))}
 
-        {/* Time Calendar */}
-        <TimeCalendar orderId={order.id} />
+            {journalEntries.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No journal entries yet</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Order Basis Files */}
-        <OrderBasisFiles orderId={order.id} />
-      </div>
-      
-      <EditOrderDialog
-        order={order}
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        onSave={handleEditOrder}
-      />
+      <TimeCalendar orderId={order.id} />
 
-      <AlertDialog open={!!entryToDelete} onOpenChange={() => setEntryToDelete(null)}>
+      <AlertDialog open={!!deleteEntryId} onOpenChange={() => setDeleteEntryId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('confirmDelete')}</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteEntry')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The journal entry will be permanently deleted.
+              This action cannot be undone. This will permanently delete the journal entry.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

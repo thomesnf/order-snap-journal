@@ -130,13 +130,10 @@ const Index = () => {
         <OrderDetails
           order={selectedOrder}
           onBack={handleBack}
-          onUpdateStatus={handleUpdateStatus}
-          onUpdateOrder={handleUpdateOrder}
+          onUpdate={handleUpdateOrder}
           onAddJournalEntry={handleAddJournalEntry}
           onUpdateJournalEntry={handleUpdateJournalEntry}
           onDeleteJournalEntry={handleDeleteJournalEntry}
-          onAddPhoto={handleAddPhoto}
-          isAdmin={isAdmin}
         />
       )}
       
