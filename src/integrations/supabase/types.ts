@@ -194,18 +194,21 @@ export type Database = {
       }
       settings: {
         Row: {
+          app_logo_url: string | null
           company_logo_url: string | null
           created_at: string
           id: string
           updated_at: string
         }
         Insert: {
+          app_logo_url?: string | null
           company_logo_url?: string | null
           created_at?: string
           id?: string
           updated_at?: string
         }
         Update: {
+          app_logo_url?: string | null
           company_logo_url?: string | null
           created_at?: string
           id?: string

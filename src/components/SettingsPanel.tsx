@@ -20,6 +20,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const { language, setLanguage, t } = useLanguage();
   const { toast } = useToast();
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [appLogoUrl, setAppLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -45,16 +46,19 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const fetchCompanyLogo = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url')
+      .select('company_logo_url, app_logo_url')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
     if (data?.company_logo_url) {
       setCompanyLogoUrl(data.company_logo_url);
     }
+    if (data?.app_logo_url) {
+      setAppLogoUrl(data.app_logo_url);
+    }
   };
 
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>, logoType: 'app' | 'pdf') => {
     try {
       setUploading(true);
       const file = event.target.files?.[0];
@@ -62,7 +66,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
 
       // Upload to storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `company-logo.${fileExt}`;
+      const fileName = logoType === 'app' ? `app-logo.${fileExt}` : `pdf-logo.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -77,17 +81,23 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         .getPublicUrl(filePath);
 
       // Update settings
+      const updateField = logoType === 'app' ? 'app_logo_url' : 'company_logo_url';
       const { error: updateError } = await supabase
         .from('settings')
-        .update({ company_logo_url: publicUrl })
+        .update({ [updateField]: publicUrl })
         .eq('id', '00000000-0000-0000-0000-000000000001');
 
       if (updateError) throw updateError;
 
-      setCompanyLogoUrl(publicUrl);
+      if (logoType === 'app') {
+        setAppLogoUrl(publicUrl);
+      } else {
+        setCompanyLogoUrl(publicUrl);
+      }
+      
       toast({
         title: "Success",
-        description: "Company logo updated successfully",
+        description: `${logoType === 'app' ? 'App' : 'PDF'} logo updated successfully`,
       });
     } catch (error: any) {
       toast({
@@ -176,34 +186,73 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
-                Company Logo
+                Company Logos
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {companyLogoUrl && (
-                  <div className="flex justify-center p-4 bg-muted rounded-lg">
-                    <img 
-                      src={companyLogoUrl} 
-                      alt="Company Logo" 
-                      className="max-h-32 max-w-full object-contain"
+              <div className="space-y-6">
+                {/* App Logo */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="font-semibold">App Logo</h3>
+                  </div>
+                  {appLogoUrl && (
+                    <div className="flex justify-center p-4 bg-muted rounded-lg">
+                      <img 
+                        src={appLogoUrl} 
+                        alt="App Logo" 
+                        className="max-h-32 max-w-full object-contain"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="app-logo-upload" className="text-base mb-2 block">
+                      Upload App Logo
+                    </Label>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      This logo will appear in the app header and navigation
+                    </p>
+                    <Input
+                      id="app-logo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleLogoUpload(e, 'app')}
+                      disabled={uploading}
                     />
                   </div>
-                )}
-                <div>
-                  <Label htmlFor="logo-upload" className="text-base mb-2 block">
-                    Upload Company Logo
-                  </Label>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    This logo will appear on PDFs, login page, and the main page
-                  </p>
-                  <Input
-                    id="logo-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    disabled={uploading}
-                  />
+                </div>
+
+                {/* PDF Logo */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="font-semibold">PDF Export Logo</h3>
+                  </div>
+                  {companyLogoUrl && (
+                    <div className="flex justify-center p-4 bg-muted rounded-lg">
+                      <img 
+                        src={companyLogoUrl} 
+                        alt="PDF Logo" 
+                        className="max-h-32 max-w-full object-contain"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="pdf-logo-upload" className="text-base mb-2 block">
+                      Upload PDF Logo
+                    </Label>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      This logo will appear on exported PDF documents
+                    </p>
+                    <Input
+                      id="pdf-logo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleLogoUpload(e, 'pdf')}
+                      disabled={uploading}
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
