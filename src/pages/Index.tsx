@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 
 const Index = () => {
-  const { orders, addOrder, updateOrder, deleteOrder, addJournalEntry, updateJournalEntry, deleteJournalEntry, addPhoto, getOrderWithDetails } = useOrdersDB();
+  const { orders, addOrder, updateOrder, deleteOrder, addSummaryEntry, updateSummaryEntry, deleteSummaryEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry, addPhoto, getOrderWithDetails } = useOrdersDB();
   const { isAdmin } = useAuth();
   const { t } = useLanguage();
   const [currentView, setCurrentView] = useState<View>('list');
@@ -71,6 +71,34 @@ const Index = () => {
       setCurrentView('details');
     } catch (error) {
       console.error('Error creating order:', error);
+    }
+  };
+
+  const handleAddSummaryEntry = async (orderId: string, content: string) => {
+    await addSummaryEntry(orderId, content);
+    const updatedOrder = await getOrderWithDetails(orderId);
+    if (updatedOrder) {
+      setSelectedOrder(updatedOrder);
+    }
+  };
+
+  const handleUpdateSummaryEntry = async (entryId: string, content: string) => {
+    await updateSummaryEntry(entryId, content);
+    if (selectedOrder) {
+      const updatedOrder = await getOrderWithDetails(selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  };
+
+  const handleDeleteSummaryEntry = async (entryId: string) => {
+    await deleteSummaryEntry(entryId);
+    if (selectedOrder) {
+      const updatedOrder = await getOrderWithDetails(selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
     }
   };
 
@@ -150,6 +178,9 @@ const Index = () => {
           order={selectedOrder}
           onBack={handleBack}
           onUpdate={handleUpdateOrder}
+          onAddSummaryEntry={handleAddSummaryEntry}
+          onUpdateSummaryEntry={handleUpdateSummaryEntry}
+          onDeleteSummaryEntry={handleDeleteSummaryEntry}
           onAddJournalEntry={handleAddJournalEntry}
           onUpdateJournalEntry={handleUpdateJournalEntry}
           onDeleteJournalEntry={handleDeleteJournalEntry}

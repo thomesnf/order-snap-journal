@@ -31,6 +31,14 @@ export interface Order {
   time_entries?: TimeEntry[];
 }
 
+export interface SummaryEntry {
+  id: string;
+  order_id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+}
+
 export interface JournalEntry {
   id: string;
   order_id: string;
@@ -243,6 +251,99 @@ export const useOrdersDB = () => {
     }
   };
 
+  const addSummaryEntry = async (orderId: string, content: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('summary_entries')
+        .insert([{
+          order_id: orderId,
+          content,
+          user_id: user.id
+        }]);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Summary entry added",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateSummaryEntry = async (entryId: string, content: string) => {
+    try {
+      const { error } = await supabase
+        .from('summary_entries')
+        .update({ content })
+        .eq('id', entryId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Summary entry updated",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteSummaryEntry = async (entryId: string) => {
+    try {
+      const { error } = await supabase
+        .from('summary_entries')
+        .delete()
+        .eq('id', entryId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Summary entry deleted",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getSummaryEntries = async (orderId: string): Promise<SummaryEntry[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('summary_entries')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      return [];
+    }
+  };
+
+
   const addPhoto = async (orderId: string | null, journalEntryId: string | null, url: string, caption?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -375,6 +476,10 @@ export const useOrdersDB = () => {
     addOrder,
     updateOrder,
     deleteOrder,
+    addSummaryEntry,
+    updateSummaryEntry,
+    deleteSummaryEntry,
+    getSummaryEntries,
     addJournalEntry,
     updateJournalEntry,
     deleteJournalEntry,

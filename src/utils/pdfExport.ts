@@ -63,7 +63,7 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   if (!printWindow) return;
 
   const t = translations[language];
-  const date = new Date(entry.created_at).toLocaleString();
+  const date = new Date(entry.created_at).toLocaleDateString();
   
   const logoHTML = logoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
   
@@ -220,7 +220,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
   `;
 
   const entriesHTML = entries.map(entry => {
-    const date = new Date(entry.created_at).toLocaleString();
+    const date = new Date(entry.created_at).toLocaleDateString();
     const photos = entryPhotos?.[entry.id] || [];
     const photosHTML = photos.length > 0 ? `
       <div class="entry-photos">

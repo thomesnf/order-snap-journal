@@ -15,6 +15,7 @@ const mockOrders: Order[] = [
     created_at: new Date('2024-01-15'),
     updated_at: new Date('2024-01-16'),
     due_date: new Date('2024-01-20'),
+    summary_entries: [],
     journal_entries: [
       {
         id: '1',
@@ -38,6 +39,7 @@ const mockOrders: Order[] = [
     created_at: new Date('2024-01-10'),
     updated_at: new Date('2024-01-10'),
     due_date: new Date('2024-01-25'),
+    summary_entries: [],
     journal_entries: [],
     photos: []
   }
@@ -47,12 +49,13 @@ export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [loading, setLoading] = useState(false);
 
-  const addOrder = (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'journal_entries' | 'photos'>) => {
+  const addOrder = (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'summary_entries' | 'journal_entries' | 'photos'>) => {
     const newOrder: Order = {
       ...orderData,
       id: Date.now().toString(),
       created_at: new Date(),
       updated_at: new Date(),
+      summary_entries: [],
       journal_entries: [],
       photos: []
     };

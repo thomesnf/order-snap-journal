@@ -11,8 +11,16 @@ export interface Order {
   customer?: string;
   customer_ref?: string;
   location?: string;
+  summary_entries: SummaryEntry[];
   journal_entries: JournalEntry[];
   photos: Photo[];
+}
+
+export interface SummaryEntry {
+  id: string;
+  content: string;
+  created_at: Date;
+  order_id: string;
 }
 
 export interface JournalEntry {

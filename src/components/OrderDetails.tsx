@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Order, JournalEntry, Photo } from '@/hooks/useOrdersDB';
+import { Order, JournalEntry, Photo, SummaryEntry } from '@/hooks/useOrdersDB';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,9 @@ interface OrderDetailsProps {
   order: Order;
   onBack: () => void;
   onUpdate: (orderId: string, updates: Partial<Order>) => Promise<void>;
+  onAddSummaryEntry: (orderId: string, content: string) => Promise<void>;
+  onUpdateSummaryEntry: (entryId: string, content: string) => Promise<void>;
+  onDeleteSummaryEntry: (entryId: string) => Promise<void>;
   onAddJournalEntry: (orderId: string, content: string) => Promise<void>;
   onUpdateJournalEntry: (entryId: string, content: string) => Promise<void>;
   onDeleteJournalEntry: (entryId: string) => Promise<void>;
@@ -34,9 +37,14 @@ const statusColors = {
   'paid': 'bg-green-500/10 text-green-500 border-green-500/20'
 };
 
-export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpdateJournalEntry, onDeleteJournalEntry }: OrderDetailsProps) => {
+export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpdateSummaryEntry, onDeleteSummaryEntry, onAddJournalEntry, onUpdateJournalEntry, onDeleteJournalEntry }: OrderDetailsProps) => {
   const { toast } = useToast();
   const { t, language } = useLanguage();
+  const [newSummaryEntry, setNewSummaryEntry] = useState('');
+  const [summaryEntries, setSummaryEntries] = useState<SummaryEntry[]>([]);
+  const [editingSummaryId, setEditingSummaryId] = useState<string | null>(null);
+  const [editedSummaryContent, setEditedSummaryContent] = useState('');
+  const [deleteSummaryId, setDeleteSummaryId] = useState<string | null>(null);
   const [newEntry, setNewEntry] = useState('');
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -48,10 +56,30 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
 
   useEffect(() => {
     if (order) {
+      fetchSummaryEntries();
       fetchJournalEntries();
     }
     fetchCompanyLogo();
   }, [order?.id]);
+
+  const fetchSummaryEntries = async () => {
+    const { data, error } = await supabase
+      .from('summary_entries')
+      .select('*')
+      .eq('order_id', order.id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      toast({
+        title: t('error'),
+        description: 'Failed to fetch summary entries',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSummaryEntries(data || []);
+  };
 
   const fetchCompanyLogo = async () => {
     const { data } = await supabase
@@ -108,6 +136,32 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
       fetchAllPhotos();
     }
   }, [journalEntries]);
+
+
+  const handleAddSummaryEntry = async () => {
+    if (!newSummaryEntry.trim()) return;
+    
+    await onAddSummaryEntry(order.id, newSummaryEntry);
+    setNewSummaryEntry('');
+    fetchSummaryEntries();
+  };
+
+  const handleUpdateSummaryEntry = async () => {
+    if (!editingSummaryId || !editedSummaryContent.trim()) return;
+    
+    await onUpdateSummaryEntry(editingSummaryId, editedSummaryContent);
+    setEditingSummaryId(null);
+    setEditedSummaryContent('');
+    fetchSummaryEntries();
+  };
+
+  const handleDeleteSummaryEntry = async () => {
+    if (!deleteSummaryId) return;
+    
+    await onDeleteSummaryEntry(deleteSummaryId);
+    setDeleteSummaryId(null);
+    fetchSummaryEntries();
+  };
 
   const handleAddEntry = async () => {
     if (!newEntry.trim()) return;
@@ -274,18 +328,84 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
         </CardContent>
       </Card>
 
-      {order.summary && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('summary')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-foreground whitespace-pre-wrap">{order.summary}</p>
-          </CardContent>
-        </Card>
-      )}
-
       <OrderBasisFiles orderId={order.id} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('summary')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Textarea
+              placeholder="Add summary entry..."
+              value={newSummaryEntry}
+              onChange={(e) => setNewSummaryEntry(e.target.value)}
+              className="min-h-[80px]"
+            />
+            <Button onClick={handleAddSummaryEntry} disabled={!newSummaryEntry.trim()}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('addEntry')}
+            </Button>
+          </div>
+
+          {summaryEntries.map((entry) => (
+            <div key={entry.id} className="p-4 bg-muted/50 rounded-lg space-y-2">
+              {editingSummaryId === entry.id ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={editedSummaryContent}
+                    onChange={(e) => setEditedSummaryContent(e.target.value)}
+                    className="min-h-[80px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={handleUpdateSummaryEntry} size="sm">
+                      {t('save')}
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        setEditingSummaryId(null);
+                        setEditedSummaryContent('');
+                      }} 
+                      variant="outline" 
+                      size="sm"
+                    >
+                      {t('cancel')}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between items-start">
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(entry.created_at), 'MMM dd, yyyy')}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingSummaryId(entry.id);
+                          setEditedSummaryContent(entry.content);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteSummaryId(entry.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-foreground whitespace-pre-wrap">{entry.content}</p>
+                </>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -417,6 +537,23 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddJournalEntry, onUpd
       </Card>
 
       <TimeCalendar orderId={order.id} />
+
+      <AlertDialog open={!!deleteSummaryId} onOpenChange={() => setDeleteSummaryId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Summary Entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the summary entry.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSummaryEntry}>
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteEntryId} onOpenChange={() => setDeleteEntryId(null)}>
         <AlertDialogContent>
