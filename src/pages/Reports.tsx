@@ -19,11 +19,18 @@ const Reports = () => {
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
-  const [hourlyRate, setHourlyRate] = useState<number>(0);
+  const [hourlyRate, setHourlyRate] = useState<number>(() => {
+    const saved = localStorage.getItem('hourlyRate');
+    return saved ? parseFloat(saved) : 0;
+  });
 
   useEffect(() => {
     fetchTimeEntries();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('hourlyRate', hourlyRate.toString());
+  }, [hourlyRate]);
 
   const fetchTimeEntries = async () => {
     const { data, error } = await supabase
@@ -217,7 +224,7 @@ const Reports = () => {
             </div>
 
             <div className="flex-1 min-w-[200px]">
-              <Label>Hourly Rate (for invoices)</Label>
+              <Label>Timpris (SEK)</Label>
               <Input
                 type="number"
                 placeholder="0.00"

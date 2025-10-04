@@ -28,7 +28,7 @@ export const generateInvoice = ({
   // Header
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.text('INVOICE', pageWidth / 2, 20, { align: 'center' });
+  doc.text('FAKTURA', pageWidth / 2, 20, { align: 'center' });
   
   // Company info
   doc.setFontSize(10);
@@ -40,17 +40,17 @@ export const generateInvoice = ({
   
   // Invoice details
   doc.setFont('helvetica', 'bold');
-  doc.text('Invoice Details', 20, 65);
+  doc.text('Fakturadetaljer', 20, 65);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Order ID: ${order.id.substring(0, 8)}`, 20, 72);
-  doc.text(`Date: ${format(new Date(), 'MM/dd/yyyy')}`, 20, 77);
-  doc.text(`Order Title: ${order.title}`, 20, 82);
+  doc.text(`Order-ID: ${order.id.substring(0, 8)}`, 20, 72);
+  doc.text(`Datum: ${format(new Date(), 'yyyy-MM-dd')}`, 20, 77);
+  doc.text(`Ordertitel: ${order.title}`, 20, 82);
   
   // Customer info
   doc.setFont('helvetica', 'bold');
-  doc.text('Bill To:', 120, 65);
+  doc.text('Fakturera till:', 120, 65);
   doc.setFont('helvetica', 'normal');
-  doc.text(order.customer || 'Customer Name', 120, 72);
+  doc.text(order.customer || 'Kundnamn', 120, 72);
   if (order.customer_ref) {
     doc.text(`Ref: ${order.customer_ref}`, 120, 77);
   }
@@ -61,17 +61,17 @@ export const generateInvoice = ({
   // Time entries table
   if (timeEntries.length > 0) {
     const tableData = timeEntries.map(entry => [
-      format(new Date(entry.work_date), 'MM/dd/yyyy'),
+      format(new Date(entry.work_date), 'yyyy-MM-dd'),
       entry.technician_name,
       entry.hours_worked.toString(),
-      hourlyRate > 0 ? `$${hourlyRate.toFixed(2)}` : '-',
-      hourlyRate > 0 ? `$${(entry.hours_worked * hourlyRate).toFixed(2)}` : '-',
+      hourlyRate > 0 ? `${hourlyRate.toFixed(2)} kr` : '-',
+      hourlyRate > 0 ? `${(entry.hours_worked * hourlyRate).toFixed(2)} kr` : '-',
       entry.notes || '-'
     ]);
     
     autoTable(doc, {
       startY: 95,
-      head: [['Date', 'Technician', 'Hours', 'Rate', 'Amount', 'Notes']],
+      head: [['Datum', 'Tekniker', 'Timmar', 'Timpris', 'Belopp', 'Anteckningar']],
       body: tableData,
       theme: 'striped',
       headStyles: { fillColor: [66, 66, 66] }
@@ -84,8 +84,8 @@ export const generateInvoice = ({
       
       const finalY = (doc as any).lastAutoTable.finalY + 10;
       doc.setFont('helvetica', 'bold');
-      doc.text(`Total Hours: ${totalHours.toFixed(2)}`, pageWidth - 70, finalY);
-      doc.text(`Total Amount: $${totalAmount.toFixed(2)}`, pageWidth - 70, finalY + 7);
+      doc.text(`Totalt antal timmar: ${totalHours.toFixed(2)}`, pageWidth - 70, finalY);
+      doc.text(`Totalt belopp: ${totalAmount.toFixed(2)} kr`, pageWidth - 70, finalY + 7);
     }
   }
   
@@ -93,7 +93,7 @@ export const generateInvoice = ({
   const pageHeight = doc.internal.pageSize.getHeight();
   doc.setFontSize(8);
   doc.setFont('helvetica', 'italic');
-  doc.text('Thank you for your business!', pageWidth / 2, pageHeight - 20, { align: 'center' });
+  doc.text('Tack för din beställning!', pageWidth / 2, pageHeight - 20, { align: 'center' });
   
   // Save the PDF
   doc.save(`invoice_${order.id.substring(0, 8)}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
