@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      customers: {
+        Row: {
+          created_at: string
+          customer_name: string
+          customer_ref: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          customer_ref?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          customer_ref?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       journal_entries: {
         Row: {
           content: string
@@ -89,6 +113,7 @@ export type Database = {
         Row: {
           created_at: string
           customer: string | null
+          customer_id: string | null
           customer_ref: string | null
           deleted_at: string | null
           deleted_by: string | null
@@ -106,6 +131,7 @@ export type Database = {
         Insert: {
           created_at?: string
           customer?: string | null
+          customer_id?: string | null
           customer_ref?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -123,6 +149,7 @@ export type Database = {
         Update: {
           created_at?: string
           customer?: string | null
+          customer_id?: string | null
           customer_ref?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -138,6 +165,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_deleted_by_fkey"
             columns: ["deleted_by"]

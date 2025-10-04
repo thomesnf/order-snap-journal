@@ -146,7 +146,8 @@ const translations: Translations = {
     'setCancelled': 'Set to Cancelled',
     'updated': 'Updated',
     'due': 'Due',
-    'ref': 'Ref'
+    'ref': 'Ref',
+    'customerInfoRestricted': 'Customer information is only visible to administrators for security purposes.'
   },
   sv: {
     // Navigation
@@ -286,7 +287,8 @@ const translations: Translations = {
     'setCancelled': 'Sätt till Avbruten',
     'updated': 'Uppdaterad',
     'due': 'Förfaller',
-    'ref': 'Ref'
+    'ref': 'Ref',
+    'customerInfoRestricted': 'Kundinformation är endast synlig för administratörer av säkerhetsskäl.'
   }
 };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Order, JournalEntry, Photo, SummaryEntry } from '@/hooks/useOrdersDB';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ const statusColors = {
 export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpdateSummaryEntry, onDeleteSummaryEntry, onAddJournalEntry, onUpdateJournalEntry, onDeleteJournalEntry }: OrderDetailsProps) => {
   const { toast } = useToast();
   const { t, language } = useLanguage();
+  const { isAdmin } = useAuth();
   const [newSummaryEntry, setNewSummaryEntry] = useState('');
   const [summaryEntries, setSummaryEntries] = useState<SummaryEntry[]>([]);
   const [editingSummaryId, setEditingSummaryId] = useState<string | null>(null);
@@ -324,13 +326,20 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
         <CardContent className="space-y-3">
           {order.description && <p className="text-muted-foreground">{order.description}</p>}
           
-          {order.customer && (
+          {isAdmin && order.customer && (
             <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <div>
                 <span>{order.customer}</span>
-                {order.customer_ref && <span className="text-sm text-muted-foreground ml-2">Ref: {order.customer_ref}</span>}
+                {order.customer_ref && <span className="text-sm text-muted-foreground ml-2">{t('ref')}: {order.customer_ref}</span>}
               </div>
+            </div>
+          )}
+          
+          {!isAdmin && (order.customer || order.customer_ref) && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground italic">
+              <User className="h-3 w-3" />
+              <span>{t('customerInfoRestricted')}</span>
             </div>
           )}
           
