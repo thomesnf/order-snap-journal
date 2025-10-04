@@ -208,12 +208,8 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
     <div class="summary-entries-section">
       <h2>${t.summaryEntries}</h2>
       ${summaryEntries.map(entry => {
-        const date = formatDate(entry.created_at, dateFormat);
         return `
           <div class="summary-entry">
-            <div class="entry-header">
-              <strong>${t.entryDate}:</strong> ${date}
-            </div>
             <div class="entry-content">
               ${entry.content.replace(/\n/g, '<br>')}
             </div>
