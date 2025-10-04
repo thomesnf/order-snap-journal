@@ -214,6 +214,8 @@ export const useOrdersDB = () => {
         updateData.created_at = created_at.toISOString();
       }
 
+      console.log('Updating journal entry in DB:', entryId, updateData);
+
       const { error } = await supabase
         .from('journal_entries')
         .update(updateData)
@@ -221,11 +223,14 @@ export const useOrdersDB = () => {
 
       if (error) throw error;
       
+      console.log('Journal entry updated successfully');
+      
       toast({
         title: "Success",
         description: "Journal entry updated",
       });
     } catch (error: any) {
+      console.error('Error updating journal entry:', error);
       toast({
         title: "Error",
         description: error.message,
