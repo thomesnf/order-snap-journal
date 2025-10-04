@@ -30,7 +30,7 @@ export const OrderList = ({
 }: OrderListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -66,6 +66,9 @@ export const OrderList = ({
           ) : (
             <h1 className="text-2xl font-bold text-foreground">Orders</h1>
           )}
+          <div className="flex-1 flex justify-center">
+            <p className="text-sm font-medium text-foreground">{user?.email}</p>
+          </div>
           <div className="flex items-center gap-2">
             <Button onClick={onShowSettings} variant="outline" size="sm">
               <Settings className="h-4 w-4" />
