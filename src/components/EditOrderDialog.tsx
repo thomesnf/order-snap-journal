@@ -8,6 +8,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pencil } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const orderSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
+  description: z.string().trim().max(2000, 'Description must be less than 2000 characters').optional(),
+  summary: z.string().trim().max(1000, 'Summary must be less than 1000 characters').optional(),
+  customer: z.string().trim().max(200, 'Customer name must be less than 200 characters').optional(),
+  customer_ref: z.string().trim().max(100, 'Customer reference must be less than 100 characters').optional(),
+  location: z.string().trim().max(300, 'Location must be less than 300 characters').optional(),
+});
 
 interface EditOrderDialogProps {
   order: Order;
@@ -30,8 +41,32 @@ export const EditOrderDialog = ({ order, onUpdate }: EditOrderDialogProps) => {
   });
 
   const handleSave = async () => {
-    await onUpdate(order.id, formData);
-    setOpen(false);
+    try {
+      // Validate form data
+      const validatedData = orderSchema.parse(formData);
+      
+      await onUpdate(order.id, validatedData);
+      toast({
+        title: t('success'),
+        description: t('orderUpdated'),
+      });
+      setOpen(false);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const firstError = error.errors[0];
+        toast({
+          title: t('error'),
+          description: firstError.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: t('error'),
+          description: t('failedToUpdateOrder'),
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   return (
