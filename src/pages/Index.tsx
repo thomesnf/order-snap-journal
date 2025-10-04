@@ -8,6 +8,7 @@ import { CreateOrderForm } from '@/components/CreateOrderForm';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import AdminPanel from '@/components/AdminPanel';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 
@@ -162,8 +163,46 @@ const Index = () => {
     }
   };
 
-  const handleChangeAssignment = async (orderId: string, newUserId: string) => {
-    await updateOrder(orderId, { user_id: newUserId } as Partial<Order>);
+  const handleChangeAssignments = async (orderId: string, userIds: string[]) => {
+    try {
+      // First, get current assignments
+      const { data: currentAssignments } = await supabase
+        .from('order_assignments')
+        .select('user_id')
+        .eq('order_id', orderId);
+      
+      const currentUserIds = currentAssignments?.map(a => a.user_id) || [];
+      
+      // Remove users that are no longer assigned
+      const toRemove = currentUserIds.filter(id => !userIds.includes(id));
+      if (toRemove.length > 0) {
+        await supabase
+          .from('order_assignments')
+          .delete()
+          .eq('order_id', orderId)
+          .in('user_id', toRemove);
+      }
+      
+      // Add new assignments
+      const toAdd = userIds.filter(id => !currentUserIds.includes(id));
+      if (toAdd.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase
+          .from('order_assignments')
+          .insert(
+            toAdd.map(userId => ({
+              order_id: orderId,
+              user_id: userId,
+              assigned_by: user?.id
+            }))
+          );
+      }
+      
+      toast.success('Order assignments updated successfully');
+    } catch (error) {
+      console.error('Error updating assignments:', error);
+      toast.error('Failed to update assignments');
+    }
   };
 
   const handleBack = () => {
@@ -184,7 +223,7 @@ const Index = () => {
           isAdmin={isAdmin}
           companyLogoUrl={companyLogoUrl}
           onDeleteOrder={isAdmin ? handleDeleteOrder : undefined}
-          onChangeAssignment={isAdmin ? handleChangeAssignment : undefined}
+          onChangeAssignments={isAdmin ? handleChangeAssignments : undefined}
         />
       )}
       

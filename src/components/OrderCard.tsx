@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
 interface OrderCardProps {
@@ -40,7 +41,7 @@ interface OrderCardProps {
   onUpdateStatus: (orderId: string, status: Order['status']) => void;
   isAdmin?: boolean;
   onDeleteOrder?: (orderId: string) => void;
-  onChangeAssignment?: (orderId: string, newUserId: string) => void;
+  onChangeAssignments?: (orderId: string, userIds: string[]) => void;
 }
 
 const statusColors = {
@@ -64,20 +65,22 @@ export const OrderCard = ({
   onUpdateStatus, 
   isAdmin = false,
   onDeleteOrder,
-  onChangeAssignment 
+  onChangeAssignments 
 }: OrderCardProps) => {
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [users, setUsers] = useState<{ id: string; email: string; full_name: string | null }[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>(order.user_id);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [currentAssignments, setCurrentAssignments] = useState<string[]>([]);
 
   useEffect(() => {
     fetchDateFormat();
     if (isAdmin) {
       fetchUsers();
+      fetchCurrentAssignments();
     }
-  }, [isAdmin]);
+  }, [isAdmin, order.id]);
 
   const fetchDateFormat = async () => {
     const { data } = await supabase
@@ -98,19 +101,36 @@ export const OrderCard = ({
       .order('full_name');
     
     if (!error && data) {
-      // Fetch email from auth metadata
-      const usersWithEmails = await Promise.all(
-        data.map(async (profile) => {
-          const { data: authData } = await supabase.auth.admin.getUserById(profile.id);
-          return {
-            id: profile.id,
-            full_name: profile.full_name,
-            email: authData.user?.email || 'Unknown'
-          };
-        })
-      );
-      setUsers(usersWithEmails);
+      // Fetch email from auth metadata - Note: This won't work without admin privileges
+      // Using a simpler approach: just use profile data
+      const usersData = data.map(profile => ({
+        id: profile.id,
+        full_name: profile.full_name,
+        email: profile.full_name || 'User' // Fallback to user ID if no name
+      }));
+      setUsers(usersData);
     }
+  };
+
+  const fetchCurrentAssignments = async () => {
+    const { data } = await supabase
+      .from('order_assignments')
+      .select('user_id')
+      .eq('order_id', order.id);
+    
+    if (data) {
+      const userIds = data.map(a => a.user_id);
+      setCurrentAssignments(userIds);
+      setSelectedUserIds(userIds);
+    }
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
   const handleDelete = async () => {
@@ -120,14 +140,19 @@ export const OrderCard = ({
     }
   };
 
-  const handleChangeAssignment = async () => {
-    if (onChangeAssignment && selectedUserId !== order.user_id) {
-      await onChangeAssignment(order.id, selectedUserId);
+  const handleChangeAssignments = async () => {
+    if (onChangeAssignments) {
+      await onChangeAssignments(order.id, selectedUserIds);
       setShowAssignDialog(false);
-      toast.success('Order assignment updated');
+      toast.success('Order assignments updated');
     } else {
       setShowAssignDialog(false);
     }
+  };
+
+  const handleOpenAssignDialog = () => {
+    fetchCurrentAssignments();
+    setShowAssignDialog(true);
   };
 
   return (
@@ -149,10 +174,10 @@ export const OrderCard = ({
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenuItem onClick={(e) => {
                   e.stopPropagation();
-                  setShowAssignDialog(true);
+                  handleOpenAssignDialog();
                 }}>
                   <UserCog className="h-4 w-4 mr-2" />
-                  Change Assignment
+                  Manage Assignments
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-destructive focus:text-destructive"
@@ -237,35 +262,40 @@ export const OrderCard = ({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Change Assignment Dialog */}
+      {/* Manage Assignments Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent onClick={(e) => e.stopPropagation()}>
+        <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Change Order Assignment</DialogTitle>
+            <DialogTitle>Manage Order Assignments</DialogTitle>
             <DialogDescription>
-              Select a user to assign this order to. The assigned user will be able to view and work on this order.
+              Select users who should have access to this order. Multiple users can be assigned.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a user" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
+          <div className="py-4 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3">
+              {users.map((user) => (
+                <div key={user.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted">
+                  <Checkbox
+                    id={`user-${user.id}`}
+                    checked={selectedUserIds.includes(user.id)}
+                    onCheckedChange={() => toggleUserSelection(user.id)}
+                  />
+                  <label
+                    htmlFor={`user-${user.id}`}
+                    className="flex-1 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
                     {user.full_name || user.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </label>
+                </div>
+              ))}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleChangeAssignment}>
-              Update Assignment
+            <Button onClick={handleChangeAssignments}>
+              Update Assignments ({selectedUserIds.length} selected)
             </Button>
           </DialogFooter>
         </DialogContent>
