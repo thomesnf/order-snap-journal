@@ -65,10 +65,34 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
 
       if (rolesError) throw rolesError;
 
-      const usersWithRoles = profiles?.map(profile => ({
-        ...profile,
-        roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || []
-      })) || [];
+      // Fetch emails from auth using the edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-manage-users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'listUsers',
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+
+      const authUsers = result.data?.users || [];
+
+      const usersWithRoles = profiles?.map(profile => {
+        const authUser = authUsers.find((u: any) => u.id === profile.id);
+        return {
+          ...profile,
+          email: authUser?.email,
+          roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || []
+        };
+      }) || [];
 
       setUsers(usersWithRoles);
     } catch (error: any) {

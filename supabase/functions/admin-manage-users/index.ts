@@ -63,6 +63,13 @@ serve(async (req) => {
     let result
 
     switch (action) {
+      case 'listUsers':
+        // List all users for admin
+        const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers()
+        if (usersError) throw usersError
+        result = { data: usersData }
+        break
+
       case 'createUser':
         result = await supabaseAdmin.auth.admin.createUser({
           email,
@@ -82,6 +89,7 @@ serve(async (req) => {
         break
 
       case 'updateUser':
+        // Update auth.users
         result = await supabaseAdmin.auth.admin.updateUserById(
           userId,
           {
@@ -89,6 +97,18 @@ serve(async (req) => {
             user_metadata: { full_name: fullName },
           }
         )
+        
+        // Also update the profiles table
+        if (!result.error) {
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .update({ full_name: fullName })
+            .eq('id', userId)
+          
+          if (profileError) {
+            console.error('Error updating profile:', profileError)
+          }
+        }
         break
 
       case 'deleteUser':
