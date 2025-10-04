@@ -194,6 +194,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const handleUpdateEntry = async () => {
     if (!editingEntryId || !editedContent.trim()) return;
     
+    console.log('Updating entry with date:', editedDate);
     await onUpdateJournalEntry(editingEntryId, editedContent, editedDate);
     setEditingEntryId(null);
     setEditedContent('');
@@ -471,7 +472,10 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                             <CalendarComponent
                               mode="single"
                               selected={editedDate}
-                              onSelect={setEditedDate}
+                              onSelect={(date) => {
+                                console.log('Date selected:', date);
+                                setEditedDate(date);
+                              }}
                               initialFocus
                               className={cn("p-3 pointer-events-auto")}
                             />
