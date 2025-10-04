@@ -26,12 +26,12 @@ const Index = () => {
   const fetchCompanyLogo = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url')
+      .select('app_logo_url')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
-    if (data?.company_logo_url) {
-      setCompanyLogoUrl(data.company_logo_url);
+    if (data?.app_logo_url) {
+      setCompanyLogoUrl(data.app_logo_url);
     }
   };
 
