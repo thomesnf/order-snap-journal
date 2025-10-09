@@ -24,9 +24,12 @@ import { z } from 'zod';
 // Validation schemas
 const emailSchema = z.string().email('Invalid email address').max(255, 'Email must be less than 255 characters');
 const passwordSchema = z.string()
-  .min(8, 'Password must be at least 8 characters')
+  .min(10, 'Password must be at least 10 characters')
   .max(72, 'Password must be less than 72 characters')
-  .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one digit')
+  .regex(/[^a-zA-Z0-9]/, 'Password must contain at least one special character');
 const fullNameSchema = z.string()
   .trim()
   .min(1, 'Full name is required')
@@ -121,6 +124,19 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
 
   const toggleAdminRole = async (userId: string, isCurrentlyAdmin: boolean) => {
     try {
+      // Get current user's ID to check if they're modifying their own role
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user?.id === userId && isCurrentlyAdmin) {
+        const confirmSelfDemotion = window.confirm(
+          "Warning: You are about to remove your own admin privileges. Are you sure you want to continue?"
+        );
+        
+        if (!confirmSelfDemotion) {
+          return;
+        }
+      }
+      
       if (isCurrentlyAdmin) {
         const { error } = await supabase
           .from('user_roles')
@@ -443,8 +459,11 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                   value={newUserPassword}
                   onChange={(e) => setNewUserPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={10}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Password requirements: 10+ characters, uppercase, lowercase, digit, and special character
+                </p>
               </div>
               <Button type="submit" className="w-full">
                 {t('createUser')}

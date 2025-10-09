@@ -97,7 +97,9 @@ export const useOrdersDB = () => {
       if (error) throw error;
       setOrders(data || []);
     } catch (error: any) {
-      console.error('Error fetching orders:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching orders:', error);
+      }
       toast({
         title: "Error",
         description: error.message,
@@ -227,7 +229,9 @@ export const useOrdersDB = () => {
         description: "Journal entry updated",
       });
     } catch (error: any) {
-      console.error('Error updating journal entry:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error updating journal entry:', error);
+      }
       toast({
         title: "Error",
         description: error.message,
