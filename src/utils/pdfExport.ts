@@ -365,7 +365,7 @@ export const exportMultipleEntriesToPDF = async (
     return `
       <div class="entry">
         <div class="entry-header">
-          <strong>${t.entryDate}:</strong> ${date}
+          <strong>${date}</strong>
         </div>
         <div class="entry-content">
           ${entry.content.replace(/\n/g, '<br>')}
