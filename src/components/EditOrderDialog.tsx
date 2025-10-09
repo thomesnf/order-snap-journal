@@ -17,6 +17,9 @@ const orderSchema = z.object({
   customer: z.string().trim().max(200, 'Customer name must be less than 200 characters').optional(),
   customer_ref: z.string().trim().max(100, 'Customer reference must be less than 100 characters').optional(),
   location: z.string().trim().max(300, 'Location must be less than 300 characters').optional(),
+  due_date: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high']),
+  status: z.enum(['pending', 'in-progress', 'completed', 'cancelled', 'invoiced', 'paid']),
 });
 
 interface EditOrderDialogProps {
