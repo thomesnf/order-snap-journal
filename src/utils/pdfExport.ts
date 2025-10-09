@@ -315,9 +315,9 @@ export const exportMultipleEntriesToPDF = async (
     .map(df => df.html)
     .join('');
 
-  const manHoursHTML = isFieldVisible('man_hours') ? `
+  const manHoursHTML = isFieldVisible('man_hours') || isFieldVisible('hours_by_day') ? `
     <div class="man-hours">
-      <strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours}
+      ${isFieldVisible('man_hours') ? `<strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours}` : ''}
       ${isFieldVisible('hours_by_day') ? hoursByDayHTML : ''}
     </div>
   ` : '';
@@ -355,7 +355,6 @@ export const exportMultipleEntriesToPDF = async (
       <div class="detail-grid">
         ${sortedDetailFields}
       </div>
-      ${manHoursHTML}
     </div>
   `;
 
@@ -372,7 +371,7 @@ export const exportMultipleEntriesToPDF = async (
     description: '',
     summary: summaryHTML,
     summary_entries: summaryEntriesHTML,
-    man_hours: '',
+    man_hours: manHoursHTML,
     hours_by_day: '',
     journal_entries: isFieldVisible('journal_entries') ? `
       <div class="journal-entries-section">
@@ -384,6 +383,8 @@ export const exportMultipleEntriesToPDF = async (
 
   // Build body content based on field configuration
   let bodyContent = '';
+  let orderDetailsAdded = false;
+  
   for (const fieldConfigItem of fieldConfig) {
     if (fieldConfigItem.type === 'page_break' && fieldConfigItem.visible) {
       bodyContent += '<div class="page-break"></div>';
@@ -395,11 +396,16 @@ export const exportMultipleEntriesToPDF = async (
       bodyContent += contentSections.summary;
     } else if (fieldConfigItem.field === 'summary_entries' && isFieldVisible('summary_entries')) {
       bodyContent += contentSections.summary_entries;
+    } else if (fieldConfigItem.field === 'man_hours' || fieldConfigItem.field === 'hours_by_day') {
+      if (!bodyContent.includes(manHoursHTML) && manHoursHTML) {
+        bodyContent += manHoursHTML;
+      }
     } else if (fieldConfigItem.field === 'journal_entries' && isFieldVisible('journal_entries')) {
       bodyContent += contentSections.journal_entries;
-    } else if (['status', 'priority', 'customer', 'customer_ref', 'location', 'due_date', 'description', 'man_hours', 'hours_by_day'].includes(fieldConfigItem.field)) {
-      if (!bodyContent.includes(orderDetailsHTML)) {
+    } else if (['status', 'priority', 'customer', 'customer_ref', 'location', 'due_date', 'description'].includes(fieldConfigItem.field)) {
+      if (!orderDetailsAdded) {
         bodyContent += orderDetailsHTML;
+        orderDetailsAdded = true;
       }
     }
   }
@@ -545,6 +551,7 @@ export const exportMultipleEntriesToPDF = async (
           <h1>${orderTitle} - ${t.allJournalEntries}</h1>
           ${logoHTML}
           ${orderDetailsHTML}
+          ${manHoursHTML}
           ${summaryHTML}
           ${summaryEntriesHTML}
           <div class="journal-entries-section">
