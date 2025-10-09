@@ -9,7 +9,7 @@ export const exportOrdersToExcel = (orders: Order[], filename: string = 'orders'
     'Title': order.title,
     'Customer': order.customer || '-',
     'Customer Ref': order.customer_ref || '-',
-    'Location': order.location || '-',
+    'Address': order.location || '-',
     'Status': order.status,
     'Priority': order.priority,
     'Due Date': order.due_date ? format(new Date(order.due_date), 'MM/dd/yyyy') : '-',
@@ -26,7 +26,7 @@ export const exportOrdersToExcel = (orders: Order[], filename: string = 'orders'
     { wch: 30 }, // Title
     { wch: 20 }, // Customer
     { wch: 15 }, // Customer Ref
-    { wch: 20 }, // Location
+    { wch: 20 }, // Address
     { wch: 12 }, // Status
     { wch: 10 }, // Priority
     { wch: 12 }, // Due Date
