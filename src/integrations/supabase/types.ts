@@ -268,6 +268,7 @@ export type Database = {
           created_at: string
           date_format: string | null
           id: string
+          pdf_field_config: Json | null
           pdf_font_family: string | null
           pdf_logo_max_height: number | null
           pdf_page_margin: number | null
@@ -281,6 +282,7 @@ export type Database = {
           created_at?: string
           date_format?: string | null
           id?: string
+          pdf_field_config?: Json | null
           pdf_font_family?: string | null
           pdf_logo_max_height?: number | null
           pdf_page_margin?: number | null
@@ -294,6 +296,7 @@ export type Database = {
           created_at?: string
           date_format?: string | null
           id?: string
+          pdf_field_config?: Json | null
           pdf_font_family?: string | null
           pdf_logo_max_height?: number | null
           pdf_page_margin?: number | null

@@ -62,12 +62,20 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
   }
 };
 
+interface PDFFieldConfig {
+  field: string;
+  label: string;
+  visible: boolean;
+  order: number;
+}
+
 interface PDFLayoutSettings {
   primaryColor?: string;
   fontFamily?: string;
   showLogo?: boolean;
   logoMaxHeight?: number;
   pageMargin?: number;
+  fieldConfig?: PDFFieldConfig[];
 }
 
 export const exportJournalEntryToPDF = async (
@@ -239,14 +247,28 @@ export const exportMultipleEntriesToPDF = async (
 
   const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" /></div>` : '';
 
-  const summaryHTML = order.summary ? `
-    <div class="order-summary">
-      <h2>${t.summary}</h2>
-      <p>${order.summary.replace(/\n/g, '<br>')}</p>
-    </div>
-  ` : '';
 
-  const summaryEntriesHTML = summaryEntries && summaryEntries.length > 0 ? `
+  // Get field configuration or use defaults
+  const fieldConfig = layoutSettings?.fieldConfig || [
+    { field: 'status', label: t.status, visible: true, order: 1 },
+    { field: 'priority', label: t.priority, visible: true, order: 2 },
+    { field: 'customer', label: t.customer, visible: true, order: 3 },
+    { field: 'customer_ref', label: t.customerRef, visible: true, order: 4 },
+    { field: 'location', label: t.location, visible: true, order: 5 },
+    { field: 'due_date', label: t.dueDate, visible: true, order: 6 },
+    { field: 'description', label: t.description, visible: true, order: 7 },
+    { field: 'summary', label: t.summary, visible: true, order: 8 },
+    { field: 'summary_entries', label: t.summaryEntries, visible: true, order: 9 },
+    { field: 'man_hours', label: t.totalManHours, visible: true, order: 10 },
+    { field: 'hours_by_day', label: 'Hours by Day', visible: true, order: 11 },
+  ];
+
+  const isFieldVisible = (fieldName: string) => {
+    const config = fieldConfig.find(f => f.field === fieldName);
+    return config ? config.visible : true;
+  };
+
+  const summaryEntriesHTML = summaryEntries && summaryEntries.length > 0 && isFieldVisible('summary_entries') ? `
     <div class="summary-entries-section">
       <h2>${t.summaryEntries}</h2>
       ${summaryEntries.map(entry => {
@@ -261,22 +283,45 @@ export const exportMultipleEntriesToPDF = async (
     </div>
   ` : '';
 
+  const summaryHTML = order.summary && isFieldVisible('summary') ? `
+    <div class="order-summary">
+      <h2>${t.summary}</h2>
+      <p>${order.summary.replace(/\n/g, '<br>')}</p>
+    </div>
+  ` : '';
+
+  // Build detail grid items based on visibility and order
+  const detailFields = [
+    { field: 'status', html: `<div><strong>${t.status}:</strong> ${order.status}</div>` },
+    { field: 'priority', html: `<div><strong>${t.priority}:</strong> ${order.priority}</div>` },
+    { field: 'customer', html: order.customer ? `<div><strong>${t.customer}:</strong> ${order.customer}</div>` : '' },
+    { field: 'customer_ref', html: order.customer_ref ? `<div><strong>${t.customerRef}:</strong> ${order.customer_ref}</div>` : '' },
+    { field: 'location', html: order.location ? `<div><strong>${t.location}:</strong> ${order.location}</div>` : '' },
+    { field: 'due_date', html: order.due_date ? `<div><strong>${t.dueDate}:</strong> ${formatDate(order.due_date, dateFormat)}</div>` : '' },
+    { field: 'description', html: order.description ? `<div class="description"><strong>${t.description}:</strong> ${order.description}</div>` : '' },
+  ];
+
+  const sortedDetailFields = detailFields
+    .map(df => ({ ...df, order: fieldConfig.find(f => f.field === df.field)?.order || 999 }))
+    .sort((a, b) => a.order - b.order)
+    .filter(df => isFieldVisible(df.field) && df.html)
+    .map(df => df.html)
+    .join('');
+
+  const manHoursHTML = isFieldVisible('man_hours') ? `
+    <div class="man-hours">
+      <strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours}
+      ${isFieldVisible('hours_by_day') ? hoursByDayHTML : ''}
+    </div>
+  ` : '';
+
   const orderDetailsHTML = `
     <div class="order-details">
       <h2>${t.orderDetails}</h2>
       <div class="detail-grid">
-        <div><strong>${t.status}:</strong> ${order.status}</div>
-        <div><strong>${t.priority}:</strong> ${order.priority}</div>
-        ${order.customer ? `<div><strong>${t.customer}:</strong> ${order.customer}</div>` : ''}
-        ${order.customer_ref ? `<div><strong>${t.customerRef}:</strong> ${order.customer_ref}</div>` : ''}
-        ${order.location ? `<div><strong>${t.location}:</strong> ${order.location}</div>` : ''}
-        ${order.due_date ? `<div><strong>${t.dueDate}:</strong> ${formatDate(order.due_date, dateFormat)}</div>` : ''}
-        ${order.description ? `<div class="description"><strong>${t.description}:</strong> ${order.description}</div>` : ''}
+        ${sortedDetailFields}
       </div>
-      <div class="man-hours">
-        <strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours}
-        ${hoursByDayHTML}
-      </div>
+      ${manHoursHTML}
     </div>
   `;
 

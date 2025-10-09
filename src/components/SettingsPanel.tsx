@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText } from 'lucide-react';
+import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, GripVertical, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { DateFormatType } from '@/utils/dateFormat';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface SettingsPanelProps {
   onBack: () => void;
@@ -32,6 +33,15 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     logoMaxHeight: 80,
     pageMargin: 20,
   });
+  
+  interface PDFFieldConfig {
+    field: string;
+    label: string;
+    visible: boolean;
+    order: number;
+  }
+  
+  const [pdfFieldConfig, setPdfFieldConfig] = useState<PDFFieldConfig[]>([]);
 
   useEffect(() => {
     checkAdminStatus();
@@ -55,7 +65,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const fetchSettings = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin')
+      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
@@ -70,6 +80,9 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         logoMaxHeight: data.pdf_logo_max_height || 80,
         pageMargin: data.pdf_page_margin || 20,
       });
+      if (data.pdf_field_config) {
+        setPdfFieldConfig(data.pdf_field_config as unknown as PDFFieldConfig[]);
+      }
     }
   };
 
@@ -161,6 +174,70 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
       toast({
         title: "Success",
         description: "PDF layout setting updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFieldVisibilityChange = async (fieldName: string, visible: boolean) => {
+    try {
+      const updatedConfig = pdfFieldConfig.map(f => 
+        f.field === fieldName ? { ...f, visible } : f
+      );
+      
+      const { error } = await supabase
+        .from('settings')
+        .update({ pdf_field_config: updatedConfig as unknown as any })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setPdfFieldConfig(updatedConfig);
+      toast({
+        title: "Success",
+        description: "Field visibility updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const moveField = async (fieldName: string, direction: 'up' | 'down') => {
+    try {
+      const currentIndex = pdfFieldConfig.findIndex(f => f.field === fieldName);
+      if (currentIndex === -1) return;
+      
+      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (newIndex < 0 || newIndex >= pdfFieldConfig.length) return;
+
+      const updatedConfig = [...pdfFieldConfig];
+      [updatedConfig[currentIndex], updatedConfig[newIndex]] = [updatedConfig[newIndex], updatedConfig[currentIndex]];
+      
+      // Update order values
+      updatedConfig.forEach((field, index) => {
+        field.order = index + 1;
+      });
+
+      const { error } = await supabase
+        .from('settings')
+        .update({ pdf_field_config: updatedConfig as unknown as any })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setPdfFieldConfig(updatedConfig);
+      toast({
+        title: "Success",
+        description: "Field order updated successfully",
       });
     } catch (error: any) {
       toast({
@@ -461,6 +538,47 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                     value={pdfSettings.pageMargin}
                     onChange={(e) => handlePdfSettingChange('pageMargin', parseInt(e.target.value))}
                   />
+                </div>
+
+                {/* Field Configuration */}
+                <div className="space-y-3">
+                  <div className="border-t pt-6">
+                    <Label className="text-base">PDF Field Configuration</Label>
+                    <p className="text-sm text-muted-foreground mt-1 mb-4">
+                      Choose which fields to show in PDF exports and reorder them
+                    </p>
+                    <div className="space-y-2">
+                      {pdfFieldConfig.map((field, index) => (
+                        <div key={field.field} className="flex items-center gap-3 p-3 border rounded-lg bg-background">
+                          <Checkbox
+                            checked={field.visible}
+                            onCheckedChange={(checked) => handleFieldVisibilityChange(field.field, checked as boolean)}
+                          />
+                          <span className="flex-1 text-sm">{field.label}</span>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => moveField(field.field, 'up')}
+                              disabled={index === 0}
+                              className="h-8 w-8 p-0"
+                            >
+                              ↑
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => moveField(field.field, 'down')}
+                              disabled={index === pdfFieldConfig.length - 1}
+                              className="h-8 w-8 p-0"
+                            >
+                              ↓
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
