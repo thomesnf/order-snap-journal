@@ -14,11 +14,13 @@ interface PDFTranslations {
   description: string;
   totalManHours: string;
   hours: string;
+  hoursByDay: string;
   journalEntries: string;
   entryDate: string;
   date: string;
   entryId: string;
   allJournalEntries: string;
+  photos: string;
 }
 
 const translations: Record<'en' | 'sv', PDFTranslations> = {
@@ -35,11 +37,13 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
     description: 'Description',
     totalManHours: 'Total Man Hours',
     hours: 'hours',
+    hoursByDay: 'Hours by Day',
     journalEntries: 'Journal Entries',
     entryDate: 'Entry Date',
     date: 'Date',
     entryId: 'Entry ID',
-    allJournalEntries: 'All Journal Entries'
+    allJournalEntries: 'All Journal Entries',
+    photos: 'Photos'
   },
   sv: {
     orderDetails: 'Orderdetaljer',
@@ -54,11 +58,13 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
     description: 'Beskrivning',
     totalManHours: 'Totala Arbetstimmar',
     hours: 'timmar',
+    hoursByDay: 'Timmar per dag',
     journalEntries: 'Journalanteckningar',
     entryDate: 'Anteckningsdatum',
     date: 'Datum',
     entryId: 'Antecknings-ID',
-    allJournalEntries: 'Alla Journalanteckningar'
+    allJournalEntries: 'Alla Journalanteckningar',
+    photos: 'Foton'
   }
 };
 
@@ -107,7 +113,7 @@ export const exportJournalEntryToPDF = async (
   
   const photosHTML = photos && photos.length > 0 ? `
     <div class="photos">
-      <h3>Photos</h3>
+      <h3>${t.photos}</h3>
       <div class="photo-grid">
         ${photos.map(photo => `
           <div class="photo-item">
@@ -264,7 +270,7 @@ export const exportMultipleEntriesToPDF = async (
     { field: 'summary', label: t.summary, visible: true, order: 10 },
     { field: 'summary_entries', label: t.summaryEntries, visible: true, order: 11 },
     { field: 'man_hours', label: t.totalManHours, visible: true, order: 12 },
-    { field: 'hours_by_day', label: 'Hours by Day', visible: true, order: 13 },
+    { field: 'hours_by_day', label: t.hoursByDay, visible: true, order: 13 },
     { field: 'journal_entries', label: t.journalEntries, visible: true, order: 14 },
   ];
 
@@ -338,7 +344,7 @@ export const exportMultipleEntriesToPDF = async (
 
   const hoursByDayHTML_Section = isFieldVisible('hours_by_day') && Object.keys(hoursByDay).length > 0 ? `
     <div class="hours-by-day-section">
-      <strong>Hours by Day:</strong>
+      <strong>${t.hoursByDay}:</strong>
       <div class="hours-by-day">
         ${Object.entries(hoursByDay)
           .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
