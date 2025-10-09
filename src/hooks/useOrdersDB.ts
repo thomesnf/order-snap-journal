@@ -88,17 +88,11 @@ export const useOrdersDB = () => {
 
   const fetchOrders = async () => {
     try {
-      // Debug: Check current user
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('Current user:', user?.id, user?.email);
-      
       const { data, error } = await supabase
         .from('orders')
         .select('*')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
-
-      console.log('Orders query result:', { data, error, count: data?.length });
       
       if (error) throw error;
       setOrders(data || []);
@@ -221,16 +215,12 @@ export const useOrdersDB = () => {
         updateData.created_at = created_at.toISOString();
       }
 
-      console.log('Updating journal entry in DB:', entryId, updateData);
-
       const { error } = await supabase
         .from('journal_entries')
         .update(updateData)
         .eq('id', entryId);
 
       if (error) throw error;
-      
-      console.log('Journal entry updated successfully');
       
       toast({
         title: "Success",

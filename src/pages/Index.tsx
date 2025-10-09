@@ -163,6 +163,24 @@ const Index = () => {
 
   const handleChangeAssignments = async (orderId: string, userIds: string[]) => {
     try {
+      // Validate that all user IDs exist in the profiles table
+      if (userIds.length > 0) {
+        const { data: validUsers, error: validationError } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('id', userIds);
+        
+        if (validationError) throw validationError;
+        
+        const validUserIds = validUsers?.map(u => u.id) || [];
+        const invalidUserIds = userIds.filter(id => !validUserIds.includes(id));
+        
+        if (invalidUserIds.length > 0) {
+          toast.error('Some selected users do not exist in the system');
+          return;
+        }
+      }
+      
       // First, get current assignments
       const { data: currentAssignments } = await supabase
         .from('order_assignments')

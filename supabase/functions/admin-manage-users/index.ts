@@ -9,10 +9,13 @@ const corsHeaders = {
 
 // Input validation schemas
 const emailSchema = z.string().email().max(255)
-const passwordSchema = z.string().min(8).max(72).regex(
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-  'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-)
+const passwordSchema = z.string()
+  .min(10, 'Password must be at least 10 characters long')
+  .max(72)
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one digit')
+  .regex(/[^a-zA-Z0-9]/, 'Password must contain at least one special character')
 const fullNameSchema = z.string().trim().min(1).max(100).regex(
   /^[a-zA-ZäöåÄÖÅ\s-']+$/,
   'Full name can only contain letters, spaces, hyphens, and apostrophes'
@@ -152,13 +155,6 @@ serve(async (req) => {
         })
         break
 
-      case 'updatePassword':
-        result = await supabaseAdmin.auth.admin.updateUserById(
-          validatedData.userId,
-          { password: validatedData.password }
-        )
-        break
-
       case 'updateUser':
         // Update auth.users
         result = await supabaseAdmin.auth.admin.updateUserById(
@@ -191,6 +187,20 @@ serve(async (req) => {
         }
 
         result = await supabaseAdmin.auth.admin.deleteUser(validatedData.userId)
+        break
+      
+      case 'updatePassword':
+        // Prevent updating root@localhost user's password by other admins
+        const { data: targetUser } = await supabaseAdmin.auth.admin.getUserById(validatedData.userId)
+        
+        if (targetUser?.user?.email === 'root@localhost' && user.id !== validatedData.userId) {
+          throw new Error('Only root@localhost can update their own password')
+        }
+        
+        result = await supabaseAdmin.auth.admin.updateUserById(
+          validatedData.userId,
+          { password: validatedData.password }
+        )
         break
 
       default:
