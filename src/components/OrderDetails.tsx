@@ -67,6 +67,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     label: string;
     visible: boolean;
     order: number;
+    type?: 'field' | 'page_break';
   }
 
   const [pdfSettings, setPdfSettings] = useState<{
