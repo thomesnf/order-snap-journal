@@ -67,7 +67,7 @@ interface PDFFieldConfig {
   label: string;
   visible: boolean;
   order: number;
-  type?: 'field' | 'page_break';
+  type?: 'field' | 'page_break' | 'line_break' | 'horizontal_line';
 }
 
 interface PDFLayoutSettings {
@@ -405,6 +405,10 @@ export const exportMultipleEntriesToPDF = async (
   for (const fieldConfigItem of fieldConfig) {
     if (fieldConfigItem.type === 'page_break' && fieldConfigItem.visible) {
       bodyContent += '<div class="page-break"></div>';
+    } else if (fieldConfigItem.type === 'line_break' && fieldConfigItem.visible) {
+      bodyContent += '<div class="line-break"></div>';
+    } else if (fieldConfigItem.type === 'horizontal_line' && fieldConfigItem.visible) {
+      bodyContent += '<hr class="horizontal-line" />';
     } else if (fieldConfigItem.field === 'title' && isFieldVisible('title')) {
       bodyContent += contentSections.title;
     } else if (fieldConfigItem.field === 'logo' && isFieldVisible('logo')) {
@@ -556,13 +560,23 @@ export const exportMultipleEntriesToPDF = async (
             margin-top: 5px;
           }
           .page-break {
-            page-break-after: always;
-            break-after: page;
-            display: block;
+            page-break-after: always !important;
+            break-after: page !important;
+            display: block !important;
             height: 1px;
             margin: 0;
             padding: 0;
             clear: both;
+          }
+          .line-break {
+            display: block;
+            height: 20px;
+            margin: 10px 0;
+          }
+          .horizontal-line {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 20px 0;
           }
           @media print {
             body {

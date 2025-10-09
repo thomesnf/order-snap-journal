@@ -40,7 +40,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     label: string;
     visible: boolean;
     order: number;
-    type?: 'field' | 'page_break';
+    type?: 'field' | 'page_break' | 'line_break' | 'horizontal_line';
   }
   
   const [pdfFieldConfig, setPdfFieldConfig] = useState<PDFFieldConfig[]>([]);
@@ -280,6 +280,82 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
       toast({
         title: "Success",
         description: "Page break added successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addLineBreak = async (afterIndex: number) => {
+    try {
+      const updatedConfig = [...pdfFieldConfig];
+      const newLineBreak: PDFFieldConfig = {
+        field: `line_break_${Date.now()}`,
+        label: 'Line Break',
+        visible: true,
+        order: afterIndex + 2,
+        type: 'line_break'
+      };
+      
+      updatedConfig.splice(afterIndex + 1, 0, newLineBreak);
+      
+      updatedConfig.forEach((field, index) => {
+        field.order = index + 1;
+      });
+
+      const { error } = await supabase
+        .from('settings')
+        .update({ pdf_field_config: updatedConfig as unknown as any })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setPdfFieldConfig(updatedConfig);
+      toast({
+        title: "Success",
+        description: "Line break added successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addHorizontalLine = async (afterIndex: number) => {
+    try {
+      const updatedConfig = [...pdfFieldConfig];
+      const newHorizontalLine: PDFFieldConfig = {
+        field: `horizontal_line_${Date.now()}`,
+        label: 'Horizontal Line',
+        visible: true,
+        order: afterIndex + 2,
+        type: 'horizontal_line'
+      };
+      
+      updatedConfig.splice(afterIndex + 1, 0, newHorizontalLine);
+      
+      updatedConfig.forEach((field, index) => {
+        field.order = index + 1;
+      });
+
+      const { error } = await supabase
+        .from('settings')
+        .update({ pdf_field_config: updatedConfig as unknown as any })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setPdfFieldConfig(updatedConfig);
+      toast({
+        title: "Success",
+        description: "Horizontal line added successfully",
       });
     } catch (error: any) {
       toast({
@@ -640,7 +716,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                     <div className="space-y-2">
                       {pdfFieldConfig.map((field, index) => (
                         <div key={field.field} className="flex items-center gap-3 p-3 border rounded-lg bg-background">
-                          {field.type === 'page_break' ? (
+                          {field.type === 'page_break' || field.type === 'line_break' || field.type === 'horizontal_line' ? (
                             <>
                               <div className="flex-1 flex items-center gap-2 text-sm text-muted-foreground italic">
                                 <FileText className="h-4 w-4" />
@@ -686,14 +762,32 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                           </div>
                         </div>
                       ))}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addPageBreak(pdfFieldConfig.length - 1)}
-                        className="w-full mt-2 text-xs"
-                      >
-                        + Add Page Break
-                      </Button>
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addPageBreak(pdfFieldConfig.length - 1)}
+                          className="flex-1 text-xs"
+                        >
+                          + Add Page Break
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addLineBreak(pdfFieldConfig.length - 1)}
+                          className="flex-1 text-xs"
+                        >
+                          + Add Line Break
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addHorizontalLine(pdfFieldConfig.length - 1)}
+                          className="flex-1 text-xs"
+                        >
+                          + Add Horizontal Line
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

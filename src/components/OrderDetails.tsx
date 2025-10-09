@@ -67,7 +67,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     label: string;
     visible: boolean;
     order: number;
-    type?: 'field' | 'page_break';
+    type?: 'field' | 'page_break' | 'line_break' | 'horizontal_line';
   }
 
   const [pdfSettings, setPdfSettings] = useState<{
