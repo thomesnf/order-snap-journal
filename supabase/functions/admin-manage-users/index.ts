@@ -183,6 +183,13 @@ serve(async (req) => {
         break
 
       case 'deleteUser':
+        // Get user email to check if it's root@localhost
+        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(validatedData.userId)
+        
+        if (userData?.user?.email === 'root@localhost') {
+          throw new Error('Cannot delete root@localhost user')
+        }
+
         result = await supabaseAdmin.auth.admin.deleteUser(validatedData.userId)
         break
 
