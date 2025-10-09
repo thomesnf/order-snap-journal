@@ -21,6 +21,17 @@ interface PDFTranslations {
   entryId: string;
   allJournalEntries: string;
   photos: string;
+  // Status values
+  pending: string;
+  in_progress: string;
+  completed: string;
+  invoiced: string;
+  paid: string;
+  cancelled: string;
+  // Priority values
+  low: string;
+  medium: string;
+  high: string;
 }
 
 const translations: Record<'en' | 'sv', PDFTranslations> = {
@@ -43,7 +54,18 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
     date: 'Date',
     entryId: 'Entry ID',
     allJournalEntries: 'All Journal Entries',
-    photos: 'Photos'
+    photos: 'Photos',
+    // Status values
+    pending: 'Pending',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+    invoiced: 'Invoiced',
+    paid: 'Paid',
+    cancelled: 'Cancelled',
+    // Priority values
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High'
   },
   sv: {
     orderDetails: 'Orderdetaljer',
@@ -64,7 +86,18 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
     date: 'Datum',
     entryId: 'Antecknings-ID',
     allJournalEntries: 'Alla Journalanteckningar',
-    photos: 'Foton'
+    photos: 'Foton',
+    // Status values
+    pending: 'Väntande',
+    in_progress: 'Pågående',
+    completed: 'Slutförd',
+    invoiced: 'Fakturerad',
+    paid: 'Betald',
+    cancelled: 'Avbruten',
+    // Priority values
+    low: 'Låg',
+    medium: 'Medel',
+    high: 'Hög'
   }
 };
 
@@ -305,8 +338,8 @@ export const exportMultipleEntriesToPDF = async (
 
   // Build order details section with 2-column grid
   const orderDetailsFields = [
-    { field: 'status', label: t.status, value: order.status },
-    { field: 'priority', label: t.priority, value: order.priority },
+    { field: 'status', label: t.status, value: order.status ? t[order.status as keyof PDFTranslations] || order.status : null },
+    { field: 'priority', label: t.priority, value: order.priority ? t[order.priority as keyof PDFTranslations] || order.priority : null },
     { field: 'customer', label: t.customer, value: order.customer },
     { field: 'customer_ref', label: t.customerRef, value: order.customer_ref },
     { field: 'location', label: t.location, value: order.location },
