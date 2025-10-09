@@ -504,6 +504,9 @@ export const exportMultipleEntriesToPDF = async (
             padding-top: 10px;
             font-size: 14px;
             color: #666;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px 15px;
           }
           .hours-by-day > div {
             padding: 3px 0;
