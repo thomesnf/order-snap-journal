@@ -386,7 +386,7 @@ export const exportMultipleEntriesToPDF = async (
   let bodyContent = '';
   for (const fieldConfigItem of fieldConfig) {
     if (fieldConfigItem.type === 'page_break' && fieldConfigItem.visible) {
-      bodyContent += '<div style="page-break-before: always;"></div>';
+      bodyContent += '<div class="page-break"></div>';
     } else if (fieldConfigItem.field === 'title' && isFieldVisible('title')) {
       bodyContent += contentSections.title;
     } else if (fieldConfigItem.field === 'logo' && isFieldVisible('logo')) {
@@ -518,12 +518,24 @@ export const exportMultipleEntriesToPDF = async (
             color: #666;
             margin-top: 5px;
           }
+          .page-break {
+            page-break-before: always;
+            break-before: page;
+            display: block;
+            height: 0;
+            margin: 0;
+            padding: 0;
+          }
           @media print {
             body {
               padding: 0;
             }
             .entry {
               page-break-inside: avoid;
+            }
+            .page-break {
+              page-break-before: always;
+              break-before: page;
             }
           }
         </style>
