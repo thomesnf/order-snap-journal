@@ -297,40 +297,30 @@ export const exportMultipleEntriesToPDF = async (
     </div>
   ` : '';
 
-  // Build individual field sections
-  const statusHTML = order.status && isFieldVisible('status') ? `
-    <div class="field-section">
-      <strong>${t.status}:</strong> ${order.status}
-    </div>
-  ` : '';
+  // Build order details section with 2-column grid
+  const orderDetailsFields = [
+    { field: 'status', label: t.status, value: order.status },
+    { field: 'priority', label: t.priority, value: order.priority },
+    { field: 'customer', label: t.customer, value: order.customer },
+    { field: 'customer_ref', label: t.customerRef, value: order.customer_ref },
+    { field: 'location', label: t.location, value: order.location },
+    { field: 'due_date', label: t.dueDate, value: order.due_date ? formatDate(order.due_date, dateFormat) : null },
+  ];
 
-  const priorityHTML = order.priority && isFieldVisible('priority') ? `
-    <div class="field-section">
-      <strong>${t.priority}:</strong> ${order.priority}
-    </div>
-  ` : '';
+  const visibleDetailsFields = orderDetailsFields.filter(f => 
+    isFieldVisible(f.field) && f.value
+  );
 
-  const customerHTML = order.customer && isFieldVisible('customer') ? `
-    <div class="field-section">
-      <strong>${t.customer}:</strong> ${order.customer}
-    </div>
-  ` : '';
-
-  const customerRefHTML = order.customer_ref && isFieldVisible('customer_ref') ? `
-    <div class="field-section">
-      <strong>${t.customerRef}:</strong> ${order.customer_ref}
-    </div>
-  ` : '';
-
-  const locationHTML = order.location && isFieldVisible('location') ? `
-    <div class="field-section">
-      <strong>${t.location}:</strong> ${order.location}
-    </div>
-  ` : '';
-
-  const dueDateHTML = order.due_date && isFieldVisible('due_date') ? `
-    <div class="field-section">
-      <strong>${t.dueDate}:</strong> ${formatDate(order.due_date, dateFormat)}
+  const orderDetailsHTML = visibleDetailsFields.length > 0 ? `
+    <div class="order-details">
+      <h2>${t.orderDetails}</h2>
+      <div class="detail-grid">
+        ${visibleDetailsFields.map(f => `
+          <div class="field-item">
+            <strong>${f.label}:</strong> ${f.value}
+          </div>
+        `).join('')}
+      </div>
     </div>
   ` : '';
 
@@ -389,12 +379,12 @@ export const exportMultipleEntriesToPDF = async (
   const contentSections: Record<string, string> = {
     title: isFieldVisible('title') ? `<h1>${orderTitle} - ${t.allJournalEntries}</h1>` : '',
     logo: (logoUrl && settings.showLogo && isFieldVisible('logo')) ? logoHTML : '',
-    status: statusHTML,
-    priority: priorityHTML,
-    customer: customerHTML,
-    customer_ref: customerRefHTML,
-    location: locationHTML,
-    due_date: dueDateHTML,
+    status: orderDetailsHTML,
+    priority: orderDetailsHTML,
+    customer: orderDetailsHTML,
+    customer_ref: orderDetailsHTML,
+    location: orderDetailsHTML,
+    due_date: orderDetailsHTML,
     description: descriptionHTML,
     summary: summaryHTML,
     summary_entries: summaryEntriesHTML,
@@ -410,12 +400,32 @@ export const exportMultipleEntriesToPDF = async (
 
   // Build body content based on field configuration
   let bodyContent = '';
+  let orderDetailsAdded = false;
   
   for (const fieldConfigItem of fieldConfig) {
     if (fieldConfigItem.type === 'page_break' && fieldConfigItem.visible) {
       bodyContent += '<div class="page-break"></div>';
-    } else if (contentSections[fieldConfigItem.field]) {
-      bodyContent += contentSections[fieldConfigItem.field];
+    } else if (fieldConfigItem.field === 'title' && isFieldVisible('title')) {
+      bodyContent += contentSections.title;
+    } else if (fieldConfigItem.field === 'logo' && isFieldVisible('logo')) {
+      bodyContent += contentSections.logo;
+    } else if (fieldConfigItem.field === 'description') {
+      bodyContent += contentSections.description;
+    } else if (fieldConfigItem.field === 'summary') {
+      bodyContent += contentSections.summary;
+    } else if (fieldConfigItem.field === 'summary_entries') {
+      bodyContent += contentSections.summary_entries;
+    } else if (fieldConfigItem.field === 'man_hours') {
+      bodyContent += contentSections.man_hours;
+    } else if (fieldConfigItem.field === 'hours_by_day') {
+      bodyContent += contentSections.hours_by_day;
+    } else if (fieldConfigItem.field === 'journal_entries') {
+      bodyContent += contentSections.journal_entries;
+    } else if (['status', 'priority', 'customer', 'customer_ref', 'location', 'due_date'].includes(fieldConfigItem.field)) {
+      if (!orderDetailsAdded && orderDetailsHTML) {
+        bodyContent += orderDetailsHTML;
+        orderDetailsAdded = true;
+      }
     }
   }
 
@@ -448,6 +458,19 @@ export const exportMultipleEntriesToPDF = async (
             background: #f9fafb;
             border-radius: 8px;
           }
+          .order-details h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+          }
+          .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 10px 0;
+          }
+          .field-item {
+            padding: 8px 0;
+          }
           .order-summary {
             margin: 20px 0;
             padding: 15px;
@@ -458,18 +481,6 @@ export const exportMultipleEntriesToPDF = async (
           .order-summary p {
             margin: 10px 0 0 0;
             line-height: 1.6;
-          }
-          .detail-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin: 10px 0;
-          }
-          .detail-grid > div {
-            padding: 5px 0;
-          }
-          .description {
-            grid-column: 1 / -1;
           }
           .man-hours {
             margin-top: 15px;
@@ -573,12 +584,7 @@ export const exportMultipleEntriesToPDF = async (
         ${bodyContent || `
           <h1>${orderTitle} - ${t.allJournalEntries}</h1>
           ${logoHTML}
-          ${statusHTML}
-          ${priorityHTML}
-          ${customerHTML}
-          ${customerRefHTML}
-          ${locationHTML}
-          ${dueDateHTML}
+          ${orderDetailsHTML}
           ${descriptionHTML}
           ${manHoursHTML}
           ${hoursByDayHTML_Section}
