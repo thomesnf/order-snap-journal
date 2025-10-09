@@ -6,12 +6,29 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { DateFormatType } from '@/utils/dateFormat';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface SettingsPanelProps {
   onBack: () => void;
@@ -214,16 +231,18 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     }
   };
 
-  const moveField = async (fieldName: string, direction: 'up' | 'down') => {
-    try {
-      const currentIndex = pdfFieldConfig.findIndex(f => f.field === fieldName);
-      if (currentIndex === -1) return;
-      
-      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-      if (newIndex < 0 || newIndex >= pdfFieldConfig.length) return;
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-      const updatedConfig = [...pdfFieldConfig];
-      [updatedConfig[currentIndex], updatedConfig[newIndex]] = [updatedConfig[newIndex], updatedConfig[currentIndex]];
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    try {
+      const oldIndex = pdfFieldConfig.findIndex((field) => field.field === active.id);
+      const newIndex = pdfFieldConfig.findIndex((field) => field.field === over.id);
+
+      const updatedConfig = arrayMove(pdfFieldConfig, oldIndex, newIndex);
       
       // Update order values
       updatedConfig.forEach((field, index) => {
@@ -394,6 +413,73 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         variant: "destructive",
       });
     }
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  interface SortableFieldItemProps {
+    field: PDFFieldConfig;
+    onVisibilityChange: (fieldName: string, visible: boolean) => void;
+    onRemove: (fieldName: string) => void;
+  }
+
+  const SortableFieldItem = ({ field, onVisibilityChange, onRemove }: SortableFieldItemProps) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: field.field });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="flex items-center gap-3 p-3 border rounded-lg bg-background"
+      >
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        
+        {field.type === 'page_break' || field.type === 'line_break' || field.type === 'horizontal_line' ? (
+          <>
+            <div className="flex-1 flex items-center gap-2 text-sm text-muted-foreground italic">
+              <FileText className="h-4 w-4" />
+              {field.label}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(field.field)}
+              className="h-8 w-8 p-0"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
+        ) : (
+          <>
+            <Checkbox
+              checked={field.visible}
+              onCheckedChange={(checked) => onVisibilityChange(field.field, checked as boolean)}
+            />
+            <span className="flex-1 text-sm">{field.label}</span>
+          </>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -713,81 +799,52 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                     <p className="text-sm text-muted-foreground mt-1 mb-4">
                       Choose which fields to show in PDF exports and reorder them
                     </p>
-                    <div className="space-y-2">
-                      {pdfFieldConfig.map((field, index) => (
-                        <div key={field.field} className="flex items-center gap-3 p-3 border rounded-lg bg-background">
-                          {field.type === 'page_break' || field.type === 'line_break' || field.type === 'horizontal_line' ? (
-                            <>
-                              <div className="flex-1 flex items-center gap-2 text-sm text-muted-foreground italic">
-                                <FileText className="h-4 w-4" />
-                                {field.label}
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeField(field.field)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Checkbox
-                                checked={field.visible}
-                                onCheckedChange={(checked) => handleFieldVisibilityChange(field.field, checked as boolean)}
-                              />
-                              <span className="flex-1 text-sm">{field.label}</span>
-                            </>
-                          )}
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => moveField(field.field, 'up')}
-                              disabled={index === 0}
-                              className="h-8 w-8 p-0"
-                            >
-                              ↑
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => moveField(field.field, 'down')}
-                              disabled={index === pdfFieldConfig.length - 1}
-                              className="h-8 w-8 p-0"
-                            >
-                              ↓
-                            </Button>
-                          </div>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={pdfFieldConfig.map(f => f.field)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-2">
+                          {pdfFieldConfig.map((field) => (
+                            <SortableFieldItem
+                              key={field.field}
+                              field={field}
+                              onVisibilityChange={handleFieldVisibilityChange}
+                              onRemove={removeField}
+                            />
+                          ))}
                         </div>
-                      ))}
-                      <div className="flex gap-2 mt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addPageBreak(pdfFieldConfig.length - 1)}
-                          className="flex-1 text-xs"
-                        >
-                          + Add Page Break
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addLineBreak(pdfFieldConfig.length - 1)}
-                          className="flex-1 text-xs"
-                        >
-                          + Add Line Break
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addHorizontalLine(pdfFieldConfig.length - 1)}
-                          className="flex-1 text-xs"
-                        >
-                          + Add Horizontal Line
-                        </Button>
-                      </div>
+                      </SortableContext>
+                    </DndContext>
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addPageBreak(pdfFieldConfig.length - 1)}
+                        className="flex-1 text-xs"
+                      >
+                        + Add Page Break
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addLineBreak(pdfFieldConfig.length - 1)}
+                        className="flex-1 text-xs"
+                      >
+                        + Add Line Break
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addHorizontalLine(pdfFieldConfig.length - 1)}
+                        className="flex-1 text-xs"
+                      >
+                        + Add Horizontal Line
+                      </Button>
                     </div>
                   </div>
                 </div>
