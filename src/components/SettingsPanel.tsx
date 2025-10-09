@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, GripVertical, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     showLogo: true,
     logoMaxHeight: 80,
     pageMargin: 20,
+    titleFontSize: 24,
   });
   
   interface PDFFieldConfig {
@@ -39,6 +40,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     label: string;
     visible: boolean;
     order: number;
+    type?: 'field' | 'page_break';
   }
   
   const [pdfFieldConfig, setPdfFieldConfig] = useState<PDFFieldConfig[]>([]);
@@ -65,7 +67,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const fetchSettings = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config')
+      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config, pdf_title_font_size')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
@@ -79,6 +81,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         showLogo: data.pdf_show_logo !== false,
         logoMaxHeight: data.pdf_logo_max_height || 80,
         pageMargin: data.pdf_page_margin || 20,
+        titleFontSize: data.pdf_title_font_size || 24,
       });
       if (data.pdf_field_config) {
         setPdfFieldConfig(data.pdf_field_config as unknown as PDFFieldConfig[]);
@@ -238,6 +241,75 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
       toast({
         title: "Success",
         description: "Field order updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addPageBreak = async (afterIndex: number) => {
+    try {
+      const updatedConfig = [...pdfFieldConfig];
+      const newPageBreak: PDFFieldConfig = {
+        field: `page_break_${Date.now()}`,
+        label: 'Page Break',
+        visible: true,
+        order: afterIndex + 2,
+        type: 'page_break'
+      };
+      
+      updatedConfig.splice(afterIndex + 1, 0, newPageBreak);
+      
+      // Update order values
+      updatedConfig.forEach((field, index) => {
+        field.order = index + 1;
+      });
+
+      const { error } = await supabase
+        .from('settings')
+        .update({ pdf_field_config: updatedConfig as unknown as any })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setPdfFieldConfig(updatedConfig);
+      toast({
+        title: "Success",
+        description: "Page break added successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removeField = async (fieldName: string) => {
+    try {
+      const updatedConfig = pdfFieldConfig.filter(f => f.field !== fieldName);
+      
+      // Update order values
+      updatedConfig.forEach((field, index) => {
+        field.order = index + 1;
+      });
+
+      const { error } = await supabase
+        .from('settings')
+        .update({ pdf_field_config: updatedConfig as unknown as any })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setPdfFieldConfig(updatedConfig);
+      toast({
+        title: "Success",
+        description: "Field removed successfully",
       });
     } catch (error: any) {
       toast({
@@ -540,6 +612,24 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                   />
                 </div>
 
+                {/* Title Font Size */}
+                <div className="space-y-3">
+                  <Label htmlFor="pdf-title-font-size" className="text-base">
+                    Title Font Size (px)
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Font size for the main title in PDF exports
+                  </p>
+                  <Input
+                    id="pdf-title-font-size"
+                    type="number"
+                    min="12"
+                    max="72"
+                    value={pdfSettings.titleFontSize}
+                    onChange={(e) => handlePdfSettingChange('titleFontSize', parseInt(e.target.value))}
+                  />
+                </div>
+
                 {/* Field Configuration */}
                 <div className="space-y-3">
                   <div className="border-t pt-6">
@@ -549,32 +639,61 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                     </p>
                     <div className="space-y-2">
                       {pdfFieldConfig.map((field, index) => (
-                        <div key={field.field} className="flex items-center gap-3 p-3 border rounded-lg bg-background">
-                          <Checkbox
-                            checked={field.visible}
-                            onCheckedChange={(checked) => handleFieldVisibilityChange(field.field, checked as boolean)}
-                          />
-                          <span className="flex-1 text-sm">{field.label}</span>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => moveField(field.field, 'up')}
-                              disabled={index === 0}
-                              className="h-8 w-8 p-0"
-                            >
-                              ↑
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => moveField(field.field, 'down')}
-                              disabled={index === pdfFieldConfig.length - 1}
-                              className="h-8 w-8 p-0"
-                            >
-                              ↓
-                            </Button>
+                        <div key={field.field}>
+                          <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
+                            {field.type === 'page_break' ? (
+                              <>
+                                <div className="flex-1 flex items-center gap-2 text-sm text-muted-foreground italic">
+                                  <FileText className="h-4 w-4" />
+                                  {field.label}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeField(field.field)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Checkbox
+                                  checked={field.visible}
+                                  onCheckedChange={(checked) => handleFieldVisibilityChange(field.field, checked as boolean)}
+                                />
+                                <span className="flex-1 text-sm">{field.label}</span>
+                              </>
+                            )}
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => moveField(field.field, 'up')}
+                                disabled={index === 0}
+                                className="h-8 w-8 p-0"
+                              >
+                                ↑
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => moveField(field.field, 'down')}
+                                disabled={index === pdfFieldConfig.length - 1}
+                                className="h-8 w-8 p-0"
+                              >
+                                ↓
+                              </Button>
+                            </div>
                           </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addPageBreak(index)}
+                            className="w-full mt-1 text-xs"
+                          >
+                            + Add Page Break After
+                          </Button>
                         </div>
                       ))}
                     </div>

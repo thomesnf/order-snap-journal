@@ -75,6 +75,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     showLogo: boolean;
     logoMaxHeight: number;
     pageMargin: number;
+    titleFontSize: number;
     fieldConfig?: PDFFieldConfig[];
   }>({
     primaryColor: '#2563eb',
@@ -82,6 +83,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     showLogo: true,
     logoMaxHeight: 80,
     pageMargin: 20,
+    titleFontSize: 24,
   });
 
   useEffect(() => {
@@ -115,7 +117,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const fetchCompanyLogo = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config')
+      .select('company_logo_url, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config, pdf_title_font_size')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
@@ -129,6 +131,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
         showLogo: data.pdf_show_logo !== false,
         logoMaxHeight: data.pdf_logo_max_height || 80,
         pageMargin: data.pdf_page_margin || 20,
+        titleFontSize: data.pdf_title_font_size || 24,
         fieldConfig: data.pdf_field_config as unknown as PDFFieldConfig[] | undefined,
       });
     }

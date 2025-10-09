@@ -274,6 +274,7 @@ export type Database = {
           pdf_page_margin: number | null
           pdf_primary_color: string | null
           pdf_show_logo: boolean | null
+          pdf_title_font_size: number | null
           updated_at: string
         }
         Insert: {
@@ -288,6 +289,7 @@ export type Database = {
           pdf_page_margin?: number | null
           pdf_primary_color?: string | null
           pdf_show_logo?: boolean | null
+          pdf_title_font_size?: number | null
           updated_at?: string
         }
         Update: {
@@ -302,6 +304,7 @@ export type Database = {
           pdf_page_margin?: number | null
           pdf_primary_color?: string | null
           pdf_show_logo?: boolean | null
+          pdf_title_font_size?: number | null
           updated_at?: string
         }
         Relationships: []

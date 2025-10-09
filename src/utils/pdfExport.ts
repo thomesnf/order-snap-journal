@@ -67,6 +67,7 @@ interface PDFFieldConfig {
   label: string;
   visible: boolean;
   order: number;
+  type?: 'field' | 'page_break';
 }
 
 interface PDFLayoutSettings {
@@ -75,6 +76,7 @@ interface PDFLayoutSettings {
   showLogo?: boolean;
   logoMaxHeight?: number;
   pageMargin?: number;
+  titleFontSize?: number;
   fieldConfig?: PDFFieldConfig[];
 }
 
@@ -250,23 +252,28 @@ export const exportMultipleEntriesToPDF = async (
 
   // Get field configuration or use defaults
   const fieldConfig = layoutSettings?.fieldConfig || [
-    { field: 'status', label: t.status, visible: true, order: 1 },
-    { field: 'priority', label: t.priority, visible: true, order: 2 },
-    { field: 'customer', label: t.customer, visible: true, order: 3 },
-    { field: 'customer_ref', label: t.customerRef, visible: true, order: 4 },
-    { field: 'location', label: t.location, visible: true, order: 5 },
-    { field: 'due_date', label: t.dueDate, visible: true, order: 6 },
-    { field: 'description', label: t.description, visible: true, order: 7 },
-    { field: 'summary', label: t.summary, visible: true, order: 8 },
-    { field: 'summary_entries', label: t.summaryEntries, visible: true, order: 9 },
-    { field: 'man_hours', label: t.totalManHours, visible: true, order: 10 },
-    { field: 'hours_by_day', label: 'Hours by Day', visible: true, order: 11 },
+    { field: 'title', label: 'Title', visible: true, order: 1 },
+    { field: 'logo', label: 'Logo', visible: true, order: 2 },
+    { field: 'status', label: t.status, visible: true, order: 3 },
+    { field: 'priority', label: t.priority, visible: true, order: 4 },
+    { field: 'customer', label: t.customer, visible: true, order: 5 },
+    { field: 'customer_ref', label: t.customerRef, visible: true, order: 6 },
+    { field: 'location', label: t.location, visible: true, order: 7 },
+    { field: 'due_date', label: t.dueDate, visible: true, order: 8 },
+    { field: 'description', label: t.description, visible: true, order: 9 },
+    { field: 'summary', label: t.summary, visible: true, order: 10 },
+    { field: 'summary_entries', label: t.summaryEntries, visible: true, order: 11 },
+    { field: 'man_hours', label: t.totalManHours, visible: true, order: 12 },
+    { field: 'hours_by_day', label: 'Hours by Day', visible: true, order: 13 },
+    { field: 'journal_entries', label: t.journalEntries, visible: true, order: 14 },
   ];
 
   const isFieldVisible = (fieldName: string) => {
     const config = fieldConfig.find(f => f.field === fieldName);
     return config ? config.visible : true;
   };
+
+  const titleFontSize = layoutSettings?.titleFontSize || 24;
 
   const summaryEntriesHTML = summaryEntries && summaryEntries.length > 0 && isFieldVisible('summary_entries') ? `
     <div class="summary-entries-section">
@@ -315,16 +322,6 @@ export const exportMultipleEntriesToPDF = async (
     </div>
   ` : '';
 
-  const orderDetailsHTML = `
-    <div class="order-details">
-      <h2>${t.orderDetails}</h2>
-      <div class="detail-grid">
-        ${sortedDetailFields}
-      </div>
-      ${manHoursHTML}
-    </div>
-  `;
-
   const entriesHTML = entries.map(entry => {
     const date = formatDate(entry.created_at, dateFormat);
     const photos = entryPhotos?.[entry.id] || [];
@@ -352,6 +349,61 @@ export const exportMultipleEntriesToPDF = async (
     `;
   }).join('');
 
+  const orderDetailsHTML = `
+    <div class="order-details">
+      <h2>${t.orderDetails}</h2>
+      <div class="detail-grid">
+        ${sortedDetailFields}
+      </div>
+      ${manHoursHTML}
+    </div>
+  `;
+
+  // Build content sections based on field configuration order
+  const contentSections: Record<string, string> = {
+    title: isFieldVisible('title') ? `<h1>${orderTitle} - ${t.allJournalEntries}</h1>` : '',
+    logo: (logoUrl && settings.showLogo && isFieldVisible('logo')) ? logoHTML : '',
+    status: '',
+    priority: '',
+    customer: '',
+    customer_ref: '',
+    location: '',
+    due_date: '',
+    description: '',
+    summary: summaryHTML,
+    summary_entries: summaryEntriesHTML,
+    man_hours: '',
+    hours_by_day: '',
+    journal_entries: isFieldVisible('journal_entries') ? `
+      <div class="journal-entries-section">
+        <h2>${t.journalEntries}</h2>
+        ${entriesHTML}
+      </div>
+    ` : '',
+  };
+
+  // Build body content based on field configuration
+  let bodyContent = '';
+  for (const fieldConfigItem of fieldConfig) {
+    if (fieldConfigItem.type === 'page_break' && fieldConfigItem.visible) {
+      bodyContent += '<div style="page-break-before: always;"></div>';
+    } else if (fieldConfigItem.field === 'title' && isFieldVisible('title')) {
+      bodyContent += contentSections.title;
+    } else if (fieldConfigItem.field === 'logo' && isFieldVisible('logo')) {
+      bodyContent += contentSections.logo;
+    } else if (fieldConfigItem.field === 'summary' && isFieldVisible('summary')) {
+      bodyContent += contentSections.summary;
+    } else if (fieldConfigItem.field === 'summary_entries' && isFieldVisible('summary_entries')) {
+      bodyContent += contentSections.summary_entries;
+    } else if (fieldConfigItem.field === 'journal_entries' && isFieldVisible('journal_entries')) {
+      bodyContent += contentSections.journal_entries;
+    } else if (['status', 'priority', 'customer', 'customer_ref', 'location', 'due_date', 'description', 'man_hours', 'hours_by_day'].includes(fieldConfigItem.field)) {
+      if (!bodyContent.includes(orderDetailsHTML)) {
+        bodyContent += orderDetailsHTML;
+      }
+    }
+  }
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -368,6 +420,7 @@ export const exportMultipleEntriesToPDF = async (
             color: ${settings.primaryColor};
             border-bottom: 2px solid ${settings.primaryColor};
             padding-bottom: 10px;
+            font-size: ${titleFontSize}px;
           }
           h2 {
             color: #333;
@@ -476,15 +529,17 @@ export const exportMultipleEntriesToPDF = async (
         </style>
       </head>
       <body>
-        <h1>${orderTitle} - ${t.allJournalEntries}</h1>
-        ${logoHTML}
-        ${orderDetailsHTML}
-        ${summaryHTML}
-        ${summaryEntriesHTML}
-        <div class="journal-entries-section">
-          <h2>${t.journalEntries}</h2>
-          ${entriesHTML}
-        </div>
+        ${bodyContent || `
+          <h1>${orderTitle} - ${t.allJournalEntries}</h1>
+          ${logoHTML}
+          ${orderDetailsHTML}
+          ${summaryHTML}
+          ${summaryEntriesHTML}
+          <div class="journal-entries-section">
+            <h2>${t.journalEntries}</h2>
+            ${entriesHTML}
+          </div>
+        `}
         <script>
           window.onload = function() {
             window.print();
