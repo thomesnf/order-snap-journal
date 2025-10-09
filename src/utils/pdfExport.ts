@@ -545,12 +545,13 @@ export const exportMultipleEntriesToPDF = async (
             margin-top: 5px;
           }
           .page-break {
-            page-break-before: always;
-            break-before: page;
+            page-break-after: always;
+            break-after: page;
             display: block;
-            height: 0;
+            height: 1px;
             margin: 0;
             padding: 0;
+            clear: both;
           }
           @media print {
             body {
@@ -560,8 +561,10 @@ export const exportMultipleEntriesToPDF = async (
               page-break-inside: avoid;
             }
             .page-break {
-              page-break-before: always;
-              break-before: page;
+              page-break-after: always !important;
+              break-after: page !important;
+              display: block !important;
+              height: 0 !important;
             }
           }
         </style>
