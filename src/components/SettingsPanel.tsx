@@ -639,63 +639,61 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                     </p>
                     <div className="space-y-2">
                       {pdfFieldConfig.map((field, index) => (
-                        <div key={field.field}>
-                          <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
-                            {field.type === 'page_break' ? (
-                              <>
-                                <div className="flex-1 flex items-center gap-2 text-sm text-muted-foreground italic">
-                                  <FileText className="h-4 w-4" />
-                                  {field.label}
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeField(field.field)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Checkbox
-                                  checked={field.visible}
-                                  onCheckedChange={(checked) => handleFieldVisibilityChange(field.field, checked as boolean)}
-                                />
-                                <span className="flex-1 text-sm">{field.label}</span>
-                              </>
-                            )}
-                            <div className="flex gap-1">
+                        <div key={field.field} className="flex items-center gap-3 p-3 border rounded-lg bg-background">
+                          {field.type === 'page_break' ? (
+                            <>
+                              <div className="flex-1 flex items-center gap-2 text-sm text-muted-foreground italic">
+                                <FileText className="h-4 w-4" />
+                                {field.label}
+                              </div>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => moveField(field.field, 'up')}
-                                disabled={index === 0}
+                                onClick={() => removeField(field.field)}
                                 className="h-8 w-8 p-0"
                               >
-                                ↑
+                                <Trash2 className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => moveField(field.field, 'down')}
-                                disabled={index === pdfFieldConfig.length - 1}
-                                className="h-8 w-8 p-0"
-                              >
-                                ↓
-                              </Button>
-                            </div>
+                            </>
+                          ) : (
+                            <>
+                              <Checkbox
+                                checked={field.visible}
+                                onCheckedChange={(checked) => handleFieldVisibilityChange(field.field, checked as boolean)}
+                              />
+                              <span className="flex-1 text-sm">{field.label}</span>
+                            </>
+                          )}
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => moveField(field.field, 'up')}
+                              disabled={index === 0}
+                              className="h-8 w-8 p-0"
+                            >
+                              ↑
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => moveField(field.field, 'down')}
+                              disabled={index === pdfFieldConfig.length - 1}
+                              className="h-8 w-8 p-0"
+                            >
+                              ↓
+                            </Button>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addPageBreak(index)}
-                            className="w-full mt-1 text-xs"
-                          >
-                            + Add Page Break After
-                          </Button>
                         </div>
                       ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addPageBreak(pdfFieldConfig.length - 1)}
+                        className="w-full mt-2 text-xs"
+                      >
+                        + Add Page Break
+                      </Button>
                     </div>
                   </div>
                 </div>

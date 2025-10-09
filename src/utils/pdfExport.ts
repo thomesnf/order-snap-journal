@@ -484,7 +484,7 @@ export const exportMultipleEntriesToPDF = async (
             border-radius: 4px;
           }
           .journal-entries-section {
-            page-break-before: always;
+            margin-top: 30px;
           }
           .entry {
             margin: 30px 0;
