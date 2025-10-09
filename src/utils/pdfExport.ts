@@ -62,14 +62,38 @@ const translations: Record<'en' | 'sv', PDFTranslations> = {
   }
 };
 
-export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: string, language: 'en' | 'sv' = 'en', logoUrl?: string, photos?: Photo[], dateFormat: DateFormatType = 'MM/DD/YYYY') => {
+interface PDFLayoutSettings {
+  primaryColor?: string;
+  fontFamily?: string;
+  showLogo?: boolean;
+  logoMaxHeight?: number;
+  pageMargin?: number;
+}
+
+export const exportJournalEntryToPDF = async (
+  entry: JournalEntry, 
+  orderTitle: string, 
+  language: 'en' | 'sv' = 'en', 
+  logoUrl?: string, 
+  photos?: Photo[], 
+  dateFormat: DateFormatType = 'MM/DD/YYYY',
+  layoutSettings?: PDFLayoutSettings
+) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
   const t = translations[language];
   const date = formatDate(entry.created_at, dateFormat);
   
-  const logoHTML = logoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
+  const settings = {
+    primaryColor: layoutSettings?.primaryColor || '#2563eb',
+    fontFamily: layoutSettings?.fontFamily || 'Arial, sans-serif',
+    showLogo: layoutSettings?.showLogo !== false,
+    logoMaxHeight: layoutSettings?.logoMaxHeight || 80,
+    pageMargin: layoutSettings?.pageMargin || 20,
+  };
+  
+  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" /></div>` : '';
   
   const photosHTML = photos && photos.length > 0 ? `
     <div class="photos">
@@ -92,14 +116,14 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
         <title>Journal Entry - ${orderTitle}</title>
         <style>
           body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
+            font-family: ${settings.fontFamily};
+            padding: ${settings.pageMargin}px;
             max-width: 800px;
             margin: 0 auto;
           }
           h1 {
-            color: #2563eb;
-            border-bottom: 2px solid #2563eb;
+            color: ${settings.primaryColor};
+            border-bottom: 2px solid ${settings.primaryColor};
             padding-bottom: 10px;
           }
           .meta {
@@ -170,11 +194,29 @@ export const exportJournalEntryToPDF = async (entry: JournalEntry, orderTitle: s
   printWindow.document.close();
 };
 
-export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderTitle: string, order: Order, language: 'en' | 'sv' = 'en', logoUrl?: string, entryPhotos?: Record<string, Photo[]>, summaryEntries?: SummaryEntry[], dateFormat: DateFormatType = 'MM/DD/YYYY') => {
+export const exportMultipleEntriesToPDF = async (
+  entries: JournalEntry[], 
+  orderTitle: string, 
+  order: Order, 
+  language: 'en' | 'sv' = 'en', 
+  logoUrl?: string, 
+  entryPhotos?: Record<string, Photo[]>, 
+  summaryEntries?: SummaryEntry[], 
+  dateFormat: DateFormatType = 'MM/DD/YYYY',
+  layoutSettings?: PDFLayoutSettings
+) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
   const t = translations[language];
+  
+  const settings = {
+    primaryColor: layoutSettings?.primaryColor || '#2563eb',
+    fontFamily: layoutSettings?.fontFamily || 'Arial, sans-serif',
+    showLogo: layoutSettings?.showLogo !== false,
+    logoMaxHeight: layoutSettings?.logoMaxHeight || 80,
+    pageMargin: layoutSettings?.pageMargin || 20,
+  };
   
   // Calculate total man hours from time_entries
   const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
@@ -195,7 +237,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
     </div>
   ` : '';
 
-  const logoHTML = logoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: 80px; max-width: 200px;" /></div>` : '';
+  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" /></div>` : '';
 
   const summaryHTML = order.summary ? `
     <div class="order-summary">
@@ -272,14 +314,14 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
         <title>${t.journalEntries} - ${orderTitle}</title>
         <style>
           body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
+            font-family: ${settings.fontFamily};
+            padding: ${settings.pageMargin}px;
             max-width: 800px;
             margin: 0 auto;
           }
           h1 {
-            color: #2563eb;
-            border-bottom: 2px solid #2563eb;
+            color: ${settings.primaryColor};
+            border-bottom: 2px solid ${settings.primaryColor};
             padding-bottom: 10px;
           }
           h2 {
@@ -297,7 +339,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
             margin: 20px 0;
             padding: 15px;
             background: #f0f9ff;
-            border-left: 4px solid #2563eb;
+            border-left: 4px solid ${settings.primaryColor};
             border-radius: 4px;
           }
           .order-summary p {
@@ -320,7 +362,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
             margin-top: 15px;
             padding: 10px;
             background: #fff;
-            border-left: 4px solid #2563eb;
+            border-left: 4px solid ${settings.primaryColor};
             font-size: 16px;
           }
           .hours-by-day {
@@ -340,7 +382,7 @@ export const exportMultipleEntriesToPDF = async (entries: JournalEntry[], orderT
             margin: 15px 0;
             padding: 15px;
             background: #f0f9ff;
-            border-left: 4px solid #2563eb;
+            border-left: 4px solid ${settings.primaryColor};
             border-radius: 4px;
           }
           .journal-entries-section {

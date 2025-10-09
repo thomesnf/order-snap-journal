@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar } from 'lucide-react';
+import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,13 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const [uploading, setUploading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
+  const [pdfSettings, setPdfSettings] = useState({
+    primaryColor: '#2563eb',
+    fontFamily: 'Arial, sans-serif',
+    showLogo: true,
+    logoMaxHeight: 80,
+    pageMargin: 20,
+  });
 
   useEffect(() => {
     checkAdminStatus();
@@ -48,7 +55,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const fetchSettings = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url, app_logo_url, date_format')
+      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
@@ -56,6 +63,13 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
       if (data.company_logo_url) setCompanyLogoUrl(data.company_logo_url);
       if (data.app_logo_url) setAppLogoUrl(data.app_logo_url);
       if (data.date_format) setDateFormat(data.date_format as DateFormatType);
+      setPdfSettings({
+        primaryColor: data.pdf_primary_color || '#2563eb',
+        fontFamily: data.pdf_font_family || 'Arial, sans-serif',
+        showLogo: data.pdf_show_logo !== false,
+        logoMaxHeight: data.pdf_logo_max_height || 80,
+        pageMargin: data.pdf_page_margin || 20,
+      });
     }
   };
 
@@ -131,6 +145,29 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handlePdfSettingChange = async (field: string, value: string | number | boolean) => {
+    try {
+      const { error } = await supabase
+        .from('settings')
+        .update({ [`pdf_${field.replace(/([A-Z])/g, '_$1').toLowerCase()}`]: value })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setPdfSettings(prev => ({ ...prev, [field]: value }));
+      toast({
+        title: "Success",
+        description: "PDF layout setting updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -308,6 +345,122 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                       disabled={uploading}
                     />
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PDF Layout Settings - Admin Only */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                PDF Export Layout
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Primary Color */}
+                <div className="space-y-3">
+                  <Label htmlFor="pdf-primary-color" className="text-base">
+                    Primary Color
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Color used for headings and borders in PDF exports
+                  </p>
+                  <div className="flex gap-3 items-center">
+                    <Input
+                      id="pdf-primary-color"
+                      type="color"
+                      value={pdfSettings.primaryColor}
+                      onChange={(e) => handlePdfSettingChange('primaryColor', e.target.value)}
+                      className="w-20 h-10"
+                    />
+                    <Input
+                      type="text"
+                      value={pdfSettings.primaryColor}
+                      onChange={(e) => handlePdfSettingChange('primaryColor', e.target.value)}
+                      className="flex-1"
+                      placeholder="#2563eb"
+                    />
+                  </div>
+                </div>
+
+                {/* Font Family */}
+                <div className="space-y-3">
+                  <Label htmlFor="pdf-font-family" className="text-base">
+                    Font Family
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Font used throughout PDF documents
+                  </p>
+                  <Select 
+                    value={pdfSettings.fontFamily} 
+                    onValueChange={(value) => handlePdfSettingChange('fontFamily', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Arial, sans-serif">Arial</SelectItem>
+                      <SelectItem value="'Times New Roman', serif">Times New Roman</SelectItem>
+                      <SelectItem value="'Courier New', monospace">Courier New</SelectItem>
+                      <SelectItem value="Georgia, serif">Georgia</SelectItem>
+                      <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Show Logo */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Show Logo in PDFs</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Display company logo in exported PDFs
+                    </p>
+                  </div>
+                  <Switch
+                    checked={pdfSettings.showLogo}
+                    onCheckedChange={(checked) => handlePdfSettingChange('showLogo', checked)}
+                  />
+                </div>
+
+                {/* Logo Max Height */}
+                <div className="space-y-3">
+                  <Label htmlFor="pdf-logo-height" className="text-base">
+                    Logo Maximum Height (px)
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Maximum height for the logo in PDF exports
+                  </p>
+                  <Input
+                    id="pdf-logo-height"
+                    type="number"
+                    min="40"
+                    max="200"
+                    value={pdfSettings.logoMaxHeight}
+                    onChange={(e) => handlePdfSettingChange('logoMaxHeight', parseInt(e.target.value))}
+                  />
+                </div>
+
+                {/* Page Margin */}
+                <div className="space-y-3">
+                  <Label htmlFor="pdf-page-margin" className="text-base">
+                    Page Margin (px)
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Margin around the content in PDF exports
+                  </p>
+                  <Input
+                    id="pdf-page-margin"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={pdfSettings.pageMargin}
+                    onChange={(e) => handlePdfSettingChange('pageMargin', parseInt(e.target.value))}
+                  />
                 </div>
               </div>
             </CardContent>

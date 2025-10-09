@@ -268,6 +268,11 @@ export type Database = {
           created_at: string
           date_format: string | null
           id: string
+          pdf_font_family: string | null
+          pdf_logo_max_height: number | null
+          pdf_page_margin: number | null
+          pdf_primary_color: string | null
+          pdf_show_logo: boolean | null
           updated_at: string
         }
         Insert: {
@@ -276,6 +281,11 @@ export type Database = {
           created_at?: string
           date_format?: string | null
           id?: string
+          pdf_font_family?: string | null
+          pdf_logo_max_height?: number | null
+          pdf_page_margin?: number | null
+          pdf_primary_color?: string | null
+          pdf_show_logo?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -284,6 +294,11 @@ export type Database = {
           created_at?: string
           date_format?: string | null
           id?: string
+          pdf_font_family?: string | null
+          pdf_logo_max_height?: number | null
+          pdf_page_margin?: number | null
+          pdf_primary_color?: string | null
+          pdf_show_logo?: boolean | null
           updated_at?: string
         }
         Relationships: []

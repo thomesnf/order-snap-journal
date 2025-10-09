@@ -62,6 +62,13 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const [currentEntryForPhoto, setCurrentEntryForPhoto] = useState<string | null>(null);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>();
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
+  const [pdfSettings, setPdfSettings] = useState({
+    primaryColor: '#2563eb',
+    fontFamily: 'Arial, sans-serif',
+    showLogo: true,
+    logoMaxHeight: 80,
+    pageMargin: 20,
+  });
 
   useEffect(() => {
     if (order) {
@@ -94,12 +101,21 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const fetchCompanyLogo = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url')
+      .select('company_logo_url, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
-    if (data?.company_logo_url) {
-      setCompanyLogoUrl(data.company_logo_url);
+    if (data) {
+      if (data.company_logo_url) {
+        setCompanyLogoUrl(data.company_logo_url);
+      }
+      setPdfSettings({
+        primaryColor: data.pdf_primary_color || '#2563eb',
+        fontFamily: data.pdf_font_family || 'Arial, sans-serif',
+        showLogo: data.pdf_show_logo !== false,
+        logoMaxHeight: data.pdf_logo_max_height || 80,
+        pageMargin: data.pdf_page_margin || 20,
+      });
     }
   };
 
@@ -298,7 +314,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos, summaryEntries, dateFormat)}
+            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos, summaryEntries, dateFormat, pdfSettings)}
             disabled={journalEntries.length === 0}
           >
             <FileDown className="h-4 w-4 mr-2" />
@@ -555,7 +571,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => exportJournalEntryToPDF(entry, order.title, language, companyLogoUrl, entryPhotos[entry.id])}
+                          onClick={() => exportJournalEntryToPDF(entry, order.title, language, companyLogoUrl, entryPhotos[entry.id], dateFormat, pdfSettings)}
                         >
                           <FileDown className="h-4 w-4 mr-1" />
                           {t('exportPDF')}
