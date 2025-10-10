@@ -92,6 +92,10 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     if (order) {
       fetchSummaryEntries();
       fetchJournalEntries();
+      // Fetch photos whenever order changes (e.g., after photo deletion)
+      if (journalEntries.length > 0) {
+        fetchAllPhotos();
+      }
     }
     fetchCompanyLogo();
     fetchDateFormat();
