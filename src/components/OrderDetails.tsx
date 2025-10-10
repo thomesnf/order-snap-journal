@@ -502,34 +502,60 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                 <CardContent className="pt-4">
                   {editingEntryId === entry.id ? (
                     <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label>Entry Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                'w-full justify-start text-left font-normal',
-                                !editedDate && 'text-muted-foreground'
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {editedDate ? formatDate(editedDate, dateFormat) : <span>Pick a date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={editedDate}
-                              onSelect={(date) => {
-                                console.log('Date selected:', date);
-                                setEditedDate(date);
-                              }}
-                              initialFocus
-                              className={cn("p-3 pointer-events-auto")}
-                            />
-                          </PopoverContent>
-                        </Popover>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
+                          <Label>Entry Date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  'w-full justify-start text-left font-normal',
+                                  !editedDate && 'text-muted-foreground'
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {editedDate ? formatDate(editedDate, dateFormat) : <span>Pick a date</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={editedDate}
+                                onSelect={(date) => {
+                                  if (date && editedDate) {
+                                    // Preserve the time when changing date
+                                    const newDate = new Date(date);
+                                    newDate.setHours(editedDate.getHours());
+                                    newDate.setMinutes(editedDate.getMinutes());
+                                    setEditedDate(newDate);
+                                  } else {
+                                    setEditedDate(date);
+                                  }
+                                }}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Entry Time</Label>
+                          <input
+                            type="time"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            value={editedDate ? format(editedDate, 'HH:mm') : ''}
+                            onChange={(e) => {
+                              const [hours, minutes] = e.target.value.split(':').map(Number);
+                              if (editedDate) {
+                                const newDate = new Date(editedDate);
+                                newDate.setHours(hours);
+                                newDate.setMinutes(minutes);
+                                setEditedDate(newDate);
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
                       <Textarea
                         value={editedContent}
