@@ -381,6 +381,60 @@ export const useOrdersDB = () => {
     }
   };
 
+  const deletePhoto = async (photoId: string) => {
+    try {
+      // First, get the photo details to find the storage path
+      const { data: photo, error: fetchError } = await supabase
+        .from('photos')
+        .select('url')
+        .eq('id', photoId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Delete from database
+      const { error: deleteError } = await supabase
+        .from('photos')
+        .delete()
+        .eq('id', photoId);
+
+      if (deleteError) throw deleteError;
+
+      // Try to delete from storage (extract path from signed URL)
+      // The URL format is: https://[project].supabase.co/storage/v1/object/sign/order-basis/journal-photos/[filename]?token=...
+      if (photo?.url) {
+        try {
+          const urlParts = photo.url.split('/');
+          const signIndex = urlParts.indexOf('sign');
+          if (signIndex !== -1 && urlParts[signIndex + 1] === 'order-basis') {
+            const pathParts = urlParts.slice(signIndex + 2);
+            const filePath = pathParts.join('/').split('?')[0]; // Remove query params
+            
+            await supabase.storage
+              .from('order-basis')
+              .remove([filePath]);
+          }
+        } catch (storageError) {
+          // Log but don't fail if storage deletion fails
+          if (import.meta.env.DEV) {
+            console.error('Failed to delete from storage:', storageError);
+          }
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Photo deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const getJournalEntries = async (orderId: string): Promise<JournalEntry[]> => {
     try {
       const { data, error } = await supabase
@@ -496,6 +550,7 @@ export const useOrdersDB = () => {
     updateJournalEntry,
     deleteJournalEntry,
     addPhoto,
+    deletePhoto,
     getJournalEntries,
     getPhotos,
     getOrderWithDetails,

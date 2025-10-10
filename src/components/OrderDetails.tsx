@@ -32,6 +32,7 @@ interface OrderDetailsProps {
   onAddJournalEntry: (orderId: string, content: string) => Promise<void>;
   onUpdateJournalEntry: (entryId: string, content: string, created_at?: Date) => Promise<void>;
   onDeleteJournalEntry: (entryId: string) => Promise<void>;
+  onDeletePhoto: (photoId: string) => Promise<void>;
 }
 
 const statusColors = {
@@ -43,7 +44,7 @@ const statusColors = {
   'paid': 'bg-green-500/10 text-green-500 border-green-500/20'
 };
 
-export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpdateSummaryEntry, onDeleteSummaryEntry, onAddJournalEntry, onUpdateJournalEntry, onDeleteJournalEntry }: OrderDetailsProps) => {
+export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpdateSummaryEntry, onDeleteSummaryEntry, onAddJournalEntry, onUpdateJournalEntry, onDeleteJournalEntry, onDeletePhoto }: OrderDetailsProps) => {
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const { isAdmin } = useAuth();
@@ -562,14 +563,22 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                                 alt={photo.caption || 'Journal photo'}
                                 className="w-full h-32 object-cover rounded-lg"
                               />
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => downloadPhoto(photo.url, photo.caption)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
+                              <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => downloadPhoto(photo.url, photo.caption)}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => onDeletePhoto(photo.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                               {photo.caption && (
                                 <p className="text-xs text-muted-foreground mt-1">{photo.caption}</p>
                               )}

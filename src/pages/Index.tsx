@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 
 const Index = () => {
-  const { orders, addOrder, updateOrder, deleteOrder, addSummaryEntry, updateSummaryEntry, deleteSummaryEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry, addPhoto, getOrderWithDetails } = useOrdersDB();
+  const { orders, addOrder, updateOrder, deleteOrder, addSummaryEntry, updateSummaryEntry, deleteSummaryEntry, addJournalEntry, updateJournalEntry, deleteJournalEntry, addPhoto, deletePhoto, getOrderWithDetails } = useOrdersDB();
   const { isAdmin } = useAuth();
   const [currentView, setCurrentView] = useState<View>('list');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -143,6 +143,17 @@ const Index = () => {
     }
   };
 
+  const handleDeletePhoto = async (photoId: string) => {
+    await deletePhoto(photoId);
+    // Refetch the order to update the UI
+    if (selectedOrder) {
+      const updatedOrder = await getOrderWithDetails(selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  };
+
   const handleUpdateOrder = async (orderId: string, updates: Partial<Order>) => {
     await updateOrder(orderId, updates);
     // Refetch order to update UI
@@ -254,6 +265,7 @@ const Index = () => {
           onAddJournalEntry={handleAddJournalEntry}
           onUpdateJournalEntry={handleUpdateJournalEntry}
           onDeleteJournalEntry={handleDeleteJournalEntry}
+          onDeletePhoto={handleDeletePhoto}
         />
       )}
       
