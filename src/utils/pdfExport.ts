@@ -199,8 +199,8 @@ export const exportJournalEntryToPDF = async (
           }
           .photo-item img {
             width: 100%;
-            height: 200px;
-            object-fit: cover;
+            height: auto;
+            object-fit: contain;
             border-radius: 8px;
             border: 1px solid #e5e7eb;
           }
@@ -591,8 +591,8 @@ export const exportMultipleEntriesToPDF = async (
           }
           .photo-item img {
             width: 100%;
-            height: 200px;
-            object-fit: cover;
+            height: auto;
+            object-fit: contain;
             border-radius: 8px;
             border: 1px solid #e5e7eb;
           }

@@ -59,13 +59,17 @@ const Reports = () => {
     if (dateRange !== 'all') {
       const now = new Date();
       let startDate: Date;
+      let endDate: Date = now;
 
       switch (dateRange) {
         case 'this-month':
           startDate = startOfMonth(now);
+          endDate = endOfMonth(now);
           break;
         case 'last-month':
-          startDate = startOfMonth(subMonths(now, 1));
+          const lastMonth = subMonths(now, 1);
+          startDate = startOfMonth(lastMonth);
+          endDate = endOfMonth(lastMonth);
           break;
         case 'last-3-months':
           startDate = subMonths(now, 3);
@@ -74,7 +78,10 @@ const Reports = () => {
           startDate = new Date(0);
       }
 
-      filtered = filtered.filter(o => new Date(o.created_at) >= startDate);
+      filtered = filtered.filter(o => {
+        const orderDate = new Date(o.created_at);
+        return orderDate >= startDate && orderDate <= endDate;
+      });
     }
 
     return filtered;
@@ -86,13 +93,17 @@ const Reports = () => {
     if (dateRange !== 'all') {
       const now = new Date();
       let startDate: Date;
+      let endDate: Date = now;
 
       switch (dateRange) {
         case 'this-month':
           startDate = startOfMonth(now);
+          endDate = endOfMonth(now);
           break;
         case 'last-month':
-          startDate = startOfMonth(subMonths(now, 1));
+          const lastMonth = subMonths(now, 1);
+          startDate = startOfMonth(lastMonth);
+          endDate = endOfMonth(lastMonth);
           break;
         case 'last-3-months':
           startDate = subMonths(now, 3);
@@ -101,7 +112,10 @@ const Reports = () => {
           startDate = new Date(0);
       }
 
-      filtered = filtered.filter(e => new Date(e.work_date) >= startDate);
+      filtered = filtered.filter(e => {
+        const entryDate = new Date(e.work_date);
+        return entryDate >= startDate && entryDate <= endDate;
+      });
     }
 
     return filtered;
