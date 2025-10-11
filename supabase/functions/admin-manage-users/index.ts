@@ -71,7 +71,8 @@ serve(async (req) => {
     // Get the authorization header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      throw new Error('No authorization header')
+      console.error('Admin request missing authorization header')
+      throw new Error('ACCESS_DENIED')
     }
 
     // Create a client with the user's token to verify they're authenticated
@@ -88,7 +89,8 @@ serve(async (req) => {
     // Verify the user is authenticated and is an admin
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
     if (userError || !user) {
-      throw new Error('Unauthorized')
+      console.error('Admin authentication failed:', { hasError: !!userError, hasUser: !!user })
+      throw new Error('ACCESS_DENIED')
     }
 
     // Check if user is admin
@@ -100,7 +102,8 @@ serve(async (req) => {
       .single()
 
     if (roleError || !roleData) {
-      throw new Error('User is not an admin')
+      console.error('Admin authorization failed:', { userId: user.id, hasError: !!roleError, hasRole: !!roleData })
+      throw new Error('ACCESS_DENIED')
     }
 
     const body = await req.json()
@@ -129,7 +132,7 @@ serve(async (req) => {
       }
     } catch (validationError) {
       console.error('Validation error:', validationError)
-      throw new Error('Invalid input data')
+      throw new Error('INVALID_REQUEST')
     }
 
     const { action } = validatedData
@@ -221,18 +224,26 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Admin manage users error:', error)
     
-    // Return generic error message to prevent information leakage
-    const safeErrorMessage = error.message === 'User is not an admin' 
-      ? 'Unauthorized access' 
-      : error.message === 'Invalid input data'
-      ? 'Invalid request data'
-      : 'An error occurred while processing your request'
+    // Return generic error messages to prevent information leakage
+    let statusCode = 400
+    let errorMessage = 'Request failed'
+    
+    if (error.message === 'ACCESS_DENIED') {
+      statusCode = 403
+      errorMessage = 'Access denied'
+    } else if (error.message === 'INVALID_REQUEST') {
+      statusCode = 400
+      errorMessage = 'Invalid request'
+    } else if (error.message?.includes('Cannot delete') || error.message?.includes('Cannot remove')) {
+      statusCode = 400
+      errorMessage = 'Operation not allowed'
+    }
     
     return new Response(
-      JSON.stringify({ error: safeErrorMessage }),
+      JSON.stringify({ error: errorMessage }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: error.message === 'User is not an admin' ? 403 : 400,
+        status: statusCode,
       }
     )
   }
