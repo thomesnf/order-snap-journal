@@ -626,7 +626,10 @@ export const exportMultipleEntriesToPDF = async (
             body {
               padding: 0;
             }
-            .entry {
+            .entry-photos {
+              page-break-inside: avoid;
+            }
+            .photo-item {
               page-break-inside: avoid;
             }
             .page-break {
