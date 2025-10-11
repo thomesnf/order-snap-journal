@@ -574,6 +574,7 @@ export const exportMultipleEntriesToPDF = async (
             padding: 15px;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
+            page-break-inside: avoid;
           }
           .entry-header {
             color: #666;
