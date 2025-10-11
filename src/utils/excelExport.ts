@@ -52,7 +52,46 @@ export const exportTimeEntriesToExcel = (timeEntries: any[], filename: string = 
     'Notes': entry.notes || '-'
   }));
 
+  // Calculate total hours
+  const totalHours = timeEntries.reduce((sum, entry) => sum + entry.hours_worked, 0);
+
+  // Calculate hours by technician
+  const hoursByTechnician = timeEntries.reduce((acc, entry) => {
+    const tech = entry.technician_name;
+    acc[tech] = (acc[tech] || 0) + entry.hours_worked;
+    return acc;
+  }, {} as Record<string, number>);
+
   const worksheet = XLSX.utils.json_to_sheet(data);
+  
+  // Enable auto-filter on the header row
+  worksheet['!autofilter'] = { ref: XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: { r: data.length, c: 4 }
+  })};
+
+  // Add summary section after the data
+  const summaryStartRow = data.length + 3;
+  
+  // Add total hours
+  XLSX.utils.sheet_add_aoa(worksheet, [
+    ['SUMMARY'],
+    [],
+    ['Total Hours:', totalHours.toFixed(2)],
+    [],
+    ['Hours by Technician:']
+  ], { origin: { r: summaryStartRow, c: 0 } });
+
+  // Add technician totals
+  let currentRow = summaryStartRow + 5;
+  Object.entries(hoursByTechnician)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .forEach(([tech, hours]) => {
+      XLSX.utils.sheet_add_aoa(worksheet, [[tech, (hours as number).toFixed(2)]], { 
+        origin: { r: currentRow++, c: 0 } 
+      });
+    });
+
   const colWidths = [
     { wch: 30 }, // Order
     { wch: 12 }, // Date
