@@ -196,6 +196,7 @@ export const exportJournalEntryToPDF = async (
             grid-template-columns: repeat(2, 1fr);
             gap: 15px;
             margin-bottom: 20px;
+            page-break-inside: avoid;
           }
           .photo-item img {
             width: 100%;
@@ -574,7 +575,6 @@ export const exportMultipleEntriesToPDF = async (
             padding: 15px;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
-            page-break-inside: avoid;
           }
           .entry-header {
             color: #666;
@@ -589,6 +589,7 @@ export const exportMultipleEntriesToPDF = async (
             grid-template-columns: repeat(2, 1fr);
             gap: 15px;
             margin-top: 15px;
+            page-break-inside: avoid;
           }
           .photo-item img {
             width: 100%;
