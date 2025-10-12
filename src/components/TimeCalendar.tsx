@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUsers } from '@/hooks/useUsers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Clock, Calendar as CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -31,9 +33,10 @@ interface TimeCalendarProps {
 
 export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
   const { user } = useAuth();
+  const { users } = useUsers();
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [technicianName, setTechnicianName] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [hoursWorked, setHoursWorked] = useState('');
   const [notes, setNotes] = useState('');
   const [isAddingEntry, setIsAddingEntry] = useState(false);
@@ -71,10 +74,10 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
   };
 
   const handleAddEntry = async () => {
-    if (!selectedDate || !technicianName.trim() || !hoursWorked || !user) {
+    if (!selectedDate || !selectedUserId || !hoursWorked || !user) {
       toast({
         title: 'Missing Information',
-        description: 'Please fill in technician name, date, and hours worked.',
+        description: 'Please select a technician, date, and hours worked.',
         variant: 'destructive',
       });
       return;
@@ -90,12 +93,15 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
       return;
     }
 
+    const selectedUser = users.find(u => u.id === selectedUserId);
+    const technicianName = selectedUser?.full_name || selectedUser?.email || 'Unknown';
+
     const { error } = await supabase
       .from('time_entries')
       .insert({
         order_id: orderId,
-        user_id: user.id,
-        technician_name: technicianName.trim(),
+        user_id: selectedUserId,
+        technician_name: technicianName,
         work_date: format(selectedDate, 'yyyy-MM-dd'),
         hours_worked: hours,
         notes: notes.trim() || null,
@@ -113,7 +119,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         title: 'Time Entry Added',
         description: `Added ${hours} hours for ${technicianName}.`,
       });
-      setTechnicianName('');
+      setSelectedUserId('');
       setHoursWorked('');
       setNotes('');
       setIsAddingEntry(false);
@@ -209,13 +215,19 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         {isAddingEntry ? (
           <div className="space-y-3 p-4 border border-border rounded-lg">
             <div className="space-y-2">
-              <Label htmlFor="technician">Technician Name</Label>
-              <Input
-                id="technician"
-                placeholder="Enter technician name"
-                value={technicianName}
-                onChange={(e) => setTechnicianName(e.target.value)}
-              />
+              <Label htmlFor="technician">Technician</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a technician" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="hours">Hours Worked</Label>
@@ -247,7 +259,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
               <Button
                 onClick={() => {
                   setIsAddingEntry(false);
-                  setTechnicianName('');
+                  setSelectedUserId('');
                   setHoursWorked('');
                   setNotes('');
                 }}
