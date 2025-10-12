@@ -6,12 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown, ArrowLeft, Camera, CalendarIcon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown, ArrowLeft, Camera, CalendarIcon, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { EditOrderDialog } from './EditOrderDialog';
 import { exportJournalEntryToPDF, exportMultipleEntriesToPDF } from '@/utils/pdfExport';
 import { OrderBasisFiles } from './OrderBasisFiles';
@@ -63,6 +65,8 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const [currentEntryForPhoto, setCurrentEntryForPhoto] = useState<string | null>(null);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>();
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
+  const [editingCaptionPhotoId, setEditingCaptionPhotoId] = useState<string | null>(null);
+  const [captionText, setCaptionText] = useState('');
   interface PDFFieldConfig {
     field: string;
     label: string;
@@ -275,53 +279,93 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
 
   const handleAddPhoto = async (entryId: string) => {
     try {
-      const photoDataUrl = await capturePhoto();
-      if (!photoDataUrl) return;
+      // Create file input that accepts multiple files
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.multiple = true;
+      
+      input.onchange = async (e) => {
+        const files = (e.target as HTMLInputElement).files;
+        if (!files || files.length === 0) return;
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
 
-      // Upload to Supabase storage
-      const fileName = `${entryId}_${Date.now()}.jpg`;
-      const blob = await fetch(photoDataUrl).then(res => res.blob());
+        // Upload all selected files
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const fileName = `${entryId}_${Date.now()}_${i}.jpg`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('order-basis')
-        .upload(`journal-photos/${fileName}`, blob, {
-          contentType: 'image/jpeg',
-          upsert: false
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('order-basis')
+            .upload(`journal-photos/${fileName}`, file, {
+              contentType: file.type,
+              upsert: false
+            });
+
+          if (uploadError) throw uploadError;
+
+          // Get a signed URL for the private bucket (valid for 1 year)
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from('order-basis')
+            .createSignedUrl(`journal-photos/${fileName}`, 31536000);
+
+          if (signedUrlError) throw signedUrlError;
+
+          const { error } = await supabase
+            .from('photos')
+            .insert({
+              url: signedUrlData.signedUrl,
+              journal_entry_id: entryId,
+              user_id: user.id,
+            });
+
+          if (error) throw error;
+        }
+
+        toast({
+          title: t('success'),
+          description: `${files.length} photo${files.length > 1 ? 's' : ''} added successfully`,
         });
 
-      if (uploadError) throw uploadError;
-
-      // Get a signed URL for the private bucket (valid for 1 year)
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('order-basis')
-        .createSignedUrl(`journal-photos/${fileName}`, 31536000); // 1 year in seconds
-
-      if (signedUrlError) throw signedUrlError;
-
-      const { error } = await supabase
-        .from('photos')
-        .insert({
-          url: signedUrlData.signedUrl,
-          journal_entry_id: entryId,
-          user_id: user.id,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: t('success'),
-        description: 'Photo added successfully',
-      });
-
-      fetchAllPhotos();
+        fetchAllPhotos();
+      };
+      
+      input.click();
     } catch (error: any) {
       console.error('Photo upload error:', error);
       toast({
         title: t('error'),
         description: error.message || 'Failed to add photo',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUpdateCaption = async () => {
+    if (!editingCaptionPhotoId) return;
+
+    try {
+      const { error } = await supabase
+        .from('photos')
+        .update({ caption: captionText })
+        .eq('id', editingCaptionPhotoId);
+
+      if (error) throw error;
+
+      toast({
+        title: t('success'),
+        description: 'Caption updated successfully',
+      });
+
+      setEditingCaptionPhotoId(null);
+      setCaptionText('');
+      fetchAllPhotos();
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message || 'Failed to update caption',
         variant: 'destructive',
       });
     }
@@ -593,7 +637,18 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                                 alt={photo.caption || 'Journal photo'}
                                 className="w-full h-32 object-cover rounded-lg"
                               />
-                              <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingCaptionPhotoId(photo.id);
+                                    setCaptionText(photo.caption || '');
+                                  }}
+                                  title="Add/Edit Caption"
+                                >
+                                  <MessageSquare className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="secondary"
                                   size="sm"
@@ -707,6 +762,39 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!editingCaptionPhotoId} onOpenChange={() => {
+        setEditingCaptionPhotoId(null);
+        setCaptionText('');
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add/Edit Photo Caption</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="caption">Caption</Label>
+              <Input
+                id="caption"
+                value={captionText}
+                onChange={(e) => setCaptionText(e.target.value)}
+                placeholder="Enter photo caption..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setEditingCaptionPhotoId(null);
+              setCaptionText('');
+            }}>
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleUpdateCaption}>
+              {t('save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
