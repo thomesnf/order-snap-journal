@@ -14,6 +14,7 @@ interface TimeEntry {
   technician_name: string;
   notes: string | null;
   order_id: string;
+  order_title?: string;
 }
 
 interface ManHoursCalendarProps {
@@ -55,13 +56,33 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   const fetchTimeEntries = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch time entries
+      const { data: entriesData, error: entriesError } = await supabase
         .from('time_entries')
         .select('*')
         .order('work_date', { ascending: false });
 
-      if (error) throw error;
-      setTimeEntries(data || []);
+      if (entriesError) throw entriesError;
+
+      // Fetch orders to get titles
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, title');
+
+      if (ordersError) throw ordersError;
+
+      // Create a map of order_id to title
+      const orderTitleMap = new Map(
+        (ordersData || []).map(order => [order.id, order.title])
+      );
+
+      // Merge the data
+      const transformedData = (entriesData || []).map(entry => ({
+        ...entry,
+        order_title: orderTitleMap.get(entry.order_id)
+      }));
+      
+      setTimeEntries(transformedData);
     } catch (error) {
       console.error('Error fetching time entries:', error);
     } finally {
@@ -157,7 +178,12 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
                     <Card key={entry.id} className="p-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="font-medium">{entry.technician_name}</p>
+                          <div className="flex-1">
+                            {entry.order_title && (
+                              <p className="text-sm font-semibold text-primary mb-1">{entry.order_title}</p>
+                            )}
+                            <p className="font-medium">{entry.technician_name}</p>
+                          </div>
                           <Badge variant="outline">{Number(entry.hours_worked).toFixed(1)}h</Badge>
                         </div>
                         {entry.notes && (
