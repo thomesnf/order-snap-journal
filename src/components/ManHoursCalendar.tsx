@@ -224,14 +224,15 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-2xl font-bold">Man Hours Overview</DialogTitle>
-              <Button onClick={() => setShowAddDialog(true)} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Time Entry
-              </Button>
-            </div>
+            <DialogTitle className="text-2xl font-bold">Man Hours Overview</DialogTitle>
           </DialogHeader>
+          
+          <div className="flex justify-end mb-4">
+            <Button onClick={() => setShowAddDialog(true)} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Time Entry
+            </Button>
+          </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
