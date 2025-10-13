@@ -630,6 +630,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
                                 }}
                                 initialFocus
                                 className={cn("p-3 pointer-events-auto")}
+                                weekStartsOn={1}
                               />
                             </PopoverContent>
                           </Popover>

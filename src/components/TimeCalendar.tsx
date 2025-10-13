@@ -194,6 +194,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
                 onSelect={setSelectedDate}
                 initialFocus
                 className="pointer-events-auto"
+                weekStartsOn={1}
               />
             </PopoverContent>
           </Popover>

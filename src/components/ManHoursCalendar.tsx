@@ -226,13 +226,6 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Man Hours Overview</DialogTitle>
           </DialogHeader>
-          
-          <div className="flex justify-end mb-4">
-            <Button onClick={() => setShowAddDialog(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Time Entry
-            </Button>
-          </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -250,6 +243,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
                   modifiers={modifiers}
                   modifiersClassNames={modifiersClassNames}
                   className="rounded-md border"
+                  weekStartsOn={1}
                 />
               </Card>
 
@@ -271,11 +265,17 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
                     <h3 className="font-semibold text-lg">
                       {selectedDate ? format(selectedDate, dateFormat) : 'Select a date'}
                     </h3>
-                    {selectedDateHours > 0 && (
-                      <Badge className="bg-primary text-primary-foreground">
-                        {selectedDateHours.toFixed(1)}h
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {selectedDateHours > 0 && (
+                        <Badge className="bg-primary text-primary-foreground">
+                          {selectedDateHours.toFixed(1)}h
+                        </Badge>
+                      )}
+                      <Button onClick={() => setShowAddDialog(true)} size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Time
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>
