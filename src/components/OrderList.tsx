@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Filter, Plus, Settings, Shield, LogOut, FileBarChart } from 'lucide-react';
+import { Search, Filter, Plus, Settings, Shield, LogOut, FileBarChart, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { ManHoursCalendar } from './ManHoursCalendar';
 
 interface OrderListProps {
   orders: Order[];
@@ -39,6 +40,7 @@ export const OrderList = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
   const [fullName, setFullName] = useState<string>('');
+  const [showManHoursCalendar, setShowManHoursCalendar] = useState(false);
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
 
@@ -98,6 +100,9 @@ export const OrderList = ({
             <p className="text-sm font-medium text-foreground">{fullName || user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button onClick={() => setShowManHoursCalendar(true)} variant="outline" size="sm">
+              <Calendar className="h-4 w-4" />
+            </Button>
             <Button onClick={() => navigate('/reports')} variant="outline" size="sm">
               <FileBarChart className="h-4 w-4" />
             </Button>
@@ -184,6 +189,11 @@ export const OrderList = ({
           </div>
         )}
       </div>
+
+      <ManHoursCalendar 
+        open={showManHoursCalendar} 
+        onOpenChange={setShowManHoursCalendar}
+      />
     </div>
   );
 };
