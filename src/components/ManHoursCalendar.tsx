@@ -27,6 +27,13 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   const [loading, setLoading] = useState(false);
   const [dateFormat, setDateFormat] = useState('MM/dd/yyyy');
 
+  // Convert old date-fns v2 format to v3 format
+  const convertDateFormat = (format: string) => {
+    return format
+      .replace(/DD/g, 'dd')  // Day of month
+      .replace(/YYYY/g, 'yyyy'); // Year
+  };
+
   useEffect(() => {
     if (open) {
       fetchTimeEntries();
@@ -41,7 +48,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
       .single();
     
     if (data?.date_format) {
-      setDateFormat(data.date_format);
+      setDateFormat(convertDateFormat(data.date_format));
     }
   };
 
