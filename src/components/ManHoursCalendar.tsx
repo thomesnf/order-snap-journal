@@ -68,6 +68,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
         .from('orders')
         .select('id, title')
         .is('deleted_at', null)
+        .in('status', ['pending', 'in-progress', 'completed'])
         .order('title');
 
       if (error) throw error;
