@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Plus } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useUsers } from '@/hooks/useUsers';
 
 interface TimeEntry {
   id: string;
@@ -23,10 +29,23 @@ interface ManHoursCalendarProps {
 }
 
 export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) => {
+  const { toast } = useToast();
+  const { users } = useUsers();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [dateFormat, setDateFormat] = useState('MM/dd/yyyy');
+  
+  // Add time entry dialog state
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [orders, setOrders] = useState<{ id: string; title: string }[]>([]);
+  const [newEntry, setNewEntry] = useState({
+    orderId: '',
+    technicianId: '',
+    hours: '',
+    workDate: format(new Date(), 'yyyy-MM-dd'),
+    notes: ''
+  });
 
   // Convert old date-fns v2 format to v3 format
   const convertDateFormat = (format: string) => {
@@ -39,8 +58,24 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     if (open) {
       fetchTimeEntries();
       fetchDateFormat();
+      fetchOrders();
     }
   }, [open]);
+
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, title')
+        .is('deleted_at', null)
+        .order('title');
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    }
+  };
 
   const fetchDateFormat = async () => {
     const { data } = await supabase
@@ -107,6 +142,71 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     return timeEntries.reduce((sum, entry) => sum + Number(entry.hours_worked), 0);
   };
 
+  const handleAddTimeEntry = async () => {
+    if (!newEntry.orderId || !newEntry.technicianId || !newEntry.hours) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const hours = parseFloat(newEntry.hours);
+    if (isNaN(hours) || hours <= 0) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid number of hours',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Get technician name from users
+      const technician = users.find(u => u.id === newEntry.technicianId);
+      if (!technician) throw new Error('Technician not found');
+
+      const { error } = await supabase
+        .from('time_entries')
+        .insert({
+          order_id: newEntry.orderId,
+          user_id: user.id,
+          technician_name: technician.full_name || 'Unknown',
+          hours_worked: hours,
+          work_date: newEntry.workDate,
+          notes: newEntry.notes || null
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Time entry added successfully',
+      });
+
+      setShowAddDialog(false);
+      setNewEntry({
+        orderId: '',
+        technicianId: '',
+        hours: '',
+        workDate: format(new Date(), 'yyyy-MM-dd'),
+        notes: ''
+      });
+      fetchTimeEntries();
+    } catch (error: any) {
+      console.error('Error adding time entry:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to add time entry',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const modifiers = {
     hasHours: (date: Date) => getHoursForDate(date) > 0,
   };
@@ -119,11 +219,18 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   const selectedDateHours = selectedDateEntries.reduce((sum, entry) => sum + Number(entry.hours_worked), 0);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">Man Hours Overview</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-2xl font-bold">Man Hours Overview</DialogTitle>
+              <Button onClick={() => setShowAddDialog(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Time Entry
+              </Button>
+            </div>
+          </DialogHeader>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -203,5 +310,92 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Add Time Entry Dialog */}
+    <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Time Entry</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="order">Order *</Label>
+            <Select value={newEntry.orderId} onValueChange={(value) => setNewEntry({ ...newEntry, orderId: value })}>
+              <SelectTrigger id="order">
+                <SelectValue placeholder="Select an order" />
+              </SelectTrigger>
+              <SelectContent>
+                {orders.map((order) => (
+                  <SelectItem key={order.id} value={order.id}>
+                    {order.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="technician">Technician *</Label>
+            <Select value={newEntry.technicianId} onValueChange={(value) => setNewEntry({ ...newEntry, technicianId: value })}>
+              <SelectTrigger id="technician">
+                <SelectValue placeholder="Select a technician" />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name || 'Unnamed User'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="hours">Hours Worked *</Label>
+            <Input
+              id="hours"
+              type="number"
+              step="0.5"
+              min="0"
+              placeholder="e.g., 8.5"
+              value={newEntry.hours}
+              onChange={(e) => setNewEntry({ ...newEntry, hours: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="workDate">Work Date *</Label>
+            <Input
+              id="workDate"
+              type="date"
+              value={newEntry.workDate}
+              onChange={(e) => setNewEntry({ ...newEntry, workDate: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Input
+              id="notes"
+              type="text"
+              placeholder="Add any notes..."
+              value={newEntry.notes}
+              onChange={(e) => setNewEntry({ ...newEntry, notes: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddTimeEntry}>
+            Add Entry
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };

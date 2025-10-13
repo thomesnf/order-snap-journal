@@ -38,6 +38,31 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
   const [uploading, setUploading] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
 
+  // File validation constants
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const ALLOWED_FILE_TYPES = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif'
+  ];
+
+  const validateFile = (file: File): string | null => {
+    if (!ALLOWED_FILE_TYPES.includes(file.type.toLowerCase())) {
+      return 'File type not allowed. Allowed: PDF, Word, Excel, Images (JPEG, PNG, WebP, GIF)';
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return 'File size must be less than 10MB';
+    }
+    return null;
+  };
+
   useEffect(() => {
     fetchFiles();
   }, [orderId]);
@@ -64,6 +89,18 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Validate file before upload
+    const validationError = validateFile(file);
+    if (validationError) {
+      toast({
+        title: t('error'),
+        description: validationError,
+        variant: 'destructive',
+      });
+      event.target.value = '';
+      return;
+    }
 
     setUploading(true);
     try {

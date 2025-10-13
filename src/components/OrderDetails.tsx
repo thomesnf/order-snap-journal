@@ -277,17 +277,49 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     }
   };
 
+  // File validation constants
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+
+  const validateImageFile = (file: File): string | null => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+      return 'Only JPEG, JPG, PNG, WebP, and GIF images are allowed';
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return 'File size must be less than 10MB';
+    }
+    return null;
+  };
+
   const handleAddPhoto = async (entryId: string) => {
     try {
       // Create file input that accepts multiple files
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*';
+      input.accept = 'image/jpeg,image/jpg,image/png,image/webp,image/gif';
       input.multiple = true;
       
       input.onchange = async (e) => {
         const files = (e.target as HTMLInputElement).files;
         if (!files || files.length === 0) return;
+
+        // Validate all files before uploading
+        const invalidFiles: string[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const validationError = validateImageFile(files[i]);
+          if (validationError) {
+            invalidFiles.push(`${files[i].name}: ${validationError}`);
+          }
+        }
+
+        if (invalidFiles.length > 0) {
+          toast({
+            title: t('error'),
+            description: invalidFiles.join('\n'),
+            variant: 'destructive',
+          });
+          return;
+        }
 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
@@ -295,7 +327,8 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
         // Upload all selected files
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const fileName = `${entryId}_${Date.now()}_${i}.jpg`;
+          const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `${entryId}_${Date.now()}_${i}.${fileExt}`;
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('order-basis')
@@ -343,8 +376,26 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     }
   };
 
+  const validateCaption = (caption: string): string | null => {
+    const trimmed = caption.trim();
+    if (trimmed.length > 500) {
+      return 'Caption must be less than 500 characters';
+    }
+    return null;
+  };
+
   const handleUpdateCaption = async () => {
     if (!editingCaptionPhotoId) return;
+
+    const validationError = validateCaption(captionText);
+    if (validationError) {
+      toast({
+        title: t('error'),
+        description: validationError,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
       const { error } = await supabase
