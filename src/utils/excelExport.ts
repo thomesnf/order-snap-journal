@@ -1,8 +1,21 @@
 import * as XLSX from 'xlsx';
 import { Order } from '@/hooks/useOrdersDB';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
-export const exportOrdersToExcel = (orders: Order[], filename: string = 'orders') => {
+export const exportOrdersToExcel = async (orders: Order[], filename: string = 'orders') => {
+  // Fetch time entries to calculate total hours for each order
+  const { data: timeEntries } = await supabase
+    .from('time_entries')
+    .select('order_id, hours_worked');
+  
+  // Create a map of order_id to total hours
+  const hoursMap = new Map<string, number>();
+  (timeEntries || []).forEach(entry => {
+    const current = hoursMap.get(entry.order_id) || 0;
+    hoursMap.set(entry.order_id, current + Number(entry.hours_worked));
+  });
+
   // Prepare data for Excel
   const data = orders.map(order => ({
     'Order ID': order.id.substring(0, 8),
@@ -12,6 +25,7 @@ export const exportOrdersToExcel = (orders: Order[], filename: string = 'orders'
     'Address': order.location || '-',
     'Status': order.status,
     'Priority': order.priority,
+    'Total Man Hours': (hoursMap.get(order.id) || 0).toFixed(1),
     'Due Date': order.due_date ? format(new Date(order.due_date), 'MM/dd/yyyy') : '-',
     'Created': format(new Date(order.created_at), 'MM/dd/yyyy'),
     'Description': order.description || '-'
@@ -29,6 +43,7 @@ export const exportOrdersToExcel = (orders: Order[], filename: string = 'orders'
     { wch: 20 }, // Address
     { wch: 12 }, // Status
     { wch: 10 }, // Priority
+    { wch: 15 }, // Total Man Hours
     { wch: 12 }, // Due Date
     { wch: 12 }, // Created
     { wch: 40 }, // Description

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUsers } from '@/hooks/useUsers';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TimeEntry {
   id: string;
@@ -31,6 +32,7 @@ interface ManHoursCalendarProps {
 export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) => {
   const { toast } = useToast();
   const { users } = useUsers();
+  const { t } = useLanguage();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -146,8 +148,8 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   const handleAddTimeEntry = async () => {
     if (!newEntry.orderId || !newEntry.technicianId || !newEntry.hours) {
       toast({
-        title: 'Error',
-        description: 'Please fill in all required fields',
+        title: t('error'),
+        description: t('fillRequired'),
         variant: 'destructive',
       });
       return;
@@ -156,7 +158,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     const hours = parseFloat(newEntry.hours);
     if (isNaN(hours) || hours <= 0) {
       toast({
-        title: 'Error',
+        title: t('error'),
         description: 'Please enter a valid number of hours',
         variant: 'destructive',
       });
@@ -185,7 +187,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
       if (error) throw error;
 
       toast({
-        title: 'Success',
+        title: t('success'),
         description: 'Time entry added successfully',
       });
 
@@ -201,7 +203,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     } catch (error: any) {
       console.error('Error adding time entry:', error);
       toast({
-        title: 'Error',
+        title: t('error'),
         description: error.message || 'Failed to add time entry',
         variant: 'destructive',
       });
@@ -224,7 +226,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">Man Hours Overview</DialogTitle>
+            <DialogTitle className="text-2xl font-bold">{t('manHoursOverview')}</DialogTitle>
           </DialogHeader>
 
         {loading ? (
@@ -250,7 +252,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
               {/* Total Hours Card */}
               <Card className="p-4">
                 <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Total Project Hours</p>
+                  <p className="text-sm text-muted-foreground mb-1">{t('totalProjectHours')}</p>
                   <p className="text-3xl font-bold text-primary">{getTotalHours().toFixed(1)}h</p>
                 </div>
               </Card>
@@ -263,7 +265,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-lg">
-                      {selectedDate ? format(selectedDate, dateFormat) : 'Select a date'}
+                      {selectedDate ? format(selectedDate, dateFormat) : t('selectDate')}
                     </h3>
                     <div className="flex items-center gap-2">
                       {selectedDateHours > 0 && (
@@ -273,7 +275,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
                       )}
                       <Button onClick={() => setShowAddDialog(true)} size="sm">
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Time
+                        {t('addTime')}
                       </Button>
                     </div>
                   </div>
@@ -303,7 +305,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
                   ))
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>No time entries for this date</p>
+                    <p>{t('noTimeEntries')}</p>
                   </div>
                 )}
               </div>
@@ -317,15 +319,15 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Time Entry</DialogTitle>
+          <DialogTitle>{t('addTimeEntry')}</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="order">Order *</Label>
+            <Label htmlFor="order">{t('order')} *</Label>
             <Select value={newEntry.orderId} onValueChange={(value) => setNewEntry({ ...newEntry, orderId: value })}>
               <SelectTrigger id="order">
-                <SelectValue placeholder="Select an order" />
+                <SelectValue placeholder={t('selectOrder')} />
               </SelectTrigger>
               <SelectContent>
                 {orders.map((order) => (
@@ -338,10 +340,10 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="technician">Technician *</Label>
+            <Label htmlFor="technician">{t('technician')} *</Label>
             <Select value={newEntry.technicianId} onValueChange={(value) => setNewEntry({ ...newEntry, technicianId: value })}>
               <SelectTrigger id="technician">
-                <SelectValue placeholder="Select a technician" />
+                <SelectValue placeholder={t('selectTechnician')} />
               </SelectTrigger>
               <SelectContent>
                 {users.map((user) => (
@@ -354,7 +356,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="hours">Hours Worked *</Label>
+            <Label htmlFor="hours">{t('hoursWorked')} *</Label>
             <Input
               id="hours"
               type="number"
@@ -367,7 +369,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="workDate">Work Date *</Label>
+            <Label htmlFor="workDate">{t('workDate')} *</Label>
             <Input
               id="workDate"
               type="date"
@@ -377,11 +379,11 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Label htmlFor="notes">{t('notes')} ({t('optional')})</Label>
             <Input
               id="notes"
               type="text"
-              placeholder="Add any notes..."
+              placeholder={t('addAnyNotes')}
               value={newEntry.notes}
               onChange={(e) => setNewEntry({ ...newEntry, notes: e.target.value })}
             />
@@ -390,10 +392,10 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button onClick={handleAddTimeEntry}>
-            Add Entry
+            {t('addEntry')}
           </Button>
         </DialogFooter>
       </DialogContent>

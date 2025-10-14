@@ -121,9 +121,9 @@ const Reports = () => {
     return filtered;
   };
 
-  const handleExportOrders = () => {
+  const handleExportOrders = async () => {
     const filtered = getFilteredOrders();
-    exportOrdersToExcel(filtered);
+    await exportOrdersToExcel(filtered);
     toast.success(`Exported ${filtered.length} orders to Excel`);
   };
 
@@ -327,47 +327,6 @@ const Reports = () => {
           </Card>
         </div>
 
-        {/* Invoice Generation */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Generate Invoices
-            </CardTitle>
-            <CardDescription>
-              Create PDF invoices for completed or invoiced orders
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {filteredOrders
-                .filter(o => o.status === 'completed' || o.status === 'invoiced' || o.status === 'paid')
-                .map(order => (
-                  <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">{order.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {order.customer} • {order.status}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleGenerateInvoice(order.id)}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Generate Invoice
-                    </Button>
-                  </div>
-                ))}
-              {filteredOrders.filter(o => o.status === 'completed' || o.status === 'invoiced' || o.status === 'paid').length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  No completed orders to invoice
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

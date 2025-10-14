@@ -147,7 +147,22 @@ const translations: Translations = {
     'updated': 'Updated',
     'due': 'Due',
     'ref': 'Ref',
-    'customerInfoRestricted': 'Customer information is only visible to administrators for security purposes.'
+    'customerInfoRestricted': 'Customer information is only visible to administrators for security purposes.',
+    'manHoursOverview': 'Man Hours Overview',
+    'selectDate': 'Select a date',
+    'totalProjectHours': 'Total Project Hours',
+    'noTimeEntries': 'No time entries for this date',
+    'addTimeEntry': 'Add Time Entry',
+    'addTime': 'Add Time',
+    'order': 'Order',
+    'selectOrder': 'Select an order',
+    'technician': 'Technician',
+    'selectTechnician': 'Select a technician',
+    'hoursWorked': 'Hours Worked',
+    'workDate': 'Work Date',
+    'notes': 'Notes',
+    'optional': 'Optional',
+    'addAnyNotes': 'Add any notes...'
   },
   sv: {
     // Navigation
@@ -288,7 +303,22 @@ const translations: Translations = {
     'updated': 'Uppdaterad',
     'due': 'Förfaller',
     'ref': 'Ref',
-    'customerInfoRestricted': 'Kundinformation är endast synlig för administratörer av säkerhetsskäl.'
+    'customerInfoRestricted': 'Kundinformation är endast synlig för administratörer av säkerhetsskäl.',
+    'manHoursOverview': 'Timmars Översikt',
+    'selectDate': 'Välj ett datum',
+    'totalProjectHours': 'Totalt Projekttimmar',
+    'noTimeEntries': 'Inga tidsinlägg för detta datum',
+    'addTimeEntry': 'Lägg Till Tidsinlägg',
+    'addTime': 'Lägg Till Tid',
+    'order': 'Beställning',
+    'selectOrder': 'Välj en beställning',
+    'technician': 'Tekniker',
+    'selectTechnician': 'Välj en tekniker',
+    'hoursWorked': 'Arbetade Timmar',
+    'workDate': 'Arbetsdatum',
+    'notes': 'Anteckningar',
+    'optional': 'Valfritt',
+    'addAnyNotes': 'Lägg till anteckningar...'
   }
 };
 
