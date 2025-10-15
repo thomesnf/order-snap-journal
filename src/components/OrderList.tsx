@@ -7,9 +7,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Filter, Plus, Settings, Shield, LogOut, FileBarChart, Calendar } from 'lucide-react';
+import { Search, Filter, Plus, Settings, Shield, LogOut, FileBarChart, Calendar, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ManHoursCalendar } from './ManHoursCalendar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 interface OrderListProps {
   orders: Order[];
@@ -100,23 +107,38 @@ export const OrderList = ({
             <p className="text-sm font-medium text-foreground">{fullName || user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => setShowManHoursCalendar(true)} variant="outline" size="sm">
-              <Calendar className="h-4 w-4" />
-            </Button>
-            <Button onClick={() => navigate('/reports')} variant="outline" size="sm">
-              <FileBarChart className="h-4 w-4" />
-            </Button>
-            <Button onClick={onShowSettings} variant="outline" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
-            {isAdmin && onShowAdmin && (
-              <Button onClick={onShowAdmin} variant="outline" size="sm">
-                <Shield className="h-4 w-4" />
-              </Button>
-            )}
-            <Button onClick={signOut} variant="outline" size="sm">
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setShowManHoursCalendar(true)}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  {t('manHours') || 'Man Hours'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/reports')}>
+                  <FileBarChart className="h-4 w-4 mr-2" />
+                  {t('reports') || 'Reports'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onShowSettings}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  {t('settings') || 'Settings'}
+                </DropdownMenuItem>
+                {isAdmin && onShowAdmin && (
+                  <DropdownMenuItem onClick={onShowAdmin}>
+                    <Shield className="h-4 w-4 mr-2" />
+                    {t('admin') || 'Admin'}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {t('logout') || 'Logout'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={onCreateOrder} size="sm" className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90">
               <Plus className="h-4 w-4 mr-2" />
               {t('newOrder')}
