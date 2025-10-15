@@ -116,26 +116,26 @@ export const OrderList = ({
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={() => setShowManHoursCalendar(true)}>
                   <Calendar className="h-4 w-4 mr-2" />
-                  {t('manHours') || 'Man Hours'}
+                  {t('calendar')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/reports')}>
                   <FileBarChart className="h-4 w-4 mr-2" />
-                  {t('reports') || 'Reports'}
+                  {t('reports')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onShowSettings}>
                   <Settings className="h-4 w-4 mr-2" />
-                  {t('settings') || 'Settings'}
+                  {t('settings')}
                 </DropdownMenuItem>
                 {isAdmin && onShowAdmin && (
                   <DropdownMenuItem onClick={onShowAdmin}>
                     <Shield className="h-4 w-4 mr-2" />
-                    {t('admin') || 'Admin'}
+                    {t('admin')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut}>
                   <LogOut className="h-4 w-4 mr-2" />
-                  {t('logout') || 'Logout'}
+                  {t('logout')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

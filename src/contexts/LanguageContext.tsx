@@ -162,7 +162,10 @@ const translations: Translations = {
     'workDate': 'Work Date',
     'notes': 'Notes',
     'optional': 'Optional',
-    'addAnyNotes': 'Add any notes...'
+    'addAnyNotes': 'Add any notes...',
+    'calendar': 'Calendar',
+    'reports': 'Reports',
+    'logout': 'Logout'
   },
   sv: {
     // Navigation
@@ -318,7 +321,10 @@ const translations: Translations = {
     'workDate': 'Arbetsdatum',
     'notes': 'Anteckningar',
     'optional': 'Valfritt',
-    'addAnyNotes': 'Lägg till anteckningar...'
+    'addAnyNotes': 'Lägg till anteckningar...',
+    'calendar': 'Kalender',
+    'reports': 'Rapporter',
+    'logout': 'Logga ut'
   }
 };
 
