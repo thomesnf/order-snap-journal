@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import nfLogo from '@/assets/nf-logo.png';
 import { Order } from '@/hooks/useOrdersDB';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OrderCard } from './OrderCard';
@@ -94,15 +95,11 @@ export const OrderList = ({
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border/50 p-4 z-10">
         <div className="flex items-center justify-between mb-4">
-          {companyLogoUrl ? (
-            <img 
-              src={companyLogoUrl} 
-              alt="Company Logo" 
-              className="h-10 object-contain"
-            />
-          ) : (
-            <h1 className="text-2xl font-bold text-foreground">{t('orders')}</h1>
-          )}
+          <img 
+            src={nfLogo} 
+            alt="Närke Fiber" 
+            className="h-10 object-contain"
+          />
           <div className="flex-1 flex justify-center">
             <p className="text-sm font-medium text-foreground">{fullName || user?.email}</p>
           </div>
