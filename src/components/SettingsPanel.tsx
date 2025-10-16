@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2, GripVertical } from 'lucide-react';
+import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2, GripVertical, Key } from 'lucide-react';
+import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const [uploading, setUploading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [pdfSettings, setPdfSettings] = useState({
     primaryColor: '#2563eb',
     fontFamily: 'Arial, sans-serif',
@@ -552,6 +554,29 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
           </CardContent>
         </Card>
 
+        {/* Change Password */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Password
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <Label className="text-base">
+                Change Your Password
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Update your password. Must be at least 6 characters long.
+              </p>
+              <Button onClick={() => setChangePasswordOpen(true)} className="w-full sm:w-auto">
+                Change Password
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Date Format Settings */}
         <Card>
           <CardHeader>
@@ -853,6 +878,11 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
           </Card>
         )}
       </div>
+
+      <ChangePasswordDialog
+        open={changePasswordOpen}
+        onOpenChange={setChangePasswordOpen}
+      />
     </div>
   );
 };
