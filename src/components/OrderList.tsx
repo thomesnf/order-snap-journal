@@ -7,10 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Filter, Plus, Settings, Shield, LogOut, FileBarChart, Calendar, MoreVertical, Key } from 'lucide-react';
+import { Search, Filter, Plus, Settings, Shield, LogOut, FileBarChart, Calendar, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ManHoursCalendar } from './ManHoursCalendar';
-import { ChangePasswordDialog } from './ChangePasswordDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +48,6 @@ export const OrderList = ({
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
   const [fullName, setFullName] = useState<string>('');
   const [showManHoursCalendar, setShowManHoursCalendar] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
 
@@ -135,10 +133,6 @@ export const OrderList = ({
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowChangePassword(true)}>
-                  <Key className="h-4 w-4 mr-2" />
-                  {t('changePassword') || 'Change Password'}
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={signOut}>
                   <LogOut className="h-4 w-4 mr-2" />
                   {t('logout')}
@@ -221,11 +215,6 @@ export const OrderList = ({
       <ManHoursCalendar 
         open={showManHoursCalendar} 
         onOpenChange={setShowManHoursCalendar}
-      />
-      
-      <ChangePasswordDialog
-        open={showChangePassword}
-        onOpenChange={setShowChangePassword}
       />
     </div>
   );
