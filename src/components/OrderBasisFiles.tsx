@@ -50,12 +50,16 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
     'image/jpg',
     'image/png',
     'image/webp',
-    'image/gif'
+    'image/gif',
+    'application/octet-stream' // For .sor files
   ];
 
+  const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'sor'];
+
   const validateFile = (file: File): string | null => {
-    if (!ALLOWED_FILE_TYPES.includes(file.type.toLowerCase())) {
-      return 'File type not allowed. Allowed: PDF, Word, Excel, Images (JPEG, PNG, WebP, GIF)';
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    if (!fileExt || !ALLOWED_EXTENSIONS.includes(fileExt)) {
+      return 'File type not allowed. Allowed: PDF, Word, Excel, Images, SOR';
     }
     if (file.size > MAX_FILE_SIZE) {
       return 'File size must be less than 10MB';
@@ -87,15 +91,22 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
   };
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    // Validate file before upload
-    const validationError = validateFile(file);
-    if (validationError) {
+    // Validate all files before uploading
+    const invalidFiles: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const validationError = validateFile(files[i]);
+      if (validationError) {
+        invalidFiles.push(`${files[i].name}: ${validationError}`);
+      }
+    }
+
+    if (invalidFiles.length > 0) {
       toast({
         title: t('error'),
-        description: validationError,
+        description: invalidFiles.join('\n'),
         variant: 'destructive',
       });
       event.target.value = '';
@@ -104,16 +115,20 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
 
     setUploading(true);
     try {
-      const filePath = `${orderId}/${Date.now()}_${file.name}`;
-      const { error } = await supabase.storage
-        .from('order-basis')
-        .upload(filePath, file);
+      // Upload all files
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filePath = `${orderId}/${Date.now()}_${i}_${file.name}`;
+        const { error } = await supabase.storage
+          .from('order-basis')
+          .upload(filePath, file);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast({
         title: t('success'),
-        description: 'File uploaded successfully',
+        description: `${files.length} file${files.length > 1 ? 's' : ''} uploaded successfully`,
       });
 
       fetchFiles();
@@ -197,14 +212,15 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
                 type="file"
                 onChange={handleUpload}
                 disabled={uploading}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
+                multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.sor"
               />
               <Button disabled={uploading} size="sm" variant="outline">
                 <Upload className="h-4 w-4" />
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Supported: PDF, Word, Excel, Images (max 10MB)
+              Supported: PDF, Word, Excel, Images, SOR (max 10MB)
             </p>
           </div>
 
