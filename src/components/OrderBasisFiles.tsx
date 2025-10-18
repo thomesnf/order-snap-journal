@@ -7,17 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Upload, FileText, Download, Trash2 } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 interface OrderBasisFile {
   name: string;
   id: string;
@@ -26,36 +16,27 @@ interface OrderBasisFile {
   last_accessed_at: string;
   metadata: any;
 }
-
 interface OrderBasisFilesProps {
   orderId: string;
 }
-
-export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
-  const { t } = useLanguage();
-  const { toast } = useToast();
+export const OrderBasisFiles = ({
+  orderId
+}: OrderBasisFilesProps) => {
+  const {
+    t
+  } = useLanguage();
+  const {
+    toast
+  } = useToast();
   const [files, setFiles] = useState<OrderBasisFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
 
   // File validation constants
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-  const ALLOWED_FILE_TYPES = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-    'application/octet-stream' // For .sor files
+  const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'application/octet-stream' // For .sor files
   ];
-
   const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'sor'];
-
   const validateFile = (file: File): string | null => {
     const fileExt = file.name.split('.').pop()?.toLowerCase();
     if (!fileExt || !ALLOWED_EXTENSIONS.includes(fileExt)) {
@@ -66,30 +47,30 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
     }
     return null;
   };
-
   useEffect(() => {
     fetchFiles();
   }, [orderId]);
-
   const fetchFiles = async () => {
     try {
-      const { data, error } = await supabase.storage
-        .from('order-basis')
-        .list(orderId, {
-          sortBy: { column: 'created_at', order: 'desc' },
-        });
-
+      const {
+        data,
+        error
+      } = await supabase.storage.from('order-basis').list(orderId, {
+        sortBy: {
+          column: 'created_at',
+          order: 'desc'
+        }
+      });
       if (error) throw error;
       setFiles(data || []);
     } catch (error: any) {
       toast({
         title: t('error'),
         description: error.message,
-        variant: 'destructive',
+        variant: 'destructive'
       });
     }
   };
-
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -102,56 +83,49 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
         invalidFiles.push(`${files[i].name}: ${validationError}`);
       }
     }
-
     if (invalidFiles.length > 0) {
       toast({
         title: t('error'),
         description: invalidFiles.join('\n'),
-        variant: 'destructive',
+        variant: 'destructive'
       });
       event.target.value = '';
       return;
     }
-
     setUploading(true);
     try {
       // Upload all files
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const filePath = `${orderId}/${Date.now()}_${i}_${file.name}`;
-        const { error } = await supabase.storage
-          .from('order-basis')
-          .upload(filePath, file);
-
+        const {
+          error
+        } = await supabase.storage.from('order-basis').upload(filePath, file);
         if (error) throw error;
       }
-
       toast({
         title: t('success'),
-        description: `${files.length} file${files.length > 1 ? 's' : ''} uploaded successfully`,
+        description: `${files.length} file${files.length > 1 ? 's' : ''} uploaded successfully`
       });
-
       fetchFiles();
     } catch (error: any) {
       toast({
         title: t('error'),
         description: error.message,
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setUploading(false);
       event.target.value = '';
     }
   };
-
   const handleDownload = async (name: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('order-basis')
-        .download(`${orderId}/${name}`);
-
+      const {
+        data,
+        error
+      } = await supabase.storage.from('order-basis').download(`${orderId}/${name}`);
       if (error) throw error;
-
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
@@ -162,40 +136,33 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
       toast({
         title: t('error'),
         description: error.message,
-        variant: 'destructive',
+        variant: 'destructive'
       });
     }
   };
-
   const handleDelete = async () => {
     if (!fileToDelete) return;
-
     try {
-      const { error } = await supabase.storage
-        .from('order-basis')
-        .remove([`${orderId}/${fileToDelete}`]);
-
+      const {
+        error
+      } = await supabase.storage.from('order-basis').remove([`${orderId}/${fileToDelete}`]);
       if (error) throw error;
-
       toast({
         title: t('success'),
-        description: 'File deleted successfully',
+        description: 'File deleted successfully'
       });
-
       fetchFiles();
     } catch (error: any) {
       toast({
         title: t('error'),
         description: error.message,
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setFileToDelete(null);
     }
   };
-
-  return (
-    <>
+  return <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -207,61 +174,35 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
           <div className="space-y-2">
             <Label htmlFor="file-upload">{t('uploadFiles')}</Label>
             <div className="flex gap-2">
-              <Input
-                id="file-upload"
-                type="file"
-                onChange={handleUpload}
-                disabled={uploading}
-                multiple
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.sor"
-              />
+              <Input id="file-upload" type="file" onChange={handleUpload} disabled={uploading} multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.sor" />
               <Button disabled={uploading} size="sm" variant="outline">
                 <Upload className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Supported: PDF, Word, Excel, Images, SOR (max 10MB)
-            </p>
+            
           </div>
 
-          {files.length > 0 ? (
-            <div className="space-y-2">
+          {files.length > 0 ? <div className="space-y-2">
               <Label>{t('uploadedFiles')}</Label>
               <div className="space-y-2">
-                {files.map((file) => (
-                  <div
-                    key={file.name}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
+                {files.map(file => <div key={file.name} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <FileText className="h-4 w-4 flex-shrink-0" />
                       <span className="text-sm truncate">{file.name}</span>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDownload(file.name)}
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => handleDownload(file.name)}>
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setFileToDelete(file.name)}
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => setFileToDelete(file.name)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>
-                ))}
+                  </div>)}
               </div>
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm text-center py-4">
+            </div> : <p className="text-muted-foreground text-sm text-center py-4">
               {t('noFilesUploaded')}
-            </p>
-          )}
+            </p>}
         </CardContent>
       </Card>
 
@@ -281,6 +222,5 @@ export const OrderBasisFiles = ({ orderId }: OrderBasisFilesProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
-  );
+    </>;
 };
