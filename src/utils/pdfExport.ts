@@ -196,6 +196,8 @@ export const exportJournalEntryToPDF = async (
             grid-template-columns: repeat(2, 1fr);
             gap: 15px;
             margin-bottom: 20px;
+          }
+          .photo-item {
             page-break-inside: avoid;
           }
           .photo-item img {
@@ -214,7 +216,7 @@ export const exportJournalEntryToPDF = async (
             body {
               padding: 0;
             }
-            .photo-grid {
+            .photo-item {
               page-break-inside: avoid;
             }
           }
@@ -589,6 +591,8 @@ export const exportMultipleEntriesToPDF = async (
             grid-template-columns: repeat(2, 1fr);
             gap: 15px;
             margin-top: 15px;
+          }
+          .photo-item {
             page-break-inside: avoid;
           }
           .photo-item img {
@@ -625,9 +629,6 @@ export const exportMultipleEntriesToPDF = async (
           @media print {
             body {
               padding: 0;
-            }
-            .entry-photos {
-              page-break-inside: avoid;
             }
             .photo-item {
               page-break-inside: avoid;
