@@ -142,7 +142,7 @@ export const exportJournalEntryToPDF = async (
     pageMargin: layoutSettings?.pageMargin || 20,
   };
   
-  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" /></div>` : '';
+  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" loading="lazy" /></div>` : '';
   
   const photosHTML = photos && photos.length > 0 ? `
     <div class="photos">
@@ -150,7 +150,7 @@ export const exportJournalEntryToPDF = async (
       <div class="photo-grid">
         ${photos.map(photo => `
           <div class="photo-item">
-            <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" />
+            <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" loading="lazy" />
             ${photo.caption ? `<p class="photo-caption">${photo.caption}</p>` : ''}
           </div>
         `).join('')}
@@ -234,9 +234,15 @@ export const exportJournalEntryToPDF = async (
         </div>
         ${photosHTML}
         <script>
-          window.onload = function() {
-            window.print();
-          }
+          // Wait for images to load before printing
+          Promise.all(Array.from(document.images).filter(img => !img.complete).map(img => 
+            new Promise(resolve => { img.onload = img.onerror = resolve; })
+          )).then(() => {
+            // Use requestAnimationFrame for smoother rendering
+            requestAnimationFrame(() => {
+              window.print();
+            });
+          });
         </script>
       </body>
     </html>
@@ -289,7 +295,7 @@ export const exportMultipleEntriesToPDF = async (
     </div>
   ` : '';
 
-  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" /></div>` : '';
+  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" loading="lazy" /></div>` : '';
 
 
   // Get field configuration or use defaults
@@ -397,7 +403,7 @@ export const exportMultipleEntriesToPDF = async (
       <div class="entry-photos">
         ${photos.map(photo => `
           <div class="photo-item">
-            <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" />
+            <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" loading="lazy" />
             ${photo.caption ? `<p class="photo-caption">${photo.caption}</p>` : ''}
           </div>
         `).join('')}
@@ -658,9 +664,15 @@ export const exportMultipleEntriesToPDF = async (
           </div>
         `}
         <script>
-          window.onload = function() {
-            window.print();
-          }
+          // Wait for images to load before printing
+          Promise.all(Array.from(document.images).filter(img => !img.complete).map(img => 
+            new Promise(resolve => { img.onload = img.onerror = resolve; })
+          )).then(() => {
+            // Use requestAnimationFrame for smoother rendering
+            requestAnimationFrame(() => {
+              window.print();
+            });
+          });
         </script>
       </body>
     </html>
