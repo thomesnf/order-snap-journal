@@ -126,6 +126,8 @@ export default function Auth() {
                 src={companyLogoUrl} 
                 alt="Company Logo" 
                 className="max-h-20 max-w-full object-contain"
+                loading="eager"
+                fetchPriority="high"
               />
             </div>
           )}
@@ -143,6 +145,7 @@ export default function Auth() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -153,11 +156,12 @@ export default function Auth() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
               />
               {passwordError && (
                 <p className="text-sm text-destructive mt-1">{passwordError}</p>
               )}
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-2" style={{ contentVisibility: 'auto' }}>
                 Password requirements: 10+ characters, uppercase, lowercase, digit, and special character
               </p>
             </div>

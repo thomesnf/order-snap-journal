@@ -3,6 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Critical CSS for initial render -->
+    <style>
+      body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+      #root { min-height: 100vh; }
+      .auth-skeleton { 
+        min-height: 100vh; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        background: hsl(0 0% 100%);
+      }
+      @media (prefers-color-scheme: dark) {
+        .auth-skeleton { background: hsl(240 10% 3.9%); }
+      }
+    </style>
+    
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <title>Närke Fiber ordersystem</title>
     <meta name="description" content="Närke Fiber ordersystem - Professionell orderhantering för fiber och telekom." />
