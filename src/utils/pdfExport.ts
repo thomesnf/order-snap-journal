@@ -142,13 +142,56 @@ export const exportJournalEntryToPDF = async (
     pageMargin: layoutSettings?.pageMargin || 20,
   };
   
-  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" loading="lazy" /></div>` : '';
+  // Helper to compress image
+  const compressImage = async (url: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 800;
+        const maxHeight = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = () => resolve(url);
+      img.src = url;
+    });
+  };
+
+  const compressedLogoUrl = logoUrl && settings.showLogo ? await compressImage(logoUrl) : null;
+  const logoHTML = compressedLogoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${compressedLogoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" loading="lazy" /></div>` : '';
   
-  const photosHTML = photos && photos.length > 0 ? `
+  const compressedPhotos = photos && photos.length > 0 ? await Promise.all(
+    photos.map(async (photo) => ({
+      ...photo,
+      url: await compressImage(photo.url)
+    }))
+  ) : [];
+
+  const photosHTML = compressedPhotos.length > 0 ? `
     <div class="photos">
       <h3>${t.photos}</h3>
       <div class="photo-grid">
-        ${photos.map(photo => `
+        ${compressedPhotos.map(photo => `
           <div class="photo-item">
             <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" loading="lazy" />
             ${photo.caption ? `<p class="photo-caption">${photo.caption}</p>` : ''}
@@ -295,7 +338,43 @@ export const exportMultipleEntriesToPDF = async (
     </div>
   ` : '';
 
-  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" loading="lazy" /></div>` : '';
+  // Helper to compress image
+  const compressImage = async (url: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 800;
+        const maxHeight = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = () => resolve(url);
+      img.src = url;
+    });
+  };
+
+  const compressedLogoUrl = logoUrl && settings.showLogo ? await compressImage(logoUrl) : null;
+  const logoHTML = compressedLogoUrl ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${compressedLogoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" loading="lazy" /></div>` : '';
 
 
   // Get field configuration or use defaults
@@ -396,12 +475,18 @@ export const exportMultipleEntriesToPDF = async (
     </div>
   ` : '';
 
-  const entriesHTML = entries.map(entry => {
+  const entriesHTML = await Promise.all(entries.map(async (entry) => {
     const date = formatDate(entry.created_at, dateFormat);
     const photos = entryPhotos?.[entry.id] || [];
-    const photosHTML = photos.length > 0 ? `
+    const compressedPhotos = await Promise.all(
+      photos.map(async (photo) => ({
+        ...photo,
+        url: await compressImage(photo.url)
+      }))
+    );
+    const photosHTML = compressedPhotos.length > 0 ? `
       <div class="entry-photos">
-        ${photos.map(photo => `
+        ${compressedPhotos.map(photo => `
           <div class="photo-item">
             <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" loading="lazy" />
             ${photo.caption ? `<p class="photo-caption">${photo.caption}</p>` : ''}
@@ -421,7 +506,7 @@ export const exportMultipleEntriesToPDF = async (
         ${photosHTML}
       </div>
     `;
-  }).join('');
+  })).then(entries => entries.join(''));
 
   // Build content sections based on field configuration order
   const contentSections: Record<string, string> = {

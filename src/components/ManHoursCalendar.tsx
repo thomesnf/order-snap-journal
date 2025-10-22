@@ -99,16 +99,10 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     setLoading(true);
     try {
       // Fetch time entries
-      let query = supabase
+      const { data: entriesData, error: entriesError } = await supabase
         .from('time_entries')
-        .select('*');
-
-      // If not admin, only show own time entries
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
-
-      const { data: entriesData, error: entriesError } = await query.order('work_date', { ascending: false });
+        .select('*')
+        .order('work_date', { ascending: false });
 
       if (entriesError) throw entriesError;
 

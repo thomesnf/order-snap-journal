@@ -45,11 +45,17 @@ export const OrderList = ({
 }: OrderListProps) => {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>(() => {
+    return (localStorage.getItem('orderStatusFilter') as Order['status'] | 'all') || 'all';
+  });
   const [fullName, setFullName] = useState<string>('');
   const [showManHoursCalendar, setShowManHoursCalendar] = useState(false);
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    localStorage.setItem('orderStatusFilter', statusFilter);
+  }, [statusFilter]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
