@@ -32,7 +32,7 @@ interface TimeCalendarProps {
 }
 
 export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { users } = useUsers();
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -60,11 +60,19 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
   };
 
   const fetchTimeEntries = async () => {
-    const { data, error } = await supabase
+    if (!user) return;
+
+    let query = supabase
       .from('time_entries')
       .select('*')
-      .eq('order_id', orderId)
-      .order('work_date', { ascending: false });
+      .eq('order_id', orderId);
+
+    // If not admin, only show own time entries
+    if (!isAdmin) {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { data, error } = await query.order('work_date', { ascending: false });
 
     if (error) {
       console.error('Error fetching time entries:', error);

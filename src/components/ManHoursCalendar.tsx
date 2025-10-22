@@ -13,6 +13,7 @@ import { Loader2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUsers } from '@/hooks/useUsers';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 
 interface TimeEntry {
   id: string;
@@ -33,6 +34,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   const { toast } = useToast();
   const { users } = useUsers();
   const { t } = useLanguage();
+  const { user, isAdmin } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -92,13 +94,21 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   };
 
   const fetchTimeEntries = async () => {
+    if (!user) return;
+    
     setLoading(true);
     try {
       // Fetch time entries
-      const { data: entriesData, error: entriesError } = await supabase
+      let query = supabase
         .from('time_entries')
-        .select('*')
-        .order('work_date', { ascending: false });
+        .select('*');
+
+      // If not admin, only show own time entries
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data: entriesData, error: entriesError } = await query.order('work_date', { ascending: false });
 
       if (entriesError) throw entriesError;
 
