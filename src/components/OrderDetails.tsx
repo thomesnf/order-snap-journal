@@ -17,7 +17,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { EditOrderDialog } from './EditOrderDialog';
 import { exportJournalEntryToPDF, exportMultipleEntriesToPDF } from '@/utils/pdfExport';
 import { OrderBasisFiles } from './OrderBasisFiles';
-import { TimeCalendar } from './TimeCalendar';
 import { capturePhoto } from '@/utils/camera';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -778,8 +777,6 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
           </div>
         </CardContent>
       </Card>
-
-      <TimeCalendar orderId={order.id} />
 
       <AlertDialog open={!!deleteSummaryId} onOpenChange={() => setDeleteSummaryId(null)}>
         <AlertDialogContent>
