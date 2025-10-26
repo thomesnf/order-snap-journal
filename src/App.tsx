@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Reports = lazy(() => import("./pages/Reports"));
+const SharedOrder = lazy(() => import("./pages/SharedOrder"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const AppRoutes = () => (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
       <Routes>
         <Route path="/auth" element={<Auth />} />
+        <Route path="/shared/:token" element={<SharedOrder />} />
         <Route
           path="/"
           element={

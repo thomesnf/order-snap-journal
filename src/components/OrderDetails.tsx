@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown, ArrowLeft, Camera, CalendarIcon, MessageSquare } from 'lucide-react';
+import { Calendar, MapPin, User, Plus, Pencil, Trash2, Download, FileDown, ArrowLeft, Camera, CalendarIcon, MessageSquare, Share2, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +22,7 @@ import { formatDate, DateFormatType } from '@/utils/dateFormat';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { useShareToken } from '@/hooks/useShareToken';
 
 interface OrderDetailsProps {
   order: Order;
@@ -49,6 +50,9 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const { isAdmin } = useAuth();
+  const { createShareToken, loading: shareLoading } = useShareToken();
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [newSummaryEntry, setNewSummaryEntry] = useState('');
   const [summaryEntries, setSummaryEntries] = useState<SummaryEntry[]>([]);
   const [editingSummaryId, setEditingSummaryId] = useState<string | null>(null);
@@ -421,6 +425,30 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     }
   };
 
+  const handleShareOrder = async () => {
+    const token = await createShareToken(order.id);
+    if (token) {
+      const link = `${window.location.origin}/shared/${token.token}`;
+      setShareLink(link);
+      
+      // Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(link);
+        setCopied(true);
+        toast({
+          title: 'Share link created',
+          description: 'Link copied to clipboard! Expires in 72 hours.',
+        });
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        toast({
+          title: 'Share link created',
+          description: link,
+        });
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 p-4">
       <div className="flex items-center justify-between mb-6">
@@ -429,6 +457,15 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
           {t('back')}
         </Button>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShareOrder}
+            disabled={shareLoading}
+          >
+            {copied ? <Check className="h-4 w-4 mr-2" /> : <Share2 className="h-4 w-4 mr-2" />}
+            {copied ? 'Copied!' : 'Share'}
+          </Button>
           <Button
             variant="outline"
             size="sm"
