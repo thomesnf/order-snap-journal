@@ -73,6 +73,8 @@ export default function SharedOrder() {
       setLoading(true);
       setError(null);
 
+      console.log('Fetching shared order with token:', token);
+
       // First, verify the token is valid
       const { data: shareToken, error: tokenError } = await supabase
         .from('share_tokens')
@@ -82,13 +84,18 @@ export default function SharedOrder() {
         .gt('expires_at', new Date().toISOString())
         .single();
 
+      console.log('Share token query result:', { shareToken, tokenError });
+
       if (tokenError || !shareToken) {
+        console.error('Token validation failed:', tokenError);
         setError('This share link is invalid or has expired');
         setLoading(false);
         return;
       }
 
       setExpiresAt(shareToken.expires_at);
+
+      console.log('Fetching order with id:', shareToken.order_id);
 
       // Fetch the order with all related data
       const { data: orderData, error: orderError } = await supabase
@@ -109,12 +116,16 @@ export default function SharedOrder() {
         .is('deleted_at', null)
         .single();
 
+      console.log('Order query result:', { orderData, orderError });
+
       if (orderError || !orderData) {
+        console.error('Order fetch failed:', orderError);
         setError('Unable to load order details');
         setLoading(false);
         return;
       }
 
+      console.log('Successfully loaded order:', orderData);
       setOrder(orderData as unknown as SharedOrderData);
       setLoading(false);
     } catch (err) {
