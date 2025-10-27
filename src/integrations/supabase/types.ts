@@ -309,6 +309,44 @@ export type Database = {
         }
         Relationships: []
       }
+      share_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          order_id: string
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          order_id: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          order_id?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_tokens_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       summary_entries: {
         Row: {
           content: string
@@ -410,14 +448,8 @@ export type Database = {
         }
         Returns: boolean
       }
-      restore_order: {
-        Args: { order_id: string }
-        Returns: undefined
-      }
-      soft_delete_order: {
-        Args: { order_id: string }
-        Returns: undefined
-      }
+      restore_order: { Args: { order_id: string }; Returns: undefined }
+      soft_delete_order: { Args: { order_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
