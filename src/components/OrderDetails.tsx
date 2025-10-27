@@ -53,6 +53,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const { createShareToken, loading: shareLoading } = useShareToken();
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [newSummaryEntry, setNewSummaryEntry] = useState('');
   const [summaryEntries, setSummaryEntries] = useState<SummaryEntry[]>([]);
   const [editingSummaryId, setEditingSummaryId] = useState<string | null>(null);
@@ -430,21 +431,15 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     if (token) {
       const link = `${window.location.origin}/shared/${token.token}`;
       setShareLink(link);
+      setShowShareDialog(true);
       
       // Copy to clipboard
       try {
         await navigator.clipboard.writeText(link);
         setCopied(true);
-        toast({
-          title: 'Share link created',
-          description: 'Link copied to clipboard! Expires in 72 hours.',
-        });
-        setTimeout(() => setCopied(false), 2000);
+        setTimeout(() => setCopied(false), 3000);
       } catch (err) {
-        toast({
-          title: 'Share link created',
-          description: link,
-        });
+        console.error('Failed to copy to clipboard:', err);
       }
     }
   };
@@ -879,6 +874,49 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
               {t('save')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Order</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Share this read-only link with anyone. It will expire in 72 hours.
+            </p>
+            <div className="flex items-center gap-2">
+              <Input value={shareLink || ''} readOnly className="flex-1" />
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  if (shareLink) {
+                    navigator.clipboard.writeText(shareLink);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                    toast({
+                      title: 'Copied!',
+                      description: 'Link copied to clipboard',
+                    });
+                  }
+                }}
+              >
+                {copied ? <Check className="h-4 w-4" /> : 'Copy'}
+              </Button>
+            </div>
+            <Button 
+              className="w-full"
+              onClick={() => {
+                if (shareLink) {
+                  window.open(shareLink, '_blank');
+                }
+              }}
+            >
+              Open in New Tab
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
