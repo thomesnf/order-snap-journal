@@ -416,7 +416,13 @@ export default function SharedOrder() {
         {order.journal_entries.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Journal Entries</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>Journal Entries</CardTitle>
+                <Button onClick={downloadAllPhotos} variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download All Photos
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
