@@ -413,7 +413,15 @@ export type Database = {
           user_id?: string
           work_date?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
