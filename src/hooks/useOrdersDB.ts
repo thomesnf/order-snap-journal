@@ -554,5 +554,28 @@ export const useOrdersDB = () => {
     getJournalEntries,
     getPhotos,
     getOrderWithDetails,
+    deleteTimeEntry,
   };
+
+  async function deleteTimeEntry(timeEntryId: string) {
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .delete()
+        .eq('id', timeEntryId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Time entry deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  }
 };

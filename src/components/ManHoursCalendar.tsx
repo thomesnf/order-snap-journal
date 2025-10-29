@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUsers } from '@/hooks/useUsers';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrdersDB } from '@/hooks/useOrdersDB';
 
 interface TimeEntry {
   id: string;
@@ -23,6 +24,7 @@ interface TimeEntry {
   notes: string | null;
   order_id: string;
   order_title?: string;
+  user_id: string;
 }
 
 interface ManHoursCalendarProps {
@@ -35,6 +37,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   const { users } = useUsers();
   const { t } = useLanguage();
   const { user, isAdmin } = useAuth();
+  const { deleteTimeEntry } = useOrdersDB();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -220,6 +223,19 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     }
   };
 
+  const handleDeleteTimeEntry = async (timeEntryId: string) => {
+    if (!confirm(t('confirmDelete') || 'Are you sure you want to delete this time entry?')) {
+      return;
+    }
+
+    await deleteTimeEntry(timeEntryId);
+    fetchTimeEntries();
+  };
+
+  const canDeleteEntry = (entry: TimeEntry) => {
+    return isAdmin || entry.user_id === user?.id;
+  };
+
   const modifiers = {
     hasHours: (date: Date) => getHoursForDate(date) > 0,
   };
@@ -298,14 +314,26 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
                   selectedDateEntries.map((entry) => (
                     <Card key={entry.id} className="p-4">
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <div className="flex-1">
                             {entry.order_title && (
                               <p className="text-sm font-semibold text-primary mb-1">{entry.order_title}</p>
                             )}
                             <p className="font-medium">{entry.technician_name}</p>
                           </div>
-                          <Badge variant="outline">{Number(entry.hours_worked).toFixed(1)}h</Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{Number(entry.hours_worked).toFixed(1)}h</Badge>
+                            {canDeleteEntry(entry) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteTimeEntry(entry.id)}
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         {entry.notes && (
                           <p className="text-sm text-muted-foreground">{entry.notes}</p>
