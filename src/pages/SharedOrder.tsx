@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, MapPin, User, Clock, FileText, Camera, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, User, Clock, FileText, Camera, AlertCircle, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 
 interface SharedOrderData {
   id: string;
@@ -151,6 +152,48 @@ export default function SharedOrder() {
       case 'medium': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
       case 'low': return 'bg-green-500/10 text-green-500 border-green-500/20';
       default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+    }
+  };
+
+  const downloadPhoto = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success('Photo downloaded');
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error('Failed to download photo');
+    }
+  };
+
+  const downloadAllPhotos = async () => {
+    if (!order) return;
+    
+    const allPhotos = [
+      ...order.photos,
+      ...order.journal_entries.flatMap(entry => entry.photos)
+    ];
+
+    if (allPhotos.length === 0) {
+      toast.error('No photos to download');
+      return;
+    }
+
+    toast.success(`Downloading ${allPhotos.length} photos...`);
+    
+    for (let i = 0; i < allPhotos.length; i++) {
+      const photo = allPhotos[i];
+      const filename = `${order.title.replace(/[^a-z0-9]/gi, '_')}_photo_${i + 1}.jpg`;
+      await downloadPhoto(photo.url, filename);
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   };
 
@@ -331,20 +374,34 @@ export default function SharedOrder() {
         {order.photos.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5" />
-                Order Photos
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center gap-2">
+                  <Camera className="h-5 w-5" />
+                  Order Photos
+                </CardTitle>
+                <Button onClick={downloadAllPhotos} variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download All
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {order.photos.map((photo) => (
+                {order.photos.map((photo, index) => (
                   <div key={photo.id} className="relative group">
                     <img
                       src={photo.url}
                       alt={photo.caption || 'Order photo'}
                       className="w-full h-48 object-cover rounded-lg"
                     />
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => downloadPhoto(photo.url, `photo_${index + 1}.jpg`)}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
                     {photo.caption && (
                       <p className="text-xs text-muted-foreground mt-1">{photo.caption}</p>
                     )}
@@ -371,13 +428,21 @@ export default function SharedOrder() {
                     </p>
                     {entry.photos.length > 0 && (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-                        {entry.photos.map((photo) => (
-                          <div key={photo.id}>
+                        {entry.photos.map((photo, photoIndex) => (
+                          <div key={photo.id} className="relative group">
                             <img
                               src={photo.url}
                               alt={photo.caption || 'Journal photo'}
                               className="w-full h-32 object-cover rounded-lg"
                             />
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => downloadPhoto(photo.url, `journal_photo_${photoIndex + 1}.jpg`)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
                             {photo.caption && (
                               <p className="text-xs text-muted-foreground mt-1">{photo.caption}</p>
                             )}
