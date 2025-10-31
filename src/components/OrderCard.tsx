@@ -13,6 +13,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -173,48 +176,50 @@ export const OrderCard = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                onUpdateStatus(order.id, 'pending');
-              }}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {t('setPending')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                onUpdateStatus(order.id, 'in-progress');
-              }}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {t('setInProgress')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                onUpdateStatus(order.id, 'completed');
-              }}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {t('setCompleted')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                onUpdateStatus(order.id, 'invoiced');
-              }}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {t('setInvoiced')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                onUpdateStatus(order.id, 'paid');
-              }}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {t('setPaid')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                onUpdateStatus(order.id, 'cancelled');
-              }}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {t('setCancelled')}
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Status
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus(order.id, 'pending');
+                  }}>
+                    {t('setPending')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus(order.id, 'in-progress');
+                  }}>
+                    {t('setInProgress')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus(order.id, 'completed');
+                  }}>
+                    {t('setCompleted')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus(order.id, 'invoiced');
+                  }}>
+                    {t('setInvoiced')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus(order.id, 'paid');
+                  }}>
+                    {t('setPaid')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus(order.id, 'cancelled');
+                  }}>
+                    {t('setCancelled')}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               {isAdmin && (
                 <>
                   <DropdownMenuItem onClick={(e) => {
