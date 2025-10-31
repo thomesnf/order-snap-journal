@@ -79,11 +79,10 @@ export const exportTimeEntriesToExcel = (timeEntries: any[], filename: string = 
 
   const worksheet = XLSX.utils.json_to_sheet(data);
   
-  // Enable auto-filter on the header row
-  worksheet['!autofilter'] = { ref: XLSX.utils.encode_range({
-    s: { r: 0, c: 0 },
-    e: { r: data.length, c: 4 }
-  })};
+  // Enable auto-filter on the header row for sortable columns
+  if (data.length > 0) {
+    worksheet['!autofilter'] = { ref: `A1:E${data.length + 1}` };
+  }
 
   // Add summary section after the data
   const summaryStartRow = data.length + 3;
