@@ -44,11 +44,12 @@ const Index = () => {
 
   const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
     await updateOrder(orderId, { status });
-    // Refetch order to update UI
+    // If we're viewing this order's details, refetch it
     if (selectedOrder?.id === orderId) {
       const updatedOrder = await getOrderWithDetails(orderId);
       setSelectedOrder(updatedOrder);
     }
+    // The realtime subscription will handle updating the list automatically
   };
 
   const handleCreateOrder = () => {
@@ -71,11 +72,11 @@ const Index = () => {
 
   const handleOrderCreated = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
     try {
-      const newOrder = await addOrder(orderData);
-      const orderWithDetails = await getOrderWithDetails(newOrder.id);
-      setSelectedOrder(orderWithDetails);
+      await addOrder(orderData);
       setDuplicateOrderData(null);
-      setCurrentView('details');
+      // Go back to list view to see the new order
+      setCurrentView('list');
+      setSelectedOrder(null);
     } catch (error) {
       console.error('Error creating order:', error);
     }
