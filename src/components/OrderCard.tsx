@@ -4,7 +4,7 @@ import { Order } from '@/hooks/useOrdersDB';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2, RefreshCw } from 'lucide-react';
+import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2, RefreshCw, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
@@ -46,6 +46,7 @@ interface OrderCardProps {
   isAdmin?: boolean;
   onDeleteOrder?: (orderId: string) => void;
   onChangeAssignments?: (orderId: string, userIds: string[]) => void;
+  onDuplicateOrder?: (order: Order) => void;
 }
 
 const statusColors = {
@@ -69,7 +70,8 @@ export const OrderCard = ({
   onUpdateStatus, 
   isAdmin = false,
   onDeleteOrder,
-  onChangeAssignments 
+  onChangeAssignments,
+  onDuplicateOrder
 }: OrderCardProps) => {
   const { t } = useLanguage();
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
@@ -220,6 +222,15 @@ export const OrderCard = ({
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                if (onDuplicateOrder) {
+                  onDuplicateOrder(order);
+                }
+              }}>
+                <Copy className="h-4 w-4 mr-2" />
+                {t('duplicateOrder')}
+              </DropdownMenuItem>
               {isAdmin && (
                 <>
                   <DropdownMenuItem onClick={(e) => {

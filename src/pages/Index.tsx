@@ -17,6 +17,7 @@ const Index = () => {
   const [currentView, setCurrentView] = useState<View>('list');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [duplicateOrderData, setDuplicateOrderData] = useState<Order | null>(null);
 
   useEffect(() => {
     fetchCompanyLogo();
@@ -51,6 +52,7 @@ const Index = () => {
   };
 
   const handleCreateOrder = () => {
+    setDuplicateOrderData(null);
     setCurrentView('create');
   };
 
@@ -62,11 +64,17 @@ const Index = () => {
     setCurrentView('admin');
   };
 
+  const handleDuplicateOrder = (order: Order) => {
+    setDuplicateOrderData(order);
+    setCurrentView('create');
+  };
+
   const handleOrderCreated = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
     try {
       const newOrder = await addOrder(orderData);
       const orderWithDetails = await getOrderWithDetails(newOrder.id);
       setSelectedOrder(orderWithDetails);
+      setDuplicateOrderData(null);
       setCurrentView('details');
     } catch (error) {
       console.error('Error creating order:', error);
@@ -233,6 +241,7 @@ const Index = () => {
   };
 
   const handleBack = () => {
+    setDuplicateOrderData(null);
     setCurrentView('list');
     setSelectedOrder(null);
   };
@@ -251,6 +260,7 @@ const Index = () => {
           companyLogoUrl={companyLogoUrl}
           onDeleteOrder={isAdmin ? handleDeleteOrder : undefined}
           onChangeAssignments={isAdmin ? handleChangeAssignments : undefined}
+          onDuplicateOrder={handleDuplicateOrder}
         />
       )}
       
@@ -273,6 +283,7 @@ const Index = () => {
         <CreateOrderForm
           onBack={handleBack}
           onCreateOrder={handleOrderCreated}
+          initialData={duplicateOrderData || undefined}
         />
       )}
       

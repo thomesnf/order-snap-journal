@@ -23,19 +23,20 @@ const orderSchema = z.object({
 interface CreateOrderFormProps {
   onBack: () => void;
   onCreateOrder: (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => void;
+  initialData?: Partial<Order>;
 }
 
-export const CreateOrderForm = ({ onBack, onCreateOrder }: CreateOrderFormProps) => {
+export const CreateOrderForm = ({ onBack, onCreateOrder, initialData }: CreateOrderFormProps) => {
   const { t } = useLanguage();
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    status: 'pending' as Order['status'],
-    priority: 'medium' as Order['priority'],
-    customer: '',
-    customerRef: '',
-    location: '',
-    dueDate: ''
+    title: initialData?.title || '',
+    description: initialData?.description || '',
+    status: initialData?.status || 'pending' as Order['status'],
+    priority: initialData?.priority || 'medium' as Order['priority'],
+    customer: initialData?.customer || '',
+    customerRef: initialData?.customer_ref || '',
+    location: initialData?.location || '',
+    dueDate: initialData?.due_date ? new Date(initialData.due_date).toISOString().split('T')[0] : ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -29,6 +29,7 @@ interface OrderListProps {
   companyLogoUrl?: string | null;
   onDeleteOrder?: (orderId: string) => void;
   onChangeAssignments?: (orderId: string, userIds: string[]) => void;
+  onDuplicateOrder?: (order: Order) => void;
 }
 
 export const OrderList = ({ 
@@ -41,7 +42,8 @@ export const OrderList = ({
   isAdmin,
   companyLogoUrl,
   onDeleteOrder,
-  onChangeAssignments
+  onChangeAssignments,
+  onDuplicateOrder
 }: OrderListProps) => {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
@@ -206,6 +208,7 @@ export const OrderList = ({
                 isAdmin={isAdmin}
                 onDeleteOrder={onDeleteOrder}
                 onChangeAssignments={onChangeAssignments}
+                onDuplicateOrder={onDuplicateOrder}
               />
             ))}
           </div>
