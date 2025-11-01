@@ -74,7 +74,6 @@ const Index = () => {
     try {
       await addOrder(orderData);
       setDuplicateOrderData(null);
-      // Go back to list view to see the new order
       setCurrentView('list');
       setSelectedOrder(null);
     } catch (error) {
