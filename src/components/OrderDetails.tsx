@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { EditOrderDialog } from './EditOrderDialog';
 import { exportJournalEntryToPDF, exportMultipleEntriesToPDF } from '@/utils/pdfExport';
 import { OrderBasisFiles } from './OrderBasisFiles';
+import { TimeCalendar } from './TimeCalendar';
 import { capturePhoto } from '@/utils/camera';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -525,7 +526,10 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
         </CardContent>
       </Card>
 
-      <OrderBasisFiles orderId={order.id} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <OrderBasisFiles orderId={order.id} />
+        <TimeCalendar orderId={order.id} />
+      </div>
 
       <Card>
         <CardHeader>
