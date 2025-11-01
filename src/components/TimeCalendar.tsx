@@ -171,6 +171,9 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
     0
   );
 
+  // Get all dates that have time entries for highlighting
+  const datesWithEntries = timeEntries.map(entry => new Date(entry.work_date));
+
   return (
     <Card>
       <CardHeader>
@@ -180,133 +183,148 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Full Calendar View */}
-        <div className="space-y-2">
-          <Label>Select Date</Label>
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={setSelectedDate}
-            className={cn("rounded-md border pointer-events-auto w-full")}
-            weekStartsOn={1}
-          />
-        </div>
-
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg">
+        {/* Calendar and Controls Side-by-Side */}
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4">
+          {/* Calendar on the left */}
           <div>
-            <p className="text-xs text-muted-foreground">Selected Date</p>
-            <p className="text-lg font-semibold">{totalHoursForDate.toFixed(2)} hrs</p>
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              className={cn("rounded-md border pointer-events-auto")}
+              weekStartsOn={1}
+              modifiers={{
+                hasEntries: datesWithEntries
+              }}
+              modifiersClassNames={{
+                hasEntries: "bg-primary/20 font-semibold"
+              }}
+            />
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Total Project</p>
-            <p className="text-lg font-semibold">{totalHoursAllTime.toFixed(2)} hrs</p>
-          </div>
-        </div>
 
-        {/* Add Entry Form */}
-        {isAddingEntry ? (
-          <div className="space-y-3 p-4 border border-border rounded-lg">
+          {/* Selected Date Info and Controls on the right */}
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="technician">Technician</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a technician" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name || user.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm font-medium">
+                {selectedDate ? formatDate(selectedDate, dateFormat) : 'Select a date'}
+              </Label>
+              
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground">This Date</p>
+                  <p className="text-lg font-semibold">{totalHoursForDate.toFixed(2)} hrs</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Project</p>
+                  <p className="text-lg font-semibold">{totalHoursAllTime.toFixed(2)} hrs</p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="hours">Hours Worked</Label>
-              <Input
-                id="hours"
-                type="number"
-                step="0.25"
-                min="0"
-                max="24"
-                placeholder="8.0"
-                value={hoursWorked}
-                onChange={(e) => setHoursWorked(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea
-                id="notes"
-                placeholder="Work description..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[60px]"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleAddEntry} size="sm" className="flex-1">
-                Save Entry
-              </Button>
-              <Button
-                onClick={() => {
-                  setIsAddingEntry(false);
-                  setSelectedUserId('');
-                  setHoursWorked('');
-                  setNotes('');
-                }}
-                size="sm"
-                variant="outline"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button onClick={() => setIsAddingEntry(true)} size="sm" className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Time Entry
-          </Button>
-        )}
 
-        {/* Entries for Selected Date */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">
-            Entries for {selectedDate ? formatDate(selectedDate, dateFormat) : 'selected date'}
-          </Label>
-          {entriesForSelectedDate.length > 0 ? (
-            <div className="space-y-2">
-              {entriesForSelectedDate.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-start justify-between p-3 bg-muted/50 rounded-lg border border-border/30"
-                >
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{entry.technician_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {parseFloat(entry.hours_worked.toString()).toFixed(2)} hours
-                    </p>
-                    {entry.notes && (
-                      <p className="text-xs text-muted-foreground mt-1">{entry.notes}</p>
-                    )}
-                  </div>
+            {/* Add Entry Form or Button */}
+            {isAddingEntry ? (
+              <div className="space-y-3 p-4 border border-border rounded-lg">
+                <div className="space-y-2">
+                  <Label htmlFor="technician">Technician</Label>
+                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a technician" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name || user.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hours">Hours Worked</Label>
+                  <Input
+                    id="hours"
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    max="24"
+                    placeholder="8.0"
+                    value={hoursWorked}
+                    onChange={(e) => setHoursWorked(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes (Optional)</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Work description..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="min-h-[60px]"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleAddEntry} size="sm" className="flex-1">
+                    Save Entry
+                  </Button>
                   <Button
+                    onClick={() => {
+                      setIsAddingEntry(false);
+                      setSelectedUserId('');
+                      setHoursWorked('');
+                      setNotes('');
+                    }}
                     size="sm"
-                    variant="ghost"
-                    onClick={() => handleDeleteEntry(entry.id)}
-                    className="h-8 w-8 p-0"
+                    variant="outline"
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    Cancel
                   </Button>
                 </div>
-              ))}
+              </div>
+            ) : (
+              <Button onClick={() => setIsAddingEntry(true)} size="sm" className="w-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Time Entry
+              </Button>
+            )}
+
+            {/* Entries for Selected Date */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Entries</Label>
+              {entriesForSelectedDate.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {entriesForSelectedDate.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-start justify-between p-3 bg-muted/50 rounded-lg border border-border/30"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{entry.technician_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {parseFloat(entry.hours_worked.toString()).toFixed(2)} hours
+                        </p>
+                        {entry.notes && (
+                          <p className="text-xs text-muted-foreground mt-1">{entry.notes}</p>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteEntry(entry.id)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No time entries for this date.
+                </p>
+              )}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No time entries for this date.
-            </p>
-          )}
+          </div>
         </div>
 
         {/* Recent Entries */}
