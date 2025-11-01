@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Calendar as CalendarIcon, Plus, Trash2 } from 'lucide-react';
+import { Clock, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -60,18 +60,25 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
   };
 
   const fetchTimeEntries = async () => {
-    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('work_date', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('time_entries')
-      .select('*')
-      .eq('order_id', orderId)
-      .order('work_date', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching time entries:', error);
-    } else {
-      setTimeEntries(data || []);
+      if (error) {
+        console.error('Error fetching time entries:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load time entries: ' + error.message,
+          variant: 'destructive',
+        });
+      } else {
+        setTimeEntries(data || []);
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
     }
   };
 
@@ -173,33 +180,16 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Calendar Selector */}
-        <div className="flex flex-col gap-2">
+        {/* Full Calendar View */}
+        <div className="space-y-2">
           <Label>Select Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  'justify-start text-left font-normal',
-                  !selectedDate && 'text-muted-foreground'
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, 'PPP') : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                initialFocus
-                className="pointer-events-auto"
-                weekStartsOn={1}
-              />
-            </PopoverContent>
-          </Popover>
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            className={cn("rounded-md border pointer-events-auto w-full")}
+            weekStartsOn={1}
+          />
         </div>
 
         {/* Summary Stats */}
