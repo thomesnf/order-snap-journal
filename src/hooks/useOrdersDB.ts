@@ -151,6 +151,9 @@ export const useOrdersDB = () => {
 
       if (error) throw error;
       
+      // Manually refetch to ensure UI updates immediately
+      await fetchOrders();
+      
       toast({
         title: "Success",
         description: "Order updated successfully",
