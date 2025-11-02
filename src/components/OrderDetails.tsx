@@ -452,27 +452,29 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('back')}
         </Button>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleShareOrder}
-            disabled={shareLoading}
-          >
-            {copied ? <Check className="h-4 w-4 mr-2" /> : <Share2 className="h-4 w-4 mr-2" />}
-            {copied ? 'Copied!' : 'Share'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos, summaryEntries, dateFormat, pdfSettings)}
-            disabled={journalEntries.length === 0}
-          >
-            <FileDown className="h-4 w-4 mr-2" />
-            {t('exportAllEntries')}
-          </Button>
-          <EditOrderDialog order={order} onUpdate={onUpdate} />
-        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareOrder}
+              disabled={shareLoading}
+            >
+              {copied ? <Check className="h-4 w-4 mr-2" /> : <Share2 className="h-4 w-4 mr-2" />}
+              {copied ? 'Copied!' : 'Share'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos, summaryEntries, dateFormat, pdfSettings)}
+              disabled={journalEntries.length === 0}
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              {t('exportAllEntries')}
+            </Button>
+            <EditOrderDialog order={order} onUpdate={onUpdate} />
+          </div>
+        )}
       </div>
       
       <h2 className="text-2xl font-bold text-foreground">{order.title}</h2>

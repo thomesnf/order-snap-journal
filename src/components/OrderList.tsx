@@ -141,10 +141,12 @@ export const OrderList = ({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={onCreateOrder} size="sm" className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90">
-              <Plus className="h-4 w-4 mr-2" />
-              {t('newOrder')}
-            </Button>
+            {isAdmin && (
+              <Button onClick={onCreateOrder} size="sm" className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90">
+                <Plus className="h-4 w-4 mr-2" />
+                {t('newOrder')}
+              </Button>
+            )}
           </div>
         </div>
         
