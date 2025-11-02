@@ -171,89 +171,91 @@ export const OrderCard = ({
             <h3 className="font-semibold text-foreground leading-tight mb-2">{order.title}</h3>
             <p className="text-sm text-muted-foreground line-clamp-2">{order.description}</p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="ml-2" onClick={(e) => e.stopPropagation()}>
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Status
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(order.id, 'pending');
-                  }}>
-                    {t('setPending')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(order.id, 'in-progress');
-                  }}>
-                    {t('setInProgress')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(order.id, 'completed');
-                  }}>
-                    {t('setCompleted')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(order.id, 'invoiced');
-                  }}>
-                    {t('setInvoiced')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(order.id, 'paid');
-                  }}>
-                    {t('setPaid')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(order.id, 'cancelled');
-                  }}>
-                    {t('setCancelled')}
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                if (onDuplicateOrder) {
-                  onDuplicateOrder(order);
-                }
-              }}>
-                <Copy className="h-4 w-4 mr-2" />
-                {t('duplicateOrder')}
-              </DropdownMenuItem>
-              {isAdmin && (
-                <>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenAssignDialog();
-                  }}>
-                    <UserCog className="h-4 w-4 mr-2" />
-                    {t('manageAssignments')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="text-destructive focus:text-destructive"
-                    onClick={(e) => {
+          {isAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="ml-2" onClick={(e) => e.stopPropagation()}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Status
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={(e) => {
                       e.stopPropagation();
-                      setShowDeleteDialog(true);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    {t('deleteOrder')}
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                      onUpdateStatus(order.id, 'pending');
+                    }}>
+                      {t('setPending')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStatus(order.id, 'in-progress');
+                    }}>
+                      {t('setInProgress')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStatus(order.id, 'completed');
+                    }}>
+                      {t('setCompleted')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStatus(order.id, 'invoiced');
+                    }}>
+                      {t('setInvoiced')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStatus(order.id, 'paid');
+                    }}>
+                      {t('setPaid')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStatus(order.id, 'cancelled');
+                    }}>
+                      {t('setCancelled')}
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  if (onDuplicateOrder) {
+                    onDuplicateOrder(order);
+                  }
+                }}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  {t('duplicateOrder')}
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenAssignDialog();
+                    }}>
+                      <UserCog className="h-4 w-4 mr-2" />
+                      {t('manageAssignments')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-destructive focus:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {t('deleteOrder')}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
         
         <div className="flex items-center gap-2 mt-3">
