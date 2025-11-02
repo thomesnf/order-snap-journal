@@ -158,6 +158,19 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     return timeEntries.reduce((sum, entry) => sum + Number(entry.hours_worked), 0);
   };
 
+  const getMonthlyTotal = (date: Date | undefined) => {
+    if (!date) return 0;
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    
+    return timeEntries
+      .filter(entry => {
+        const entryDate = new Date(entry.work_date);
+        return entryDate.getFullYear() === year && entryDate.getMonth() === month;
+      })
+      .reduce((sum, entry) => sum + Number(entry.hours_worked), 0);
+  };
+
   const handleAddTimeEntry = async () => {
     if (!newEntry.orderId || !newEntry.technicianId || !newEntry.hours) {
       toast({
@@ -277,9 +290,17 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
 
               {/* Total Hours Card */}
               <Card className="p-4">
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">{t('totalProjectHours')}</p>
-                  <p className="text-3xl font-bold text-primary">{getTotalHours().toFixed(1)}h</p>
+                <div className="space-y-3">
+                  <div className="text-center pb-3 border-b">
+                    <p className="text-sm text-muted-foreground mb-1">
+                      {selectedDate ? format(selectedDate, 'MMMM yyyy') : 'Select Month'}
+                    </p>
+                    <p className="text-3xl font-bold text-primary">{getMonthlyTotal(selectedDate).toFixed(1)}h</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">{t('totalProjectHours')}</p>
+                    <p className="text-2xl font-semibold text-foreground">{getTotalHours().toFixed(1)}h</p>
+                  </div>
                 </div>
               </Card>
             </div>
