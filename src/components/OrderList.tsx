@@ -120,10 +120,12 @@ export const OrderList = ({
                   <Calendar className="h-4 w-4 mr-2" />
                   {t('calendar')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/reports')}>
-                  <FileBarChart className="h-4 w-4 mr-2" />
-                  {t('reports')}
-                </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/reports')}>
+                    <FileBarChart className="h-4 w-4 mr-2" />
+                    {t('reports')}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={onShowSettings}>
                   <Settings className="h-4 w-4 mr-2" />
                   {t('settings')}
