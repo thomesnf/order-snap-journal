@@ -25,6 +25,8 @@ interface TimeEntry {
   order_id: string;
   order_title?: string;
   user_id: string;
+  stage_id: string | null;
+  stage_name?: string;
 }
 
 interface ManHoursCalendarProps {
@@ -122,15 +124,27 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
 
       if (ordersError) throw ordersError;
 
-      // Create a map of order_id to title
+      // Fetch stages to get stage names
+      const { data: stagesData, error: stagesError } = await supabase
+        .from('order_stages')
+        .select('id, name');
+
+      if (stagesError) throw stagesError;
+
+      // Create maps
       const orderTitleMap = new Map(
         (ordersData || []).map(order => [order.id, order.title])
+      );
+      
+      const stageNameMap = new Map(
+        (stagesData || []).map(stage => [stage.id, stage.name])
       );
 
       // Merge the data
       const transformedData = (entriesData || []).map(entry => ({
         ...entry,
-        order_title: orderTitleMap.get(entry.order_id)
+        order_title: orderTitleMap.get(entry.order_id),
+        stage_name: entry.stage_id ? stageNameMap.get(entry.stage_id) : undefined
       }));
       
       setTimeEntries(transformedData);
@@ -341,6 +355,11 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
                               <p className="text-sm font-semibold text-primary mb-1">{entry.order_title}</p>
                             )}
                             <p className="font-medium">{entry.technician_name}</p>
+                            {entry.stage_name && (
+                              <Badge variant="secondary" className="mt-1 text-xs">
+                                {entry.stage_name}
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">{Number(entry.hours_worked).toFixed(1)}h</Badge>
