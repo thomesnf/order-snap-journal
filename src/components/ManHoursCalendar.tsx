@@ -48,12 +48,14 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   // Add time entry dialog state
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [orders, setOrders] = useState<{ id: string; title: string }[]>([]);
+  const [stages, setStages] = useState<{ id: string; name: string; order_id: string }[]>([]);
   const [newEntry, setNewEntry] = useState({
     orderId: '',
     technicianId: '',
     hours: '',
     workDate: format(new Date(), 'yyyy-MM-dd'),
-    notes: ''
+    notes: '',
+    stageId: ''
   });
 
   // Convert old date-fns v2 format to v3 format
@@ -68,6 +70,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
       fetchTimeEntries();
       fetchDateFormat();
       fetchOrders();
+      fetchStages();
     }
   }, [open]);
 
@@ -84,6 +87,20 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
       setOrders(data || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
+    }
+  };
+
+  const fetchStages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('order_stages')
+        .select('id, name, order_id')
+        .order('order_position');
+
+      if (error) throw error;
+      setStages(data || []);
+    } catch (error) {
+      console.error('Error fetching stages:', error);
     }
   };
 
@@ -221,7 +238,8 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
           technician_name: technician.full_name || 'Unknown',
           hours_worked: hours,
           work_date: newEntry.workDate,
-          notes: newEntry.notes || null
+          notes: newEntry.notes || null,
+          stage_id: newEntry.stageId || null
         });
 
       if (error) throw error;
@@ -237,7 +255,8 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
         technicianId: '',
         hours: '',
         workDate: format(new Date(), 'yyyy-MM-dd'),
-        notes: ''
+        notes: '',
+        stageId: ''
       });
       fetchTimeEntries();
     } catch (error: any) {
@@ -432,6 +451,26 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
               </SelectContent>
             </Select>
           </div>
+
+          {newEntry.orderId && stages.filter(s => s.order_id === newEntry.orderId).length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="stage">{t('stage')} ({t('optional')})</Label>
+              <Select value={newEntry.stageId} onValueChange={(value) => setNewEntry({ ...newEntry, stageId: value })}>
+                <SelectTrigger id="stage">
+                  <SelectValue placeholder="No Stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stages
+                    .filter(s => s.order_id === newEntry.orderId)
+                    .map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id}>
+                        {stage.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="hours">{t('hoursWorked')} *</Label>
