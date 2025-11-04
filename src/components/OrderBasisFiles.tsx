@@ -8,6 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Upload, FileText, Download, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { OrderStages } from './OrderStages';
+
 interface OrderBasisFile {
   name: string;
   id: string;
@@ -18,9 +20,11 @@ interface OrderBasisFile {
 }
 interface OrderBasisFilesProps {
   orderId: string;
+  isAdmin: boolean;
 }
 export const OrderBasisFiles = ({
-  orderId
+  orderId,
+  isAdmin
 }: OrderBasisFilesProps) => {
   const {
     t
@@ -163,6 +167,8 @@ export const OrderBasisFiles = ({
     }
   };
   return <>
+      <OrderStages orderId={orderId} isAdmin={isAdmin} />
+      
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

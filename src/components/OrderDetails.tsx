@@ -529,7 +529,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <OrderBasisFiles orderId={order.id} />
+        <OrderBasisFiles orderId={order.id} isAdmin={isAdmin} />
         <TimeCalendar orderId={order.id} />
       </div>
 

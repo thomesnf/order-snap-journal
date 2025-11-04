@@ -109,6 +109,44 @@ export type Database = {
           },
         ]
       }
+      order_stages: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          order_id: string
+          order_position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          order_id: string
+          order_position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          order_id?: string
+          order_position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_order"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           created_at: string
@@ -386,6 +424,7 @@ export type Database = {
           id: string
           notes: string | null
           order_id: string
+          stage_id: string | null
           technician_name: string
           updated_at: string
           user_id: string
@@ -397,6 +436,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_id: string
+          stage_id?: string | null
           technician_name: string
           updated_at?: string
           user_id: string
@@ -408,6 +448,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_id?: string
+          stage_id?: string | null
           technician_name?: string
           updated_at?: string
           user_id?: string
@@ -419,6 +460,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "order_stages"
             referencedColumns: ["id"]
           },
         ]

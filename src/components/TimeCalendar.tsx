@@ -16,6 +16,9 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
 
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useOrderStages } from '@/hooks/useOrderStages';
+
 interface TimeEntry {
   id: string;
   order_id: string;
@@ -25,6 +28,7 @@ interface TimeEntry {
   hours_worked: number;
   notes: string | null;
   created_at: string;
+  stage_id: string | null;
 }
 
 interface TimeCalendarProps {
@@ -34,9 +38,11 @@ interface TimeCalendarProps {
 export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
   const { user, isAdmin } = useAuth();
   const { users } = useUsers();
+  const { stages } = useOrderStages(orderId);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedStageId, setSelectedStageId] = useState('');
   const [hoursWorked, setHoursWorked] = useState('');
   const [notes, setNotes] = useState('');
   const [isAddingEntry, setIsAddingEntry] = useState(false);
@@ -114,6 +120,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         work_date: format(selectedDate, 'yyyy-MM-dd'),
         hours_worked: hours,
         notes: notes.trim() || null,
+        stage_id: selectedStageId || null,
       });
 
     if (error) {
@@ -129,6 +136,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         description: `Added ${hours} hours for ${technicianName}.`,
       });
       setSelectedUserId('');
+      setSelectedStageId('');
       setHoursWorked('');
       setNotes('');
       setIsAddingEntry(false);
@@ -240,6 +248,24 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
                     </SelectContent>
                   </Select>
                 </div>
+                {stages.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="stage">Stage (Optional)</Label>
+                    <Select value={selectedStageId} onValueChange={setSelectedStageId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a stage" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">No Stage</SelectItem>
+                        {stages.map((stage) => (
+                          <SelectItem key={stage.id} value={stage.id}>
+                            {stage.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="hours">Hours Worked</Label>
                   <Input
@@ -271,6 +297,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
                     onClick={() => {
                       setIsAddingEntry(false);
                       setSelectedUserId('');
+                      setSelectedStageId('');
                       setHoursWorked('');
                       setNotes('');
                     }}
@@ -303,6 +330,11 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
                         <p className="text-sm text-muted-foreground">
                           {parseFloat(entry.hours_worked.toString()).toFixed(2)} hours
                         </p>
+                        {entry.stage_id && (
+                          <p className="text-xs text-primary mt-1">
+                            {stages.find(s => s.id === entry.stage_id)?.name || 'Stage'}
+                          </p>
+                        )}
                         {entry.notes && (
                           <p className="text-xs text-muted-foreground mt-1">{entry.notes}</p>
                         )}
