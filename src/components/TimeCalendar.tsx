@@ -120,7 +120,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         work_date: format(selectedDate, 'yyyy-MM-dd'),
         hours_worked: hours,
         notes: notes.trim() || null,
-        stage_id: selectedStageId || null,
+        stage_id: selectedStageId && selectedStageId !== '' ? selectedStageId : null,
       });
 
     if (error) {
@@ -253,10 +253,9 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
                     <Label htmlFor="stage">Stage (Optional)</Label>
                     <Select value={selectedStageId} onValueChange={setSelectedStageId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a stage" />
+                        <SelectValue placeholder="No Stage" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No Stage</SelectItem>
                         {stages.map((stage) => (
                           <SelectItem key={stage.id} value={stage.id}>
                             {stage.name}
