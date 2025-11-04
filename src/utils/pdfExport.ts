@@ -279,12 +279,31 @@ export const exportMultipleEntriesToPDF = async (
   // Calculate total man hours from time_entries
   const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
 
+  // Get unique technicians
+  const uniqueTechnicians = new Set(order.time_entries?.map(e => e.technician_name) || []);
+  const technicianCount = uniqueTechnicians.size;
+
   // Group hours by day
   const hoursByDay = order.time_entries?.reduce((acc, entry) => {
     const date = formatDate(entry.work_date, dateFormat);
     acc[date] = (acc[date] || 0) + Number(entry.hours_worked || 0);
     return acc;
   }, {} as Record<string, number>) || {};
+
+  // Group time entries by stage
+  const entriesByStage: Record<string, any[]> = {};
+  const noStageEntries: any[] = [];
+  
+  order.time_entries?.forEach(entry => {
+    if (entry.stage_name) {
+      if (!entriesByStage[entry.stage_name]) {
+        entriesByStage[entry.stage_name] = [];
+      }
+      entriesByStage[entry.stage_name].push(entry);
+    } else {
+      noStageEntries.push(entry);
+    }
+  });
 
   const hoursByDayHTML = Object.keys(hoursByDay).length > 0 ? `
     <div class="hours-by-day">
@@ -380,7 +399,21 @@ export const exportMultipleEntriesToPDF = async (
 
   const manHoursHTML = isFieldVisible('man_hours') ? `
     <div class="man-hours">
-      <strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours}
+      <strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours} (${technicianCount} technician${technicianCount !== 1 ? 's' : ''})
+      ${Object.keys(entriesByStage).length > 0 || noStageEntries.length > 0 ? `
+        <div class="hours-by-stage">
+          ${Object.entries(entriesByStage).map(([stageName, entries]) => {
+            const stageHours = entries.reduce((sum, e) => sum + Number(e.hours_worked || 0), 0);
+            const stageTechs = new Set(entries.map(e => e.technician_name)).size;
+            return `<div class="stage-item">• ${stageName}: ${stageHours.toFixed(2)} ${t.hours} (${stageTechs} tech${stageTechs !== 1 ? 's' : ''})</div>`;
+          }).join('')}
+          ${noStageEntries.length > 0 ? (() => {
+            const noStageHours = noStageEntries.reduce((sum, e) => sum + Number(e.hours_worked || 0), 0);
+            const noStageTechs = new Set(noStageEntries.map(e => e.technician_name)).size;
+            return `<div class="stage-item">• No Stage: ${noStageHours.toFixed(2)} ${t.hours} (${noStageTechs} tech${noStageTechs !== 1 ? 's' : ''})</div>`;
+          })() : ''}
+        </div>
+      ` : ''}
     </div>
   ` : '';
 
@@ -533,6 +566,15 @@ export const exportMultipleEntriesToPDF = async (
           .order-summary p {
             margin: 10px 0 0 0;
             line-height: 1.6;
+          }
+          .hours-by-stage {
+            margin-top: 10px;
+            padding-left: 15px;
+            font-size: 14px;
+            color: #666;
+          }
+          .stage-item {
+            padding: 4px 0;
           }
           .man-hours {
             margin-top: 15px;

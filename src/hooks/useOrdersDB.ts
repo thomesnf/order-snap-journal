@@ -12,6 +12,8 @@ export interface TimeEntry {
   created_at: string;
   updated_at: string;
   user_id: string;
+  stage_id: string | null;
+  stage_name?: string;
 }
 
 export interface Order {
@@ -520,20 +522,30 @@ export const useOrdersDB = () => {
 
       if (photosError) throw photosError;
 
-      // Fetch time entries
+      // Fetch time entries with stage information
       const { data: timeEntries, error: timeError } = await supabase
         .from('time_entries')
-        .select('*')
+        .select(`
+          *,
+          order_stages(name)
+        `)
         .eq('order_id', orderId)
         .order('work_date', { ascending: false });
 
       if (timeError) throw timeError;
 
+      // Transform to include stage_name
+      const transformedTimeEntries = (timeEntries || []).map(entry => ({
+        ...entry,
+        stage_name: entry.order_stages?.name || null,
+        order_stages: undefined // Remove the nested object
+      }));
+
       return {
         ...order,
         journal_entries: journalEntries || [],
         photos: orderPhotos || [],
-        time_entries: timeEntries || []
+        time_entries: transformedTimeEntries || []
       };
     } catch (error: any) {
       toast({

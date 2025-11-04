@@ -59,16 +59,33 @@ export const exportOrdersToExcel = async (orders: Order[], filename: string = 'o
 };
 
 export const exportTimeEntriesToExcel = (timeEntries: any[], filename: string = 'time_entries') => {
+  // Group by stage
+  const entriesByStage: Record<string, any[]> = {};
+  const noStageEntries: any[] = [];
+  
+  timeEntries.forEach(entry => {
+    if (entry.stage_name) {
+      if (!entriesByStage[entry.stage_name]) {
+        entriesByStage[entry.stage_name] = [];
+      }
+      entriesByStage[entry.stage_name].push(entry);
+    } else {
+      noStageEntries.push(entry);
+    }
+  });
+
   const data = timeEntries.map(entry => ({
     'Order': entry.order_title || '-',
     'Date': format(new Date(entry.work_date), 'MM/dd/yyyy'),
     'Technician': entry.technician_name,
+    'Stage': entry.stage_name || 'No Stage',
     'Hours': entry.hours_worked,
     'Notes': entry.notes || '-'
   }));
 
   // Calculate total hours
   const totalHours = timeEntries.reduce((sum, entry) => sum + entry.hours_worked, 0);
+  const totalTechnicians = new Set(timeEntries.map(e => e.technician_name)).size;
 
   // Calculate hours by technician
   const hoursByTechnician = timeEntries.reduce((acc, entry) => {
@@ -81,23 +98,46 @@ export const exportTimeEntriesToExcel = (timeEntries: any[], filename: string = 
   
   // Enable auto-filter on the header row for sortable columns
   if (data.length > 0) {
-    worksheet['!autofilter'] = { ref: `A1:E${data.length + 1}` };
+    worksheet['!autofilter'] = { ref: `A1:F${data.length + 1}` };
   }
 
   // Add summary section after the data
   const summaryStartRow = data.length + 3;
   
-  // Add total hours
+  // Add total hours with technician count
   XLSX.utils.sheet_add_aoa(worksheet, [
     ['SUMMARY'],
     [],
-    ['Total Hours:', totalHours.toFixed(2)],
+    ['Total Hours:', totalHours.toFixed(2), `(${totalTechnicians} technician${totalTechnicians !== 1 ? 's' : ''})`],
     [],
-    ['Hours by Technician:']
+    ['Hours by Stage:']
   ], { origin: { r: summaryStartRow, c: 0 } });
 
-  // Add technician totals
+  // Add stage breakdown
   let currentRow = summaryStartRow + 5;
+  
+  // Add entries by stage
+  Object.entries(entriesByStage).forEach(([stageName, entries]) => {
+    const stageHours = entries.reduce((sum, e) => sum + e.hours_worked, 0);
+    const stageTechs = new Set(entries.map(e => e.technician_name)).size;
+    XLSX.utils.sheet_add_aoa(worksheet, [
+      [stageName, stageHours.toFixed(2), `(${stageTechs} tech${stageTechs !== 1 ? 's' : ''})`]
+    ], { origin: { r: currentRow++, c: 0 } });
+  });
+  
+  // Add no stage entries if any
+  if (noStageEntries.length > 0) {
+    const noStageHours = noStageEntries.reduce((sum, e) => sum + e.hours_worked, 0);
+    const noStageTechs = new Set(noStageEntries.map(e => e.technician_name)).size;
+    XLSX.utils.sheet_add_aoa(worksheet, [
+      ['No Stage', noStageHours.toFixed(2), `(${noStageTechs} tech${noStageTechs !== 1 ? 's' : ''})`]
+    ], { origin: { r: currentRow++, c: 0 } });
+  }
+
+  // Add hours by technician section
+  currentRow += 2;
+  XLSX.utils.sheet_add_aoa(worksheet, [['Hours by Technician:']], { origin: { r: currentRow++, c: 0 } });
+  
   Object.entries(hoursByTechnician)
     .sort(([a], [b]) => a.localeCompare(b))
     .forEach(([tech, hours]) => {
@@ -110,6 +150,7 @@ export const exportTimeEntriesToExcel = (timeEntries: any[], filename: string = 
     { wch: 30 }, // Order
     { wch: 12 }, // Date
     { wch: 20 }, // Technician
+    { wch: 20 }, // Stage
     { wch: 10 }, // Hours
     { wch: 40 }  // Notes
   ];
