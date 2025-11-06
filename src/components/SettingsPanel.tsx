@@ -10,6 +10,7 @@ import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, 
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import JSZip from 'jszip';
 import { Input } from '@/components/ui/input';
 import { DateFormatType } from '@/utils/dateFormat';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -434,6 +435,11 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         throw new Error('Not authenticated');
       }
 
+      toast({
+        title: "Starting backup",
+        description: "This may take a while depending on the number of files...",
+      });
+
       // Call the backup function
       const { data, error } = await supabase.functions.invoke('backup-database', {
         headers: {
@@ -443,12 +449,81 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
 
       if (error) throw error;
 
-      // Download the backup file
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = window.URL.createObjectURL(blob);
+      // Create a zip file
+      const zip = new JSZip();
+      
+      // Add the backup JSON
+      const timestamp = new Date().toISOString().split('T')[0];
+      zip.file(`backup-${timestamp}.json`, JSON.stringify(data, null, 2));
+
+      // Download all storage files
+      const storageData = data.storage as Record<string, any>;
+      let downloadedCount = 0;
+      let totalFiles = 0;
+
+      // Count total files
+      for (const bucketInfo of Object.values(storageData)) {
+        if (bucketInfo.files && Array.isArray(bucketInfo.files)) {
+          totalFiles += bucketInfo.files.length;
+        }
+      }
+
+      if (totalFiles > 0) {
+        toast({
+          title: "Downloading files",
+          description: `Downloading ${totalFiles} files from storage...`,
+        });
+
+        for (const [bucketName, bucketInfo] of Object.entries(storageData)) {
+          if (bucketInfo.files && Array.isArray(bucketInfo.files)) {
+            for (const filePath of bucketInfo.files) {
+              try {
+                const { data: fileData, error: fileError } = await supabase.storage
+                  .from(bucketName)
+                  .download(filePath);
+
+                if (fileError) {
+                  console.error(`Error downloading ${bucketName}/${filePath}:`, fileError);
+                  continue;
+                }
+
+                if (fileData) {
+                  zip.file(`storage/${bucketName}/${filePath}`, fileData);
+                  downloadedCount++;
+                  
+                  // Update progress every 10 files
+                  if (downloadedCount % 10 === 0) {
+                    toast({
+                      title: "Progress",
+                      description: `Downloaded ${downloadedCount}/${totalFiles} files...`,
+                    });
+                  }
+                }
+              } catch (err) {
+                console.error(`Error downloading ${bucketName}/${filePath}:`, err);
+              }
+            }
+          }
+        }
+      }
+
+      toast({
+        title: "Creating zip file",
+        description: "Packaging all files...",
+      });
+
+      // Generate the zip file
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      });
+      
+      // Download the zip
+      const url = window.URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `backup-${timestamp}.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -456,7 +531,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
 
       toast({
         title: "Success",
-        description: "Database backup downloaded successfully. Storage files are listed in the backup file.",
+        description: `Backup complete! Downloaded ${downloadedCount} files plus database backup.`,
       });
     } catch (error: any) {
       toast({
