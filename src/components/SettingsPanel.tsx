@@ -478,26 +478,30 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
           if (bucketInfo.files && Array.isArray(bucketInfo.files)) {
             for (const filePath of bucketInfo.files) {
               try {
-                const { data: fileData, error: fileError } = await supabase.storage
-                  .from(bucketName)
-                  .download(filePath);
+                // Use the edge function to download files (bypasses RLS for private buckets)
+                const downloadUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-storage-file?bucket=${encodeURIComponent(bucketName)}&path=${encodeURIComponent(filePath)}`;
+                
+                const response = await fetch(downloadUrl, {
+                  headers: {
+                    Authorization: `Bearer ${session.access_token}`
+                  }
+                });
 
-                if (fileError) {
-                  console.error(`Error downloading ${bucketName}/${filePath}:`, fileError);
+                if (!response.ok) {
+                  console.error(`Error downloading ${bucketName}/${filePath}:`, response.statusText);
                   continue;
                 }
 
-                if (fileData) {
-                  zip.file(`storage/${bucketName}/${filePath}`, fileData);
-                  downloadedCount++;
-                  
-                  // Update progress every 10 files
-                  if (downloadedCount % 10 === 0) {
-                    toast({
-                      title: "Progress",
-                      description: `Downloaded ${downloadedCount}/${totalFiles} files...`,
-                    });
-                  }
+                const fileBlob = await response.blob();
+                zip.file(`storage/${bucketName}/${filePath}`, fileBlob);
+                downloadedCount++;
+                
+                // Update progress every 10 files
+                if (downloadedCount % 10 === 0) {
+                  toast({
+                    title: "Progress",
+                    description: `Downloaded ${downloadedCount}/${totalFiles} files...`,
+                  });
                 }
               } catch (err) {
                 console.error(`Error downloading ${bucketName}/${filePath}:`, err);
