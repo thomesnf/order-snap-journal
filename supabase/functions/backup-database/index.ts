@@ -100,14 +100,21 @@ Deno.serve(async (req) => {
           if (items) {
             for (const item of items) {
               const fullPath = path ? `${path}/${item.name}` : item.name;
+              
+              // If item has an id, it's a file
               if (item.id) {
                 allFiles.push(fullPath);
+              } else {
+                // If no id, it's a folder - recurse into it
+                await listFilesRecursive(fullPath);
               }
             }
           }
         }
 
         await listFilesRecursive('');
+        
+        console.log(`Found ${allFiles.length} files in ${bucket}`);
         
         backup.storage[bucket] = {
           bucket_name: bucket,
