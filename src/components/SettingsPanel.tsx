@@ -65,6 +65,8 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   
   const [pdfFieldConfig, setPdfFieldConfig] = useState<PDFFieldConfig[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
 
   useEffect(() => {
     checkAdminStatus();
@@ -548,6 +550,75 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     }
   };
 
+  const handleRestore = async () => {
+    if (!restoreFile) {
+      toast({
+        title: "Error",
+        description: "Please select a backup file first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsRestoring(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      toast({
+        title: "Starting restore",
+        description: "This may take a while depending on the backup size...",
+      });
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('backup', restoreFile);
+
+      // Call the restore function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/restore-database`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Restore failed');
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: "Success",
+        description: "Database and storage restored successfully!",
+      });
+
+      // Clear the file input
+      setRestoreFile(null);
+      
+      // Optionally reload the page to reflect changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to restore backup',
+        variant: "destructive",
+      });
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   interface SortableFieldItemProps {
     field: PDFFieldConfig;
     onVisibilityChange: (fieldName: string, visible: boolean) => void;
@@ -817,31 +888,67 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5" />
-                Database Backup
+                Database Backup & Restore
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <Label className="text-base">
-                  Backup Database & Storage
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Download a complete backup of your database and get a list of all storage files. The backup includes all tables data and file references.
-                </p>
-                <Button 
-                  onClick={handleBackup} 
-                  disabled={isBackingUp}
-                  className="w-full sm:w-auto"
-                >
-                  {isBackingUp ? (
-                    <>Processing...</>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Backup
-                    </>
-                  )}
-                </Button>
+              <div className="space-y-6">
+                {/* Backup Section */}
+                <div className="space-y-3">
+                  <Label className="text-base">
+                    Backup Database & Storage
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Download a complete backup of your database and all storage files. The backup includes all tables data and file references.
+                  </p>
+                  <Button 
+                    onClick={handleBackup} 
+                    disabled={isBackingUp}
+                    className="w-full sm:w-auto"
+                  >
+                    {isBackingUp ? (
+                      <>Processing...</>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Backup
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Restore Section */}
+                <div className="space-y-3 pt-6 border-t">
+                  <Label className="text-base">
+                    Restore from Backup
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Upload a backup .zip file to restore your database and storage. This will restore all data and files from the backup.
+                  </p>
+                  <div className="space-y-3">
+                    <Input
+                      type="file"
+                      accept=".zip"
+                      onChange={(e) => setRestoreFile(e.target.files?.[0] || null)}
+                      disabled={isRestoring}
+                    />
+                    <Button 
+                      onClick={handleRestore} 
+                      disabled={isRestoring || !restoreFile}
+                      className="w-full sm:w-auto"
+                      variant="secondary"
+                    >
+                      {isRestoring ? (
+                        <>Restoring...</>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Restore Backup
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
