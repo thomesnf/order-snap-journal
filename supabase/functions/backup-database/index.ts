@@ -128,6 +128,24 @@ Deno.serve(async (req) => {
     // Return the backup as JSON
     const backupJson = JSON.stringify(backup, null, 2);
     
+    // Calculate approximate file size
+    const fileSize = new Blob([backupJson]).size;
+    
+    // Record backup in history
+    const { error: historyError } = await supabase
+      .from('backup_history')
+      .insert({
+        created_by: user.id,
+        file_size: fileSize,
+        status: 'completed',
+        backup_type: 'manual',
+        notes: `Database backup with ${Object.keys(backup.tables).length} tables and ${Object.keys(backup.storage || {}).length} storage buckets`
+      });
+    
+    if (historyError) {
+      console.error('Error recording backup history:', historyError);
+    }
+    
     return new Response(backupJson, {
       headers: {
         ...corsHeaders,

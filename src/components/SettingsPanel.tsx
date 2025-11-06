@@ -67,10 +67,18 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [backupHistory, setBackupHistory] = useState<any[]>([]);
+  const [backupSchedule, setBackupSchedule] = useState({
+    enabled: false,
+    frequency: 'weekly' as 'daily' | 'weekly',
+    day: 0,
+    time: '02:00'
+  });
 
   useEffect(() => {
     checkAdminStatus();
     fetchSettings();
+    fetchBackupHistory();
   }, []);
 
   const checkAdminStatus = async () => {
@@ -90,7 +98,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const fetchSettings = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config, pdf_title_font_size')
+      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config, pdf_title_font_size, backup_schedule_enabled, backup_schedule_frequency, backup_schedule_day, backup_schedule_time')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
@@ -109,6 +117,25 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
       if (data.pdf_field_config) {
         setPdfFieldConfig(data.pdf_field_config as unknown as PDFFieldConfig[]);
       }
+      
+      setBackupSchedule({
+        enabled: data.backup_schedule_enabled ?? false,
+        frequency: (data.backup_schedule_frequency as 'daily' | 'weekly') || 'weekly',
+        day: data.backup_schedule_day ?? 0,
+        time: data.backup_schedule_time || '02:00'
+      });
+    }
+  };
+
+  const fetchBackupHistory = async () => {
+    const { data } = await supabase
+      .from('backup_history')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    if (data) {
+      setBackupHistory(data);
     }
   };
 
@@ -539,6 +566,9 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         title: "Success",
         description: `Backup complete! Downloaded ${downloadedCount} files plus database backup.`,
       });
+      
+      // Refresh backup history
+      fetchBackupHistory();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -617,6 +647,68 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     } finally {
       setIsRestoring(false);
     }
+  };
+
+  const handleScheduleUpdate = async (field: string, value: any) => {
+    try {
+      const updatedSchedule = { ...backupSchedule, [field]: value };
+      
+      const { error } = await supabase
+        .from('settings')
+        .update({
+          [`backup_schedule_${field}`]: value
+        })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+
+      if (error) throw error;
+
+      setBackupSchedule(updatedSchedule);
+      
+      toast({
+        title: "Success",
+        description: "Backup schedule updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteBackup = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('backup_history')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setBackupHistory(backupHistory.filter(b => b.id !== id));
+      
+      toast({
+        title: "Success",
+        description: "Backup record deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return 'Unknown';
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(2)} MB`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
   };
 
   interface SortableFieldItemProps {
@@ -948,6 +1040,127 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                       )}
                     </Button>
                   </div>
+                </div>
+
+                {/* Backup Schedule Section */}
+                <div className="space-y-4 pt-6 border-t">
+                  <Label className="text-base">
+                    Automatic Backup Schedule
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Configure automatic backups to run on a schedule. Backups are stored in the history below.
+                  </p>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label>Enable Scheduled Backups</Label>
+                    <Switch
+                      checked={backupSchedule.enabled}
+                      onCheckedChange={(checked) => handleScheduleUpdate('enabled', checked)}
+                    />
+                  </div>
+
+                  {backupSchedule.enabled && (
+                    <div className="space-y-4 pl-4 border-l-2">
+                      <div className="space-y-2">
+                        <Label>Frequency</Label>
+                        <Select 
+                          value={backupSchedule.frequency} 
+                          onValueChange={(value) => handleScheduleUpdate('frequency', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {backupSchedule.frequency === 'weekly' && (
+                        <div className="space-y-2">
+                          <Label>Day of Week</Label>
+                          <Select 
+                            value={backupSchedule.day.toString()} 
+                            onValueChange={(value) => handleScheduleUpdate('day', parseInt(value))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">Sunday</SelectItem>
+                              <SelectItem value="1">Monday</SelectItem>
+                              <SelectItem value="2">Tuesday</SelectItem>
+                              <SelectItem value="3">Wednesday</SelectItem>
+                              <SelectItem value="4">Thursday</SelectItem>
+                              <SelectItem value="5">Friday</SelectItem>
+                              <SelectItem value="6">Saturday</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label>Time (24-hour format)</Label>
+                        <Input
+                          type="time"
+                          value={backupSchedule.time}
+                          onChange={(e) => handleScheduleUpdate('time', e.target.value)}
+                        />
+                      </div>
+
+                      <p className="text-xs text-muted-foreground">
+                        Note: After enabling scheduled backups, you'll need to configure the cron job. Contact support or check documentation for setup instructions.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Backup History Section */}
+                <div className="space-y-4 pt-6 border-t">
+                  <Label className="text-base">
+                    Backup History
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    View and manage previous backups
+                  </p>
+                  
+                  {backupHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No backups yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {backupHistory.map((backup) => (
+                        <div 
+                          key={backup.id}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">
+                              {backup.backup_type === 'manual' ? '📥 Manual' : '⏰ Scheduled'} Backup
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(backup.created_at)} • {formatFileSize(backup.file_size)}
+                            </p>
+                            {backup.notes && (
+                              <p className="text-xs text-muted-foreground mt-1">{backup.notes}</p>
+                            )}
+                            <p className="text-xs">
+                              Status: <span className={backup.status === 'completed' ? 'text-green-600' : 'text-red-600'}>
+                                {backup.status}
+                              </span>
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteBackup(backup.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

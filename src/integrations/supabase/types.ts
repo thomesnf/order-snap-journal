@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      backup_history: {
+        Row: {
+          backup_type: string
+          created_at: string
+          created_by: string | null
+          file_size: number | null
+          id: string
+          notes: string | null
+          status: string
+          storage_path: string | null
+        }
+        Insert: {
+          backup_type?: string
+          created_at?: string
+          created_by?: string | null
+          file_size?: number | null
+          id?: string
+          notes?: string | null
+          status?: string
+          storage_path?: string | null
+        }
+        Update: {
+          backup_type?: string
+          created_at?: string
+          created_by?: string | null
+          file_size?: number | null
+          id?: string
+          notes?: string | null
+          status?: string
+          storage_path?: string | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           created_at: string
@@ -302,6 +335,10 @@ export type Database = {
       settings: {
         Row: {
           app_logo_url: string | null
+          backup_schedule_day: number | null
+          backup_schedule_enabled: boolean | null
+          backup_schedule_frequency: string | null
+          backup_schedule_time: string | null
           company_logo_url: string | null
           created_at: string
           date_format: string | null
@@ -317,6 +354,10 @@ export type Database = {
         }
         Insert: {
           app_logo_url?: string | null
+          backup_schedule_day?: number | null
+          backup_schedule_enabled?: boolean | null
+          backup_schedule_frequency?: string | null
+          backup_schedule_time?: string | null
           company_logo_url?: string | null
           created_at?: string
           date_format?: string | null
@@ -332,6 +373,10 @@ export type Database = {
         }
         Update: {
           app_logo_url?: string | null
+          backup_schedule_day?: number | null
+          backup_schedule_enabled?: boolean | null
+          backup_schedule_frequency?: string | null
+          backup_schedule_time?: string | null
           company_logo_url?: string | null
           created_at?: string
           date_format?: string | null
