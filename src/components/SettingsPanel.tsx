@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2, GripVertical, Key } from 'lucide-react';
+import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2, GripVertical, Key, Download, Database } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -63,6 +63,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   }
   
   const [pdfFieldConfig, setPdfFieldConfig] = useState<PDFFieldConfig[]>([]);
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   useEffect(() => {
     checkAdminStatus();
@@ -420,9 +421,53 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+    coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const handleBackup = async () => {
+    try {
+      setIsBackingUp(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      // Call the backup function
+      const { data, error } = await supabase.functions.invoke('backup-database', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) throw error;
+
+      // Download the backup file
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success",
+        description: "Database backup downloaded successfully. Storage files are listed in the backup file.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to create backup',
+        variant: "destructive",
+      });
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
 
   interface SortableFieldItemProps {
     field: PDFFieldConfig;
@@ -682,6 +727,42 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                     />
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Backup Settings - Admin Only */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Database Backup
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <Label className="text-base">
+                  Backup Database & Storage
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Download a complete backup of your database and get a list of all storage files. The backup includes all tables data and file references.
+                </p>
+                <Button 
+                  onClick={handleBackup} 
+                  disabled={isBackingUp}
+                  className="w-full sm:w-auto"
+                >
+                  {isBackingUp ? (
+                    <>Processing...</>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Backup
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
