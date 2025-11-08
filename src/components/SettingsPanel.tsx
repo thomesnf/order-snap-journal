@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2, GripVertical, Key, Download, Database, Palette } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
+import { ThemePreview } from '@/components/ThemePreview';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import JSZip from 'jszip';
@@ -838,43 +839,61 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
               <p className="text-sm text-muted-foreground">
                 Choose a color theme or create your own custom palette
               </p>
-              <Select value={themeName} onValueChange={setThemeName}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  {themes.map(theme => (
-                    <SelectItem key={theme.name} value={theme.name}>
-                      {theme.displayName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => setCustomThemeDialogOpen(true)} 
-                  variant="outline" 
-                  className="flex-1"
-                >
-                  Create Custom Theme
-                </Button>
-                
-                {themes.find(t => t.name === themeName && !['default', 'blue', 'red', 'pink'].includes(t.name)) && (
-                  <Button 
-                    onClick={() => {
-                      removeCustomTheme(themeName);
-                      toast({
-                        title: "Success",
-                        description: "Custom theme removed",
-                      });
-                    }} 
-                    variant="destructive"
-                    size="icon"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Theme Selector */}
+                <div className="space-y-3">
+                  <Select value={themeName} onValueChange={setThemeName}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      {themes.map(theme => (
+                        <SelectItem key={theme.name} value={theme.name}>
+                          {theme.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => setCustomThemeDialogOpen(true)} 
+                      variant="outline" 
+                      className="flex-1"
+                    >
+                      <Palette className="h-4 w-4 mr-2" />
+                      Create Custom
+                    </Button>
+                    
+                    {themes.find(t => t.name === themeName && !['default', 'blue', 'red', 'pink'].includes(t.name)) && (
+                      <Button 
+                        onClick={() => {
+                          removeCustomTheme(themeName);
+                          toast({
+                            title: "Success",
+                            description: "Custom theme removed",
+                          });
+                        }} 
+                        variant="destructive"
+                        size="icon"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Theme Preview */}
+                <div>
+                  <ThemePreview 
+                    palette={
+                      themes.find(t => t.name === themeName)?.[mode] || 
+                      themes[0][mode]
+                    }
+                    mode={mode}
+                  />
+                </div>
               </div>
             </div>
           </CardContent>
@@ -1443,6 +1462,20 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
           </DialogHeader>
           
           <div className="space-y-6 py-4">
+            {/* Preview Section */}
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <Label className="text-sm font-semibold mb-3 block">Live Preview</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Light Mode</p>
+                  <ThemePreview palette={newTheme.light} mode="light" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Dark Mode</p>
+                  <ThemePreview palette={newTheme.dark} mode="dark" />
+                </div>
+              </div>
+            </div>
             {/* Theme Name */}
             <div className="space-y-2">
               <Label htmlFor="theme-name">Theme Name (ID)</Label>
