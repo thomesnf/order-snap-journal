@@ -2,6 +2,8 @@
 
 This guide explains how to deploy the Order Management System on your own private server using Docker.
 
+**📱 For complete deployment including Android APK, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**
+
 ## ⚠️ Important: Admin Setup First
 
 **Before deploying, you MUST create an admin user.** See `ADMIN_SETUP.md` for detailed instructions.
