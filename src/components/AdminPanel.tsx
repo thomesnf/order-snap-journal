@@ -63,6 +63,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editEmergencyContact, setEditEmergencyContact] = useState('');
+  const [editHourlyRate, setEditHourlyRate] = useState('');
   const [editContractFile, setEditContractFile] = useState<File | null>(null);
   const [uploadingContract, setUploadingContract] = useState(false);
   const { toast } = useToast();
@@ -295,7 +296,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     // Fetch current profile data
     const { data: profile } = await supabase
       .from('profiles')
-      .select('phone, address, emergency_contact, employment_contract_url')
+      .select('phone, address, emergency_contact, employment_contract_url, hourly_rate')
       .eq('id', user.id)
       .single();
     
@@ -303,6 +304,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       setEditPhone(profile.phone || '');
       setEditAddress(profile.address || '');
       setEditEmergencyContact(profile.emergency_contact || '');
+      setEditHourlyRate(profile.hourly_rate?.toString() || '');
     }
     
     setEditUserOpen(true);
@@ -380,6 +382,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         phone: editPhone,
         address: editAddress,
         emergency_contact: editEmergencyContact,
+        hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : 0,
       };
       
       if (contractUrl) {
@@ -639,6 +642,18 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                 value={editEmergencyContact}
                 onChange={(e) => setEditEmergencyContact(e.target.value)}
                 placeholder="Name and phone number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editHourlyRate">Hourly Salary (SEK)</Label>
+              <Input
+                id="editHourlyRate"
+                type="number"
+                step="0.01"
+                min="0"
+                value={editHourlyRate}
+                onChange={(e) => setEditHourlyRate(e.target.value)}
+                placeholder="0.00"
               />
             </div>
             <div className="space-y-2">
