@@ -12,11 +12,13 @@ import { generateInvoice } from '@/utils/invoiceGenerator';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { useLanguage } from '@/contexts/LanguageContext';
 const Reports = () => {
   const {
     orders
   } = useOrdersDB();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
@@ -318,8 +320,8 @@ const Reports = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Reports & Exports</h1>
-              <p className="text-muted-foreground">Generate reports and export your data</p>
+              <h1 className="text-3xl font-bold text-foreground">{t('reportsAndExports')}</h1>
+              <p className="text-muted-foreground">{t('generateReportsDesc')}</p>
             </div>
           </div>
         </div>
@@ -327,44 +329,44 @@ const Reports = () => {
         {/* Filters */}
         <Card>
           <CardHeader>
-            <CardTitle>Filters</CardTitle>
-            <CardDescription>Filter data for reports and exports</CardDescription>
+            <CardTitle>{t('filters')}</CardTitle>
+            <CardDescription>{t('filterDataDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
-              <Label>Date Range</Label>
+              <Label>{t('dateRange')}</Label>
               <Select value={dateRange} onValueChange={setDateRange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="this-month">This Month</SelectItem>
-                  <SelectItem value="last-month">Last Month</SelectItem>
-                  <SelectItem value="last-3-months">Last 3 Months</SelectItem>
+                  <SelectItem value="all">{t('allTime')}</SelectItem>
+                  <SelectItem value="this-month">{t('thisMonth')}</SelectItem>
+                  <SelectItem value="last-month">{t('lastMonth')}</SelectItem>
+                  <SelectItem value="last-3-months">{t('last3Months')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex-1 min-w-[200px]">
-              <Label>Order Status</Label>
+              <Label>{t('orderStatus')}</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="invoiced">Invoiced</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="all">{t('allStatuses')}</SelectItem>
+                  <SelectItem value="pending">{t('pending')}</SelectItem>
+                  <SelectItem value="in-progress">{t('inProgress')}</SelectItem>
+                  <SelectItem value="completed">{t('completed')}</SelectItem>
+                  <SelectItem value="invoiced">{t('invoiced')}</SelectItem>
+                  <SelectItem value="paid">{t('paid')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex-1 min-w-[200px]">
-              <Label>Timpris (SEK)</Label>
+              <Label>{t('hourlyRate')}</Label>
               <Input type="number" placeholder="0.00" value={hourlyRate} onChange={e => setHourlyRate(parseFloat(e.target.value) || 0)} />
             </div>
           </CardContent>
@@ -376,7 +378,7 @@ const Reports = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('totalOrders')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{filteredOrders.length}</div>
@@ -385,7 +387,7 @@ const Reports = () => {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Completed Total</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('completedTotal')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{statusCounts.completed + statusCounts.invoiced + statusCounts.paid}</div>
@@ -394,7 +396,7 @@ const Reports = () => {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('inProgress')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">{statusCounts['in-progress']}</div>
@@ -403,7 +405,7 @@ const Reports = () => {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('totalHours')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalHours.toFixed(1)}</div>
@@ -417,16 +419,16 @@ const Reports = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5" />
-                Export Orders
+                {t('exportOrders')}
               </CardTitle>
               <CardDescription>
-                Export {filteredOrders.length} orders to Excel spreadsheet
+                {t('exportOrdersDesc', { count: filteredOrders.length })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button onClick={handleExportOrders} className="w-full">
                 <Download className="h-4 w-4 mr-2" />
-                Export to Excel
+                {t('exportToExcel')}
               </Button>
             </CardContent>
           </Card>
@@ -435,16 +437,16 @@ const Reports = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5" />
-                Export Time Entries
+                {t('exportTimeEntries')}
               </CardTitle>
               <CardDescription>
-                Export {filteredTimeEntries.length} time entries ({totalHours.toFixed(1)} hours)
+                {t('exportTimeEntriesDesc', { count: filteredTimeEntries.length, hours: totalHours.toFixed(1) })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button onClick={handleExportTimeEntries} className="w-full">
                 <Download className="h-4 w-4 mr-2" />
-                Export to Excel
+                {t('exportToExcel')}
               </Button>
             </CardContent>
           </Card>
@@ -453,16 +455,16 @@ const Reports = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Monthly Salary Report
+                {t('monthlySalaryReport')}
               </CardTitle>
               <CardDescription>
-                Technician hours & earnings ({totalHours.toFixed(1)} hours total)
+                {t('monthlySalaryDesc', { hours: totalHours.toFixed(1) })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button onClick={handleExportMonthlySalary} className="w-full">
                 <Download className="h-4 w-4 mr-2" />
-                Export Salary Report
+                {t('exportSalaryReport')}
               </Button>
             </CardContent>
           </Card>

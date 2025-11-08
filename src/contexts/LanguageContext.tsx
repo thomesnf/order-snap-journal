@@ -166,7 +166,31 @@ const translations: Translations = {
     'addAnyNotes': 'Add any notes...',
     'calendar': 'Calendar',
     'reports': 'Reports',
-    'logout': 'Logout'
+    'logout': 'Logout',
+    
+    // Reports page
+    'reportsAndExports': 'Reports & Exports',
+    'generateReportsDesc': 'Generate reports and export your data',
+    'filters': 'Filters',
+    'filterDataDesc': 'Filter data for reports and exports',
+    'dateRange': 'Date Range',
+    'allTime': 'All Time',
+    'thisMonth': 'This Month',
+    'lastMonth': 'Last Month',
+    'last3Months': 'Last 3 Months',
+    'orderStatus': 'Order Status',
+    'allStatuses': 'All Statuses',
+    'hourlyRate': 'Hourly Rate (SEK)',
+    'totalOrders': 'Total Orders',
+    'completedTotal': 'Completed Total',
+    'exportOrders': 'Export Orders',
+    'exportOrdersDesc': 'Export {count} orders to Excel spreadsheet',
+    'exportToExcel': 'Export to Excel',
+    'exportTimeEntries': 'Export Time Entries',
+    'exportTimeEntriesDesc': 'Export {count} time entries ({hours} hours)',
+    'monthlySalaryReport': 'Monthly Salary Report',
+    'monthlySalaryDesc': 'Technician hours & earnings ({hours} hours total)',
+    'exportSalaryReport': 'Export Salary Report'
   },
   sv: {
     // Navigation
@@ -326,14 +350,38 @@ const translations: Translations = {
     'addAnyNotes': 'Lägg till anteckningar...',
     'calendar': 'Kalender',
     'reports': 'Rapporter',
-    'logout': 'Logga ut'
+    'logout': 'Logga ut',
+    
+    // Reports page
+    'reportsAndExports': 'Rapporter & Export',
+    'generateReportsDesc': 'Generera rapporter och exportera din data',
+    'filters': 'Filter',
+    'filterDataDesc': 'Filtrera data för rapporter och export',
+    'dateRange': 'Datumintervall',
+    'allTime': 'All tid',
+    'thisMonth': 'Denna månad',
+    'lastMonth': 'Föregående månad',
+    'last3Months': 'Senaste 3 månaderna',
+    'orderStatus': 'Beställningsstatus',
+    'allStatuses': 'Alla statusar',
+    'hourlyRate': 'Timpris (SEK)',
+    'totalOrders': 'Totalt Beställningar',
+    'completedTotal': 'Totalt Slutförda',
+    'exportOrders': 'Exportera Beställningar',
+    'exportOrdersDesc': 'Exportera {count} beställningar till Excel',
+    'exportToExcel': 'Exportera till Excel',
+    'exportTimeEntries': 'Exportera Tidsinlägg',
+    'exportTimeEntriesDesc': 'Exportera {count} tidsinlägg ({hours} timmar)',
+    'monthlySalaryReport': 'Månadslönerapport',
+    'monthlySalaryDesc': 'Teknikertimmar & intäkter ({hours} timmar totalt)',
+    'exportSalaryReport': 'Exportera Lönerapport'
   }
 };
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, any>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -355,8 +403,17 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('language', language);
   }, [language]);
 
-  const t = (key: string): string => {
-    return translations[language][key] || key;
+  const t = (key: string, params?: Record<string, any>): string => {
+    let translation = translations[language][key] || key;
+    
+    // Replace parameters in translation string
+    if (params) {
+      Object.keys(params).forEach(param => {
+        translation = translation.replace(`{${param}}`, params[param]);
+      });
+    }
+    
+    return translation;
   };
 
   return (
