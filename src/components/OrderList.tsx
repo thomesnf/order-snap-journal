@@ -47,7 +47,10 @@ export const OrderList = ({
 }: OrderListProps) => {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>(() => {
+    const saved = localStorage.getItem('orderListStatusFilter');
+    return (saved as Order['status'] | 'all') || 'in-progress';
+  });
   const [fullName, setFullName] = useState<string>('');
   const [showManHoursCalendar, setShowManHoursCalendar] = useState(false);
   const { signOut, user } = useAuth();
@@ -70,6 +73,10 @@ export const OrderList = ({
 
     fetchUserProfile();
   }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem('orderListStatusFilter', statusFilter);
+  }, [statusFilter]);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
