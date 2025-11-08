@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2, GripVertical, Key, Download, Database } from 'lucide-react';
+import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, Calendar, FileText, Trash2, GripVertical, Key, Download, Database, Palette } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -37,7 +38,7 @@ interface SettingsPanelProps {
 }
 
 export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
-  const { theme, toggleTheme } = useTheme();
+  const { mode, themeName, toggleMode, setThemeName, themes, addCustomTheme, removeCustomTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { toast } = useToast();
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
@@ -46,6 +47,23 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [customThemeDialogOpen, setCustomThemeDialogOpen] = useState(false);
+  const [newTheme, setNewTheme] = useState({
+    name: '',
+    displayName: '',
+    light: {
+      primary: '219 70% 52%',
+      primaryGlow: '219 70% 60%',
+      accent: '34 100% 62%',
+      accentForeground: '0 0% 100%',
+    },
+    dark: {
+      primary: '210 40% 98%',
+      primaryForeground: '222.2 47.4% 11.2%',
+      accent: '217.2 32.6% 17.5%',
+      accentForeground: '210 40% 98%',
+    }
+  });
   const [pdfSettings, setPdfSettings] = useState({
     primaryColor: '#2563eb',
     fontFamily: 'Arial, sans-serif',
@@ -790,27 +808,74 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {theme === 'light' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {mode === 'light' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               {t('theme')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Light/Dark Mode Toggle */}
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="text-base">
-                  {theme === 'light' ? t('lightMode') : t('darkMode')}
+                  {mode === 'light' ? t('lightMode') : t('darkMode')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  {theme === 'light' 
+                  {mode === 'light' 
                     ? 'Switch to dark mode for better viewing in low light'
                     : 'Switch to light mode for better viewing in bright environments'
                   }
                 </p>
               </div>
               <Switch
-                checked={theme === 'dark'}
-                onCheckedChange={toggleTheme}
+                checked={mode === 'dark'}
+                onCheckedChange={toggleMode}
               />
+            </div>
+
+            {/* Theme Palette Selection */}
+            <div className="space-y-3 pt-4 border-t">
+              <Label className="text-base">Color Palette</Label>
+              <p className="text-sm text-muted-foreground">
+                Choose a color theme or create your own custom palette
+              </p>
+              <Select value={themeName} onValueChange={setThemeName}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  {themes.map(theme => (
+                    <SelectItem key={theme.name} value={theme.name}>
+                      {theme.displayName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setCustomThemeDialogOpen(true)} 
+                  variant="outline" 
+                  className="flex-1"
+                >
+                  Create Custom Theme
+                </Button>
+                
+                {themes.find(t => t.name === themeName && !['default', 'blue', 'red', 'pink'].includes(t.name)) && (
+                  <Button 
+                    onClick={() => {
+                      removeCustomTheme(themeName);
+                      toast({
+                        title: "Success",
+                        description: "Custom theme removed",
+                      });
+                    }} 
+                    variant="destructive"
+                    size="icon"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1363,6 +1428,185 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         open={changePasswordOpen}
         onOpenChange={setChangePasswordOpen}
       />
+
+      {/* Custom Theme Creator Dialog */}
+      <Dialog open={customThemeDialogOpen} onOpenChange={setCustomThemeDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background z-50">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Create Custom Theme
+            </DialogTitle>
+            <DialogDescription>
+              Define your own color palette with separate light and dark mode colors (HSL format)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Theme Name */}
+            <div className="space-y-2">
+              <Label htmlFor="theme-name">Theme Name (ID)</Label>
+              <Input
+                id="theme-name"
+                placeholder="e.g., ocean, sunset, forest"
+                value={newTheme.name}
+                onChange={(e) => setNewTheme({ ...newTheme, name: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="theme-display-name">Display Name</Label>
+              <Input
+                id="theme-display-name"
+                placeholder="e.g., Ocean Theme, Sunset, Forest Green"
+                value={newTheme.displayName}
+                onChange={(e) => setNewTheme({ ...newTheme, displayName: e.target.value })}
+              />
+            </div>
+
+            {/* Light Mode Colors */}
+            <div className="space-y-3 border-t pt-4">
+              <h3 className="font-semibold">Light Mode Colors</h3>
+              <p className="text-sm text-muted-foreground">Use HSL format: "hue saturation% lightness%"</p>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <Label htmlFor="light-primary">Primary Color</Label>
+                  <Input
+                    id="light-primary"
+                    placeholder="219 70% 52%"
+                    value={newTheme.light.primary}
+                    onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, primary: e.target.value } })}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="light-primary-glow">Primary Glow</Label>
+                  <Input
+                    id="light-primary-glow"
+                    placeholder="219 70% 60%"
+                    value={newTheme.light.primaryGlow}
+                    onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, primaryGlow: e.target.value } })}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="light-accent">Accent Color</Label>
+                  <Input
+                    id="light-accent"
+                    placeholder="34 100% 62%"
+                    value={newTheme.light.accent}
+                    onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, accent: e.target.value } })}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="light-accent-fg">Accent Foreground</Label>
+                  <Input
+                    id="light-accent-fg"
+                    placeholder="0 0% 100%"
+                    value={newTheme.light.accentForeground}
+                    onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, accentForeground: e.target.value } })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dark Mode Colors */}
+            <div className="space-y-3 border-t pt-4">
+              <h3 className="font-semibold">Dark Mode Colors</h3>
+              <p className="text-sm text-muted-foreground">Use HSL format: "hue saturation% lightness%"</p>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <Label htmlFor="dark-primary">Primary Color</Label>
+                  <Input
+                    id="dark-primary"
+                    placeholder="210 40% 98%"
+                    value={newTheme.dark.primary}
+                    onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, primary: e.target.value } })}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="dark-primary-fg">Primary Foreground</Label>
+                  <Input
+                    id="dark-primary-fg"
+                    placeholder="222.2 47.4% 11.2%"
+                    value={newTheme.dark.primaryForeground}
+                    onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, primaryForeground: e.target.value } })}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="dark-accent">Accent Color</Label>
+                  <Input
+                    id="dark-accent"
+                    placeholder="217.2 32.6% 17.5%"
+                    value={newTheme.dark.accent}
+                    onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, accent: e.target.value } })}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="dark-accent-fg">Accent Foreground</Label>
+                  <Input
+                    id="dark-accent-fg"
+                    placeholder="210 40% 98%"
+                    value={newTheme.dark.accentForeground}
+                    onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, accentForeground: e.target.value } })}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomThemeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              if (!newTheme.name || !newTheme.displayName) {
+                toast({
+                  title: "Error",
+                  description: "Please provide both theme name and display name",
+                  variant: "destructive",
+                });
+                return;
+              }
+              
+              addCustomTheme(newTheme);
+              setThemeName(newTheme.name);
+              setCustomThemeDialogOpen(false);
+              
+              // Reset form
+              setNewTheme({
+                name: '',
+                displayName: '',
+                light: {
+                  primary: '219 70% 52%',
+                  primaryGlow: '219 70% 60%',
+                  accent: '34 100% 62%',
+                  accentForeground: '0 0% 100%',
+                },
+                dark: {
+                  primary: '210 40% 98%',
+                  primaryForeground: '222.2 47.4% 11.2%',
+                  accent: '217.2 32.6% 17.5%',
+                  accentForeground: '210 40% 98%',
+                }
+              });
+              
+              toast({
+                title: "Success",
+                description: "Custom theme created successfully",
+              });
+            }}>
+              Create Theme
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
