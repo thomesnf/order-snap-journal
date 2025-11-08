@@ -170,6 +170,69 @@ const Reports = () => {
     toast.success('Invoice generated successfully');
   };
 
+  const handleExportMonthlySalary = async () => {
+    const filtered = getFilteredTimeEntries();
+    
+    // Group by technician and calculate totals
+    const technicianSummary = filtered.reduce((acc: any, entry) => {
+      const tech = entry.technician_name;
+      if (!acc[tech]) {
+        acc[tech] = {
+          technician: tech,
+          totalHours: 0,
+          entries: []
+        };
+      }
+      acc[tech].totalHours += entry.hours_worked;
+      acc[tech].entries.push(entry);
+      return acc;
+    }, {});
+
+    // Create Excel data
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+
+    // Summary sheet
+    const summaryData = Object.values(technicianSummary).map((tech: any) => ({
+      'Technician': tech.technician,
+      'Total Hours': tech.totalHours.toFixed(2),
+      'Hourly Rate (SEK)': hourlyRate.toFixed(2),
+      'Total Salary (SEK)': (tech.totalHours * hourlyRate).toFixed(2)
+    }));
+
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    summaryWs['!cols'] = [
+      { wch: 20 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 18 }
+    ];
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+    // Detail sheet
+    const detailData = filtered.map(entry => ({
+      'Date': format(new Date(entry.work_date), 'yyyy-MM-dd'),
+      'Technician': entry.technician_name,
+      'Hours': entry.hours_worked.toFixed(2),
+      'Notes': entry.notes || ''
+    }));
+
+    const detailWs = XLSX.utils.json_to_sheet(detailData);
+    detailWs['!cols'] = [
+      { wch: 12 },
+      { wch: 20 },
+      { wch: 10 },
+      { wch: 40 }
+    ];
+    XLSX.utils.book_append_sheet(wb, detailWs, 'Details');
+
+    // Download
+    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    XLSX.writeFile(wb, `monthly_salary_report_${dateStr}.xlsx`);
+    
+    toast.success('Monthly salary report exported');
+  };
+
   const filteredOrders = getFilteredOrders();
   const filteredTimeEntries = getFilteredTimeEntries();
   const totalHours = filteredTimeEntries.reduce((sum, e) => sum + e.hours_worked, 0);
@@ -289,7 +352,7 @@ const Reports = () => {
         </div>
 
         {/* Export Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -322,6 +385,24 @@ const Reports = () => {
               <Button onClick={handleExportTimeEntries} className="w-full">
                 <Download className="h-4 w-4 mr-2" />
                 Export to Excel
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Monthly Salary Report
+              </CardTitle>
+              <CardDescription>
+                Technician hours & earnings ({totalHours.toFixed(1)} hours total)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={handleExportMonthlySalary} className="w-full">
+                <Download className="h-4 w-4 mr-2" />
+                Export Salary Report
               </Button>
             </CardContent>
           </Card>
