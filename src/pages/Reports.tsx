@@ -322,6 +322,7 @@ const Reports = () => {
   // Counters should count ALL orders, not filtered ones
   const statusCounts = {
     total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
     'in-progress': orders.filter(o => o.status === 'in-progress').length,
     completed: orders.filter(o => o.status === 'completed' || o.status === 'invoiced' || o.status === 'paid').length
   };
@@ -401,10 +402,10 @@ const Reports = () => {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">{t('completedTotal')}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('pending')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{statusCounts.completed}</div>
+              <div className="text-2xl font-bold text-orange-600">{statusCounts.pending}</div>
             </CardContent>
           </Card>
 
@@ -414,6 +415,15 @@ const Reports = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">{statusCounts['in-progress']}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">{t('completedTotal')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{statusCounts.completed}</div>
             </CardContent>
           </Card>
 
