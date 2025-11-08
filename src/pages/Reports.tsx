@@ -179,106 +179,108 @@ const Reports = () => {
   };
 
   const handleExportMonthlySalary = async () => {
-    const filtered = getFilteredTimeEntries();
-    
-    // Calculate date ranges
+    // Calculate date ranges for the last 3 months
     const now = new Date();
-    const thisMonthStart = startOfMonth(now);
-    const lastMonthStart = startOfMonth(subMonths(now, 1));
-    const lastMonthEnd = endOfMonth(subMonths(now, 1));
-    const twoMonthsAgoStart = startOfMonth(subMonths(now, 2));
-    const twoMonthsAgoEnd = endOfMonth(subMonths(now, 2));
+    const thisMonth = now;
+    const lastMonth = subMonths(now, 1);
+    const twoMonthsAgo = subMonths(now, 2);
     
-    // Group all time entries by technician (not filtered by date range)
-    const technicianSummary = timeEntries.reduce((acc: any, entry) => {
+    const months = [
+      { date: thisMonth, start: startOfMonth(thisMonth), end: now },
+      { date: lastMonth, start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) },
+      { date: twoMonthsAgo, start: startOfMonth(twoMonthsAgo), end: endOfMonth(twoMonthsAgo) }
+    ];
+    
+    // Group time entries by technician and month
+    const technicianData: Record<string, any> = {};
+    
+    timeEntries.forEach(entry => {
       const tech = entry.technician_name;
-      if (!acc[tech]) {
-        acc[tech] = {
-          technician: tech,
-          totalHours: 0,
-          thisMonthHours: 0,
-          lastMonthHours: 0,
-          twoMonthsAgoHours: 0,
-          entries: []
+      const entryDate = new Date(entry.work_date);
+      
+      if (!technicianData[tech]) {
+        technicianData[tech] = {
+          rate: technicianRates[tech] || hourlyRate,
+          months: {}
         };
       }
       
-      const entryDate = new Date(entry.work_date);
-      const hours = entry.hours_worked;
-      
-      // This month so far
-      if (entryDate >= thisMonthStart && entryDate <= now) {
-        acc[tech].thisMonthHours += hours;
-      }
-      
-      // Last month total
-      if (entryDate >= lastMonthStart && entryDate <= lastMonthEnd) {
-        acc[tech].lastMonthHours += hours;
-      }
-      
-      // Two months ago total
-      if (entryDate >= twoMonthsAgoStart && entryDate <= twoMonthsAgoEnd) {
-        acc[tech].twoMonthsAgoHours += hours;
-      }
-      
-      // Add to filtered total if in current filter range
-      const isInFilteredRange = filtered.some(f => f.id === entry.id);
-      if (isInFilteredRange) {
-        acc[tech].totalHours += hours;
-        acc[tech].entries.push(entry);
-      }
-      
-      return acc;
-    }, {});
-
-    // Create Excel data
+      // Determine which month this entry belongs to
+      months.forEach((month, index) => {
+        if (entryDate >= month.start && entryDate <= month.end) {
+          const monthKey = index;
+          if (!technicianData[tech].months[monthKey]) {
+            technicianData[tech].months[monthKey] = {
+              monthName: format(month.date, 'MMMM'),
+              hours: 0
+            };
+          }
+          technicianData[tech].months[monthKey].hours += entry.hours_worked;
+        }
+      });
+    });
+    
+    // Create Excel data in the format: Technician, Rate, Month, Hours, SEK
     const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
-
-    // Summary sheet
-    const summaryData = Object.values(technicianSummary).map((tech: any) => {
-      const rate = technicianRates[tech.technician] || hourlyRate;
-      return {
-        'Technician': tech.technician,
-        'Hourly Rate (SEK)': rate.toFixed(2),
-        'This Month So Far (Hours)': tech.thisMonthHours.toFixed(2),
-        'This Month So Far (SEK)': (tech.thisMonthHours * rate).toFixed(2),
-        'Last Month Total (Hours)': tech.lastMonthHours.toFixed(2),
-        'Last Month Total (SEK)': (tech.lastMonthHours * rate).toFixed(2),
-        'Two Months Ago (Hours)': tech.twoMonthsAgoHours.toFixed(2),
-        'Two Months Ago (SEK)': (tech.twoMonthsAgoHours * rate).toFixed(2),
-        'Filtered Period Total (Hours)': tech.totalHours.toFixed(2),
-        'Filtered Period Total (SEK)': (tech.totalHours * rate).toFixed(2)
-      };
-    });
-
-    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    
+    // Build rows for summary sheet
+    const summaryRows: any[] = [];
+    
+    Object.entries(technicianData)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([techName, data]: [string, any]) => {
+        // First row: technician name and rate
+        summaryRows.push({
+          'Technician': techName,
+          'Hourly Rate (SEK)': data.rate.toFixed(2),
+          'Month': '',
+          'Hours': '',
+          'SEK': ''
+        });
+        
+        // Subsequent rows: months data
+        [0, 1, 2].forEach(monthIndex => {
+          const monthData = data.months[monthIndex];
+          if (monthData && monthData.hours > 0) {
+            summaryRows.push({
+              'Technician': '',
+              'Hourly Rate (SEK)': '',
+              'Month': monthData.monthName,
+              'Hours': monthData.hours.toFixed(2),
+              'SEK': (monthData.hours * data.rate).toFixed(2)
+            });
+          }
+        });
+      });
+    
+    const summaryWs = XLSX.utils.json_to_sheet(summaryRows);
     summaryWs['!cols'] = [
       { wch: 20 }, // Technician
       { wch: 18 }, // Hourly Rate
-      { wch: 20 }, // This Month Hours
-      { wch: 20 }, // This Month SEK
-      { wch: 20 }, // Last Month Hours
-      { wch: 20 }, // Last Month SEK
-      { wch: 20 }, // Two Months Ago Hours
-      { wch: 20 }, // Two Months Ago SEK
-      { wch: 24 }, // Filtered Hours
-      { wch: 24 }  // Filtered SEK
+      { wch: 15 }, // Month
+      { wch: 12 }, // Hours
+      { wch: 15 }  // SEK
     ];
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
-    // Detail sheet
-    const detailData = filtered.map(entry => {
-      const rate = technicianRates[entry.technician_name] || hourlyRate;
-      return {
-        'Date': format(new Date(entry.work_date), 'yyyy-MM-dd'),
-        'Technician': entry.technician_name,
-        'Hours': entry.hours_worked.toFixed(2),
-        'Hourly Rate (SEK)': rate.toFixed(2),
-        'Amount (SEK)': (entry.hours_worked * rate).toFixed(2),
-        'Notes': entry.notes || ''
-      };
-    });
+    // Detail sheet - keep showing individual entries
+    const detailData = timeEntries
+      .filter(entry => {
+        const entryDate = new Date(entry.work_date);
+        return months.some(m => entryDate >= m.start && entryDate <= m.end);
+      })
+      .map(entry => {
+        const rate = technicianRates[entry.technician_name] || hourlyRate;
+        return {
+          'Date': format(new Date(entry.work_date), 'yyyy-MM-dd'),
+          'Technician': entry.technician_name,
+          'Hours': entry.hours_worked.toFixed(2),
+          'Hourly Rate (SEK)': rate.toFixed(2),
+          'Amount (SEK)': (entry.hours_worked * rate).toFixed(2),
+          'Notes': entry.notes || ''
+        };
+      });
 
     const detailWs = XLSX.utils.json_to_sheet(detailData);
     detailWs['!cols'] = [
