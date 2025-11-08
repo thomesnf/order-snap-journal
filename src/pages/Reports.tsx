@@ -318,12 +318,12 @@ const Reports = () => {
   const filteredOrders = getFilteredOrders();
   const filteredTimeEntries = getFilteredTimeEntries();
   const totalHours = filteredTimeEntries.reduce((sum, e) => sum + e.hours_worked, 0);
+  
+  // Counters should count ALL orders, not filtered ones
   const statusCounts = {
-    pending: filteredOrders.filter(o => o.status === 'pending').length,
-    'in-progress': filteredOrders.filter(o => o.status === 'in-progress').length,
-    completed: filteredOrders.filter(o => o.status === 'completed').length,
-    invoiced: filteredOrders.filter(o => o.status === 'invoiced').length,
-    paid: filteredOrders.filter(o => o.status === 'paid').length
+    total: orders.length,
+    'in-progress': orders.filter(o => o.status === 'in-progress').length,
+    completed: orders.filter(o => o.status === 'completed' || o.status === 'invoiced' || o.status === 'paid').length
   };
   return <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -395,7 +395,7 @@ const Reports = () => {
               <CardTitle className="text-sm font-medium">{t('totalOrders')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredOrders.length}</div>
+              <div className="text-2xl font-bold">{statusCounts.total}</div>
             </CardContent>
           </Card>
 
@@ -404,7 +404,7 @@ const Reports = () => {
               <CardTitle className="text-sm font-medium">{t('completedTotal')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{statusCounts.completed + statusCounts.invoiced + statusCounts.paid}</div>
+              <div className="text-2xl font-bold text-green-600">{statusCounts.completed}</div>
             </CardContent>
           </Card>
 
