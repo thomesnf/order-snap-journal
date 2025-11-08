@@ -20,8 +20,14 @@ const Reports = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    const saved = localStorage.getItem('reportsStatusFilter');
+    return saved || 'in-progress';
+  });
+  const [dateRange, setDateRange] = useState<string>(() => {
+    const saved = localStorage.getItem('reportsDateRange');
+    return saved || 'all';
+  });
   const [hourlyRate, setHourlyRate] = useState<number>(() => {
     const saved = localStorage.getItem('hourlyRate');
     return saved ? parseFloat(saved) : 0;
@@ -39,6 +45,14 @@ const Reports = () => {
   useEffect(() => {
     localStorage.setItem('technicianRates', JSON.stringify(technicianRates));
   }, [technicianRates]);
+
+  useEffect(() => {
+    localStorage.setItem('reportsStatusFilter', statusFilter);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('reportsDateRange', dateRange);
+  }, [dateRange]);
   const fetchTimeEntries = async () => {
     const {
       data,
