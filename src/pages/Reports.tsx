@@ -181,18 +181,53 @@ const Reports = () => {
   const handleExportMonthlySalary = async () => {
     const filtered = getFilteredTimeEntries();
     
-    // Group by technician and calculate totals
-    const technicianSummary = filtered.reduce((acc: any, entry) => {
+    // Calculate date ranges
+    const now = new Date();
+    const thisMonthStart = startOfMonth(now);
+    const lastMonthStart = startOfMonth(subMonths(now, 1));
+    const lastMonthEnd = endOfMonth(subMonths(now, 1));
+    const twoMonthsAgoStart = startOfMonth(subMonths(now, 2));
+    const twoMonthsAgoEnd = endOfMonth(subMonths(now, 2));
+    
+    // Group all time entries by technician (not filtered by date range)
+    const technicianSummary = timeEntries.reduce((acc: any, entry) => {
       const tech = entry.technician_name;
       if (!acc[tech]) {
         acc[tech] = {
           technician: tech,
           totalHours: 0,
+          thisMonthHours: 0,
+          lastMonthHours: 0,
+          twoMonthsAgoHours: 0,
           entries: []
         };
       }
-      acc[tech].totalHours += entry.hours_worked;
-      acc[tech].entries.push(entry);
+      
+      const entryDate = new Date(entry.work_date);
+      const hours = entry.hours_worked;
+      
+      // This month so far
+      if (entryDate >= thisMonthStart && entryDate <= now) {
+        acc[tech].thisMonthHours += hours;
+      }
+      
+      // Last month total
+      if (entryDate >= lastMonthStart && entryDate <= lastMonthEnd) {
+        acc[tech].lastMonthHours += hours;
+      }
+      
+      // Two months ago total
+      if (entryDate >= twoMonthsAgoStart && entryDate <= twoMonthsAgoEnd) {
+        acc[tech].twoMonthsAgoHours += hours;
+      }
+      
+      // Add to filtered total if in current filter range
+      const isInFilteredRange = filtered.some(f => f.id === entry.id);
+      if (isInFilteredRange) {
+        acc[tech].totalHours += hours;
+        acc[tech].entries.push(entry);
+      }
+      
       return acc;
     }, {});
 
@@ -205,18 +240,30 @@ const Reports = () => {
       const rate = technicianRates[tech.technician] || hourlyRate;
       return {
         'Technician': tech.technician,
-        'Total Hours': tech.totalHours.toFixed(2),
         'Hourly Rate (SEK)': rate.toFixed(2),
-        'Total Salary (SEK)': (tech.totalHours * rate).toFixed(2)
+        'This Month So Far (Hours)': tech.thisMonthHours.toFixed(2),
+        'This Month So Far (SEK)': (tech.thisMonthHours * rate).toFixed(2),
+        'Last Month Total (Hours)': tech.lastMonthHours.toFixed(2),
+        'Last Month Total (SEK)': (tech.lastMonthHours * rate).toFixed(2),
+        'Two Months Ago (Hours)': tech.twoMonthsAgoHours.toFixed(2),
+        'Two Months Ago (SEK)': (tech.twoMonthsAgoHours * rate).toFixed(2),
+        'Filtered Period Total (Hours)': tech.totalHours.toFixed(2),
+        'Filtered Period Total (SEK)': (tech.totalHours * rate).toFixed(2)
       };
     });
 
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
     summaryWs['!cols'] = [
-      { wch: 20 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 18 }
+      { wch: 20 }, // Technician
+      { wch: 18 }, // Hourly Rate
+      { wch: 20 }, // This Month Hours
+      { wch: 20 }, // This Month SEK
+      { wch: 20 }, // Last Month Hours
+      { wch: 20 }, // Last Month SEK
+      { wch: 20 }, // Two Months Ago Hours
+      { wch: 20 }, // Two Months Ago SEK
+      { wch: 24 }, // Filtered Hours
+      { wch: 24 }  // Filtered SEK
     ];
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
