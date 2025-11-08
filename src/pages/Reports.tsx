@@ -385,10 +385,10 @@ const Reports = () => {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              <CardTitle className="text-sm font-medium">Completed Total</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{statusCounts.completed}</div>
+              <div className="text-2xl font-bold text-green-600">{statusCounts.completed + statusCounts.invoiced + statusCounts.paid}</div>
             </CardContent>
           </Card>
 
