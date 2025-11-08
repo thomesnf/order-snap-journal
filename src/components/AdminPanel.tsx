@@ -60,6 +60,11 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [editEmail, setEditEmail] = useState('');
   const [editFullName, setEditFullName] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editEmergencyContact, setEditEmergencyContact] = useState('');
+  const [editContractFile, setEditContractFile] = useState<File | null>(null);
+  const [uploadingContract, setUploadingContract] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
 
@@ -280,11 +285,26 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     }
   };
 
-  const openEditUser = (user: UserWithRole) => {
+  const openEditUser = async (user: UserWithRole) => {
     setEditingUser(user);
     setEditEmail(user.email || '');
     setEditFullName(user.full_name || '');
     setEditPassword('');
+    setEditContractFile(null);
+    
+    // Fetch current profile data
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('phone, address, emergency_contact, employment_contract_url')
+      .eq('id', user.id)
+      .single();
+    
+    if (profile) {
+      setEditPhone(profile.phone || '');
+      setEditAddress(profile.address || '');
+      setEditEmergencyContact(profile.emergency_contact || '');
+    }
+    
     setEditUserOpen(true);
   };
 
@@ -314,6 +334,27 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         return;
       }
 
+      // Handle contract file upload if provided
+      let contractUrl = null;
+      if (editContractFile) {
+        setUploadingContract(true);
+        const fileExt = editContractFile.name.split('.').pop();
+        const fileName = `${editingUser.id}-${Date.now()}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('employment-contracts')
+          .upload(fileName, editContractFile);
+
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('employment-contracts')
+          .getPublicUrl(uploadData.path);
+        
+        contractUrl = publicUrl;
+        setUploadingContract(false);
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
@@ -334,6 +375,24 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
 
+      // Update profile with additional fields
+      const updateData: any = {
+        phone: editPhone,
+        address: editAddress,
+        emergency_contact: editEmergencyContact,
+      };
+      
+      if (contractUrl) {
+        updateData.employment_contract_url = contractUrl;
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', editingUser.id);
+
+      if (profileError) throw profileError;
+
       toast({
         title: t('success'),
         description: 'User updated successfully',
@@ -347,6 +406,8 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         description: error.message,
         variant: 'destructive',
       });
+    } finally {
+      setUploadingContract(false);
     }
   };
 
@@ -553,6 +614,43 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="editPhone">Phone Number</Label>
+              <Input
+                id="editPhone"
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+46 70 123 45 67"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editAddress">Address</Label>
+              <Input
+                id="editAddress"
+                value={editAddress}
+                onChange={(e) => setEditAddress(e.target.value)}
+                placeholder="Street, City, Postal Code"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editEmergencyContact">Emergency Contact</Label>
+              <Input
+                id="editEmergencyContact"
+                value={editEmergencyContact}
+                onChange={(e) => setEditEmergencyContact(e.target.value)}
+                placeholder="Name and phone number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editContract">Employment Contract</Label>
+              <Input
+                id="editContract"
+                type="file"
+                onChange={(e) => setEditContractFile(e.target.files?.[0] || null)}
+                accept=".pdf,.doc,.docx"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="editPassword">{t('password')} (optional - leave blank to keep current)</Label>
               <Input
                 id="editPassword"
@@ -568,8 +666,8 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                 </Button>
               )}
             </div>
-            <Button type="submit" className="w-full">
-              Update User
+            <Button type="submit" className="w-full" disabled={uploadingContract}>
+              {uploadingContract ? 'Uploading...' : 'Update User'}
             </Button>
           </form>
         </DialogContent>

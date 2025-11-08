@@ -313,21 +313,39 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           created_at: string
+          email: string | null
+          emergency_contact: string | null
+          employment_contract_url: string | null
           full_name: string | null
+          hourly_rate: number | null
           id: string
+          phone: string | null
           updated_at: string
         }
         Insert: {
+          address?: string | null
           created_at?: string
+          email?: string | null
+          emergency_contact?: string | null
+          employment_contract_url?: string | null
           full_name?: string | null
+          hourly_rate?: number | null
           id: string
+          phone?: string | null
           updated_at?: string
         }
         Update: {
+          address?: string | null
           created_at?: string
+          email?: string | null
+          emergency_contact?: string | null
+          employment_contract_url?: string | null
           full_name?: string | null
+          hourly_rate?: number | null
           id?: string
+          phone?: string | null
           updated_at?: string
         }
         Relationships: []
