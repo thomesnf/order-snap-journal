@@ -94,6 +94,22 @@ const defaultThemes: ThemePalette[] = [
       accent: '330 40% 30%',
       accentForeground: '330 81% 75%',
     }
+  },
+  {
+    name: 'green',
+    displayName: 'Emerald Green',
+    light: {
+      primary: '142 76% 36%',
+      primaryGlow: '142 76% 46%',
+      accent: '160 84% 39%',
+      accentForeground: '0 0% 100%',
+    },
+    dark: {
+      primary: '142 76% 65%',
+      primaryForeground: '142 20% 10%',
+      accent: '142 40% 25%',
+      accentForeground: '142 76% 65%',
+    }
   }
 ];
 

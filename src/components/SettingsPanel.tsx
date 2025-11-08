@@ -867,7 +867,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                       Create Custom
                     </Button>
                     
-                    {themes.find(t => t.name === themeName && !['default', 'blue', 'red', 'pink'].includes(t.name)) && (
+                    {themes.find(t => t.name === themeName && !['default', 'blue', 'red', 'pink', 'green'].includes(t.name)) && (
                       <Button 
                         onClick={() => {
                           removeCustomTheme(themeName);
