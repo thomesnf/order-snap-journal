@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import JSZip from 'jszip';
 import { Input } from '@/components/ui/input';
 import { DateFormatType } from '@/utils/dateFormat';
+import { hslToHex, hexToHsl } from '@/utils/colorConversion';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   DndContext,
@@ -1500,47 +1501,91 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
             {/* Light Mode Colors */}
             <div className="space-y-3 border-t pt-4">
               <h3 className="font-semibold">Light Mode Colors</h3>
-              <p className="text-sm text-muted-foreground">Use HSL format: "hue saturation% lightness%"</p>
+              <p className="text-sm text-muted-foreground">Use HSL format or color picker</p>
               
               <div className="grid grid-cols-1 gap-3">
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="light-primary">Primary Color</Label>
-                  <Input
-                    id="light-primary"
-                    placeholder="219 70% 52%"
-                    value={newTheme.light.primary}
-                    onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, primary: e.target.value } })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="light-primary"
+                      placeholder="219 70% 52%"
+                      value={newTheme.light.primary}
+                      onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, primary: e.target.value } })}
+                      className="flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={hslToHex(newTheme.light.primary)}
+                        onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, primary: hexToHsl(e.target.value) } })}
+                        className="h-10 w-20 rounded-md border border-input cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="light-primary-glow">Primary Glow</Label>
-                  <Input
-                    id="light-primary-glow"
-                    placeholder="219 70% 60%"
-                    value={newTheme.light.primaryGlow}
-                    onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, primaryGlow: e.target.value } })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="light-primary-glow"
+                      placeholder="219 70% 60%"
+                      value={newTheme.light.primaryGlow}
+                      onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, primaryGlow: e.target.value } })}
+                      className="flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={hslToHex(newTheme.light.primaryGlow)}
+                        onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, primaryGlow: hexToHsl(e.target.value) } })}
+                        className="h-10 w-20 rounded-md border border-input cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="light-accent">Accent Color</Label>
-                  <Input
-                    id="light-accent"
-                    placeholder="34 100% 62%"
-                    value={newTheme.light.accent}
-                    onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, accent: e.target.value } })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="light-accent"
+                      placeholder="34 100% 62%"
+                      value={newTheme.light.accent}
+                      onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, accent: e.target.value } })}
+                      className="flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={hslToHex(newTheme.light.accent)}
+                        onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, accent: hexToHsl(e.target.value) } })}
+                        className="h-10 w-20 rounded-md border border-input cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="light-accent-fg">Accent Foreground</Label>
-                  <Input
-                    id="light-accent-fg"
-                    placeholder="0 0% 100%"
-                    value={newTheme.light.accentForeground}
-                    onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, accentForeground: e.target.value } })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="light-accent-fg"
+                      placeholder="0 0% 100%"
+                      value={newTheme.light.accentForeground}
+                      onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, accentForeground: e.target.value } })}
+                      className="flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={hslToHex(newTheme.light.accentForeground)}
+                        onChange={(e) => setNewTheme({ ...newTheme, light: { ...newTheme.light, accentForeground: hexToHsl(e.target.value) } })}
+                        className="h-10 w-20 rounded-md border border-input cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1548,47 +1593,91 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
             {/* Dark Mode Colors */}
             <div className="space-y-3 border-t pt-4">
               <h3 className="font-semibold">Dark Mode Colors</h3>
-              <p className="text-sm text-muted-foreground">Use HSL format: "hue saturation% lightness%"</p>
+              <p className="text-sm text-muted-foreground">Use HSL format or color picker</p>
               
               <div className="grid grid-cols-1 gap-3">
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="dark-primary">Primary Color</Label>
-                  <Input
-                    id="dark-primary"
-                    placeholder="210 40% 98%"
-                    value={newTheme.dark.primary}
-                    onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, primary: e.target.value } })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="dark-primary"
+                      placeholder="210 40% 98%"
+                      value={newTheme.dark.primary}
+                      onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, primary: e.target.value } })}
+                      className="flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={hslToHex(newTheme.dark.primary)}
+                        onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, primary: hexToHsl(e.target.value) } })}
+                        className="h-10 w-20 rounded-md border border-input cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="dark-primary-fg">Primary Foreground</Label>
-                  <Input
-                    id="dark-primary-fg"
-                    placeholder="222.2 47.4% 11.2%"
-                    value={newTheme.dark.primaryForeground}
-                    onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, primaryForeground: e.target.value } })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="dark-primary-fg"
+                      placeholder="222.2 47.4% 11.2%"
+                      value={newTheme.dark.primaryForeground}
+                      onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, primaryForeground: e.target.value } })}
+                      className="flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={hslToHex(newTheme.dark.primaryForeground)}
+                        onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, primaryForeground: hexToHsl(e.target.value) } })}
+                        className="h-10 w-20 rounded-md border border-input cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="dark-accent">Accent Color</Label>
-                  <Input
-                    id="dark-accent"
-                    placeholder="217.2 32.6% 17.5%"
-                    value={newTheme.dark.accent}
-                    onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, accent: e.target.value } })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="dark-accent"
+                      placeholder="217.2 32.6% 17.5%"
+                      value={newTheme.dark.accent}
+                      onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, accent: e.target.value } })}
+                      className="flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={hslToHex(newTheme.dark.accent)}
+                        onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, accent: hexToHsl(e.target.value) } })}
+                        className="h-10 w-20 rounded-md border border-input cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="dark-accent-fg">Accent Foreground</Label>
-                  <Input
-                    id="dark-accent-fg"
-                    placeholder="210 40% 98%"
-                    value={newTheme.dark.accentForeground}
-                    onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, accentForeground: e.target.value } })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="dark-accent-fg"
+                      placeholder="210 40% 98%"
+                      value={newTheme.dark.accentForeground}
+                      onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, accentForeground: e.target.value } })}
+                      className="flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={hslToHex(newTheme.dark.accentForeground)}
+                        onChange={(e) => setNewTheme({ ...newTheme, dark: { ...newTheme.dark, accentForeground: hexToHsl(e.target.value) } })}
+                        className="h-10 w-20 rounded-md border border-input cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
