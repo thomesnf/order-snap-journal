@@ -12,9 +12,10 @@ import { generateInvoice } from '@/utils/invoiceGenerator';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
-
 const Reports = () => {
-  const { orders } = useOrdersDB();
+  const {
+    orders
+  } = useOrdersDB();
   const navigate = useNavigate();
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -27,34 +28,29 @@ const Reports = () => {
     const saved = localStorage.getItem('technicianRates');
     return saved ? JSON.parse(saved) : {};
   });
-
   useEffect(() => {
     fetchTimeEntries();
   }, []);
-
   useEffect(() => {
     localStorage.setItem('hourlyRate', hourlyRate.toString());
   }, [hourlyRate]);
-
   useEffect(() => {
     localStorage.setItem('technicianRates', JSON.stringify(technicianRates));
   }, [technicianRates]);
-
   const fetchTimeEntries = async () => {
-    const { data, error } = await supabase
-      .from('time_entries')
-      .select('*')
-      .order('work_date', { ascending: false });
-
+    const {
+      data,
+      error
+    } = await supabase.from('time_entries').select('*').order('work_date', {
+      ascending: false
+    });
     if (error) {
       console.error('Error fetching time entries:', error);
       toast.error('Failed to fetch time entries');
       return;
     }
-
     setTimeEntries(data || []);
   };
-
   const getFilteredOrders = () => {
     let filtered = orders;
 
@@ -68,7 +64,6 @@ const Reports = () => {
       const now = new Date();
       let startDate: Date;
       let endDate: Date = now;
-
       switch (dateRange) {
         case 'this-month':
           startDate = startOfMonth(now);
@@ -85,24 +80,19 @@ const Reports = () => {
         default:
           startDate = new Date(0);
       }
-
       filtered = filtered.filter(o => {
         const orderDate = new Date(o.created_at);
         return orderDate >= startDate && orderDate <= endDate;
       });
     }
-
     return filtered;
   };
-
   const getFilteredTimeEntries = () => {
     let filtered = timeEntries;
-
     if (dateRange !== 'all') {
       const now = new Date();
       let startDate: Date;
       let endDate: Date = now;
-
       switch (dateRange) {
         case 'this-month':
           startDate = startOfMonth(now);
@@ -119,92 +109,83 @@ const Reports = () => {
         default:
           startDate = new Date(0);
       }
-
       filtered = filtered.filter(e => {
         const entryDate = new Date(e.work_date);
         return entryDate >= startDate && entryDate <= endDate;
       });
     }
-
     return filtered;
   };
-
   const handleExportOrders = async () => {
     const filtered = getFilteredOrders();
     await exportOrdersToExcel(filtered);
     toast.success(`Exported ${filtered.length} orders to Excel`);
   };
-
   const handleExportTimeEntries = async () => {
     const filtered = getFilteredTimeEntries();
-    
+
     // Fetch order titles for each time entry
-    const enrichedEntries = await Promise.all(
-      filtered.map(async (entry) => {
-        const { data: order } = await supabase
-          .from('orders')
-          .select('title')
-          .eq('id', entry.order_id)
-          .single();
-        
-        return {
-          ...entry,
-          order_title: order?.title || 'Unknown Order'
-        };
-      })
-    );
-    
+    const enrichedEntries = await Promise.all(filtered.map(async entry => {
+      const {
+        data: order
+      } = await supabase.from('orders').select('title').eq('id', entry.order_id).single();
+      return {
+        ...entry,
+        order_title: order?.title || 'Unknown Order'
+      };
+    }));
     exportTimeEntriesToExcel(enrichedEntries);
     toast.success(`Exported ${filtered.length} time entries to Excel`);
   };
-
   const handleGenerateInvoice = async (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
     // Fetch time entries for this order
-    const { data: orderTimeEntries } = await supabase
-      .from('time_entries')
-      .select('*')
-      .eq('order_id', orderId)
-      .order('work_date', { ascending: true });
-
+    const {
+      data: orderTimeEntries
+    } = await supabase.from('time_entries').select('*').eq('order_id', orderId).order('work_date', {
+      ascending: true
+    });
     generateInvoice({
       order,
       timeEntries: orderTimeEntries || [],
       hourlyRate: hourlyRate > 0 ? hourlyRate : undefined
     });
-
     toast.success('Invoice generated successfully');
   };
-
   const handleExportMonthlySalary = async () => {
     // Calculate date ranges for the last 3 months
     const now = new Date();
     const thisMonth = now;
     const lastMonth = subMonths(now, 1);
     const twoMonthsAgo = subMonths(now, 2);
-    
-    const months = [
-      { date: thisMonth, start: startOfMonth(thisMonth), end: now },
-      { date: lastMonth, start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) },
-      { date: twoMonthsAgo, start: startOfMonth(twoMonthsAgo), end: endOfMonth(twoMonthsAgo) }
-    ];
-    
+    const months = [{
+      date: thisMonth,
+      start: startOfMonth(thisMonth),
+      end: now
+    }, {
+      date: lastMonth,
+      start: startOfMonth(lastMonth),
+      end: endOfMonth(lastMonth)
+    }, {
+      date: twoMonthsAgo,
+      start: startOfMonth(twoMonthsAgo),
+      end: endOfMonth(twoMonthsAgo)
+    }];
+
     // Group time entries by technician and month
     const technicianData: Record<string, any> = {};
-    
     timeEntries.forEach(entry => {
       const tech = entry.technician_name;
       const entryDate = new Date(entry.work_date);
-      
       if (!technicianData[tech]) {
         technicianData[tech] = {
           rate: technicianRates[tech] || hourlyRate,
           months: {}
         };
       }
-      
+
       // Determine which month this entry belongs to
       months.forEach((month, index) => {
         if (entryDate >= month.start && entryDate <= month.end) {
@@ -219,87 +200,96 @@ const Reports = () => {
         }
       });
     });
-    
+
     // Create Excel data in the format: Technician, Rate, Month, Hours, SEK
     const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
-    
+
     // Build rows for summary sheet
     const summaryRows: any[] = [];
-    
-    Object.entries(technicianData)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([techName, data]: [string, any]) => {
-        // First row: technician name and rate
-        summaryRows.push({
-          'Technician': techName,
-          'Hourly Rate (SEK)': data.rate.toFixed(2),
-          'Month': '',
-          'Hours': '',
-          'SEK': ''
-        });
-        
-        // Subsequent rows: months data
-        [0, 1, 2].forEach(monthIndex => {
-          const monthData = data.months[monthIndex];
-          if (monthData && monthData.hours > 0) {
-            summaryRows.push({
-              'Technician': '',
-              'Hourly Rate (SEK)': '',
-              'Month': monthData.monthName,
-              'Hours': monthData.hours.toFixed(2),
-              'SEK': (monthData.hours * data.rate).toFixed(2)
-            });
-          }
-        });
+    Object.entries(technicianData).sort(([a], [b]) => a.localeCompare(b)).forEach(([techName, data]: [string, any]) => {
+      // First row: technician name and rate
+      summaryRows.push({
+        'Technician': techName,
+        'Hourly Rate (SEK)': data.rate.toFixed(2),
+        'Month': '',
+        'Hours': '',
+        'SEK': ''
       });
-    
+
+      // Subsequent rows: months data
+      [0, 1, 2].forEach(monthIndex => {
+        const monthData = data.months[monthIndex];
+        if (monthData && monthData.hours > 0) {
+          summaryRows.push({
+            'Technician': '',
+            'Hourly Rate (SEK)': '',
+            'Month': monthData.monthName,
+            'Hours': monthData.hours.toFixed(2),
+            'SEK': (monthData.hours * data.rate).toFixed(2)
+          });
+        }
+      });
+    });
     const summaryWs = XLSX.utils.json_to_sheet(summaryRows);
-    summaryWs['!cols'] = [
-      { wch: 20 }, // Technician
-      { wch: 18 }, // Hourly Rate
-      { wch: 15 }, // Month
-      { wch: 12 }, // Hours
-      { wch: 15 }  // SEK
+    summaryWs['!cols'] = [{
+      wch: 20
+    },
+    // Technician
+    {
+      wch: 18
+    },
+    // Hourly Rate
+    {
+      wch: 15
+    },
+    // Month
+    {
+      wch: 12
+    },
+    // Hours
+    {
+      wch: 15
+    } // SEK
     ];
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
     // Detail sheet - keep showing individual entries
-    const detailData = timeEntries
-      .filter(entry => {
-        const entryDate = new Date(entry.work_date);
-        return months.some(m => entryDate >= m.start && entryDate <= m.end);
-      })
-      .map(entry => {
-        const rate = technicianRates[entry.technician_name] || hourlyRate;
-        return {
-          'Date': format(new Date(entry.work_date), 'yyyy-MM-dd'),
-          'Technician': entry.technician_name,
-          'Hours': entry.hours_worked.toFixed(2),
-          'Hourly Rate (SEK)': rate.toFixed(2),
-          'Amount (SEK)': (entry.hours_worked * rate).toFixed(2),
-          'Notes': entry.notes || ''
-        };
-      });
-
+    const detailData = timeEntries.filter(entry => {
+      const entryDate = new Date(entry.work_date);
+      return months.some(m => entryDate >= m.start && entryDate <= m.end);
+    }).map(entry => {
+      const rate = technicianRates[entry.technician_name] || hourlyRate;
+      return {
+        'Date': format(new Date(entry.work_date), 'yyyy-MM-dd'),
+        'Technician': entry.technician_name,
+        'Hours': entry.hours_worked.toFixed(2),
+        'Hourly Rate (SEK)': rate.toFixed(2),
+        'Amount (SEK)': (entry.hours_worked * rate).toFixed(2),
+        'Notes': entry.notes || ''
+      };
+    });
     const detailWs = XLSX.utils.json_to_sheet(detailData);
-    detailWs['!cols'] = [
-      { wch: 12 },
-      { wch: 20 },
-      { wch: 10 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 40 }
-    ];
+    detailWs['!cols'] = [{
+      wch: 12
+    }, {
+      wch: 20
+    }, {
+      wch: 10
+    }, {
+      wch: 18
+    }, {
+      wch: 18
+    }, {
+      wch: 40
+    }];
     XLSX.utils.book_append_sheet(wb, detailWs, 'Details');
 
     // Download
     const dateStr = format(new Date(), 'yyyy-MM-dd');
     XLSX.writeFile(wb, `monthly_salary_report_${dateStr}.xlsx`);
-    
     toast.success('Monthly salary report exported');
   };
-
   const updateTechnicianRate = (technicianName: string, rate: number) => {
     setTechnicianRates(prev => ({
       ...prev,
@@ -308,24 +298,18 @@ const Reports = () => {
   };
 
   // Get unique technicians from time entries
-  const uniqueTechnicians = Array.from(
-    new Set(timeEntries.map(e => e.technician_name))
-  ).sort();
-
+  const uniqueTechnicians = Array.from(new Set(timeEntries.map(e => e.technician_name))).sort();
   const filteredOrders = getFilteredOrders();
   const filteredTimeEntries = getFilteredTimeEntries();
   const totalHours = filteredTimeEntries.reduce((sum, e) => sum + e.hours_worked, 0);
-
   const statusCounts = {
     pending: filteredOrders.filter(o => o.status === 'pending').length,
     'in-progress': filteredOrders.filter(o => o.status === 'in-progress').length,
     completed: filteredOrders.filter(o => o.status === 'completed').length,
     invoiced: filteredOrders.filter(o => o.status === 'invoiced').length,
-    paid: filteredOrders.filter(o => o.status === 'paid').length,
+    paid: filteredOrders.filter(o => o.status === 'paid').length
   };
-
-  return (
-    <div className="min-h-screen bg-background p-6">
+  return <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -381,49 +365,13 @@ const Reports = () => {
 
             <div className="flex-1 min-w-[200px]">
               <Label>Timpris (SEK)</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={hourlyRate}
-                onChange={(e) => setHourlyRate(parseFloat(e.target.value) || 0)}
-              />
+              <Input type="number" placeholder="0.00" value={hourlyRate} onChange={e => setHourlyRate(parseFloat(e.target.value) || 0)} />
             </div>
           </CardContent>
         </Card>
 
         {/* Technician Hourly Rates */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Technician Hourly Rates</CardTitle>
-            <CardDescription>Set individual hourly rates for each technician (defaults to {hourlyRate} SEK)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {uniqueTechnicians.map(tech => (
-                <div key={tech} className="space-y-2">
-                  <Label>{tech}</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder={`Default: ${hourlyRate}`}
-                    value={technicianRates[tech] || ''}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (!isNaN(value) && value >= 0) {
-                        updateTechnicianRate(tech, value);
-                      } else if (e.target.value === '') {
-                        const updated = { ...technicianRates };
-                        delete updated[tech];
-                        setTechnicianRates(updated);
-                      }
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -521,8 +469,6 @@ const Reports = () => {
         </div>
 
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Reports;
