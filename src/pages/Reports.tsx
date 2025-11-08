@@ -23,6 +23,10 @@ const Reports = () => {
     const saved = localStorage.getItem('hourlyRate');
     return saved ? parseFloat(saved) : 0;
   });
+  const [technicianRates, setTechnicianRates] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem('technicianRates');
+    return saved ? JSON.parse(saved) : {};
+  });
 
   useEffect(() => {
     fetchTimeEntries();
@@ -31,6 +35,10 @@ const Reports = () => {
   useEffect(() => {
     localStorage.setItem('hourlyRate', hourlyRate.toString());
   }, [hourlyRate]);
+
+  useEffect(() => {
+    localStorage.setItem('technicianRates', JSON.stringify(technicianRates));
+  }, [technicianRates]);
 
   const fetchTimeEntries = async () => {
     const { data, error } = await supabase
@@ -193,12 +201,15 @@ const Reports = () => {
     const wb = XLSX.utils.book_new();
 
     // Summary sheet
-    const summaryData = Object.values(technicianSummary).map((tech: any) => ({
-      'Technician': tech.technician,
-      'Total Hours': tech.totalHours.toFixed(2),
-      'Hourly Rate (SEK)': hourlyRate.toFixed(2),
-      'Total Salary (SEK)': (tech.totalHours * hourlyRate).toFixed(2)
-    }));
+    const summaryData = Object.values(technicianSummary).map((tech: any) => {
+      const rate = technicianRates[tech.technician] || hourlyRate;
+      return {
+        'Technician': tech.technician,
+        'Total Hours': tech.totalHours.toFixed(2),
+        'Hourly Rate (SEK)': rate.toFixed(2),
+        'Total Salary (SEK)': (tech.totalHours * rate).toFixed(2)
+      };
+    });
 
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
     summaryWs['!cols'] = [
@@ -210,18 +221,25 @@ const Reports = () => {
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
     // Detail sheet
-    const detailData = filtered.map(entry => ({
-      'Date': format(new Date(entry.work_date), 'yyyy-MM-dd'),
-      'Technician': entry.technician_name,
-      'Hours': entry.hours_worked.toFixed(2),
-      'Notes': entry.notes || ''
-    }));
+    const detailData = filtered.map(entry => {
+      const rate = technicianRates[entry.technician_name] || hourlyRate;
+      return {
+        'Date': format(new Date(entry.work_date), 'yyyy-MM-dd'),
+        'Technician': entry.technician_name,
+        'Hours': entry.hours_worked.toFixed(2),
+        'Hourly Rate (SEK)': rate.toFixed(2),
+        'Amount (SEK)': (entry.hours_worked * rate).toFixed(2),
+        'Notes': entry.notes || ''
+      };
+    });
 
     const detailWs = XLSX.utils.json_to_sheet(detailData);
     detailWs['!cols'] = [
       { wch: 12 },
       { wch: 20 },
       { wch: 10 },
+      { wch: 18 },
+      { wch: 18 },
       { wch: 40 }
     ];
     XLSX.utils.book_append_sheet(wb, detailWs, 'Details');
@@ -232,6 +250,18 @@ const Reports = () => {
     
     toast.success('Monthly salary report exported');
   };
+
+  const updateTechnicianRate = (technicianName: string, rate: number) => {
+    setTechnicianRates(prev => ({
+      ...prev,
+      [technicianName]: rate
+    }));
+  };
+
+  // Get unique technicians from time entries
+  const uniqueTechnicians = Array.from(
+    new Set(timeEntries.map(e => e.technician_name))
+  ).sort();
 
   const filteredOrders = getFilteredOrders();
   const filteredTimeEntries = getFilteredTimeEntries();
@@ -312,7 +342,40 @@ const Reports = () => {
           </CardContent>
         </Card>
 
-        {/* Summary Statistics */}
+        {/* Technician Hourly Rates */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Technician Hourly Rates</CardTitle>
+            <CardDescription>Set individual hourly rates for each technician (defaults to {hourlyRate} SEK)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {uniqueTechnicians.map(tech => (
+                <div key={tech} className="space-y-2">
+                  <Label>{tech}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={`Default: ${hourlyRate}`}
+                    value={technicianRates[tech] || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value) && value >= 0) {
+                        updateTechnicianRate(tech, value);
+                      } else if (e.target.value === '') {
+                        const updated = { ...technicianRates };
+                        delete updated[tech];
+                        setTechnicianRates(updated);
+                      }
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-3">
