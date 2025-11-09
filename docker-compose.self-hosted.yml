@@ -25,9 +25,9 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: postgres
+      POSTGRES_HOST: /var/run/postgresql
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - app-network
     healthcheck:
@@ -35,6 +35,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    command: 
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=fatal
 
   # Kong API Gateway
   kong:
