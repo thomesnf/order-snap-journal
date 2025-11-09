@@ -93,6 +93,17 @@ else
     echo ""
 fi
 
+echo ""
 echo "============================================"
-echo "Copy these values to your .env.self-hosted file"
+echo "✅ SUCCESS! Copy these values to .env.self-hosted"
+echo "============================================"
+echo ""
+echo "📝 Next steps:"
+echo "  1. Open .env.self-hosted in a text editor"
+echo "  2. Replace the values with the ones generated above"
+echo "  3. Save the file"
+echo "  4. Run: docker-compose -f docker-compose.self-hosted.yml down"
+echo "  5. Run: docker-compose -f docker-compose.self-hosted.yml up -d"
+echo "  6. Wait 30 seconds, then run: bash scripts/create-first-admin.sh"
+echo ""
 echo "============================================"
