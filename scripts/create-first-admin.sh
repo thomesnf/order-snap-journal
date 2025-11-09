@@ -33,6 +33,44 @@ echo "Creating admin user: $ADMIN_EMAIL"
 echo "Full name: $FULL_NAME"
 echo ""
 
+# Check if Docker is running
+if ! docker ps &> /dev/null; then
+  echo "❌ Error: Docker is not running or you don't have permission to access it"
+  echo "Please start Docker and try again"
+  exit 1
+fi
+
+# Check if required containers are running
+echo "Checking required Docker containers..."
+echo ""
+
+REQUIRED_CONTAINERS=("auth" "postgres" "kong")
+MISSING_CONTAINERS=()
+
+for container in "${REQUIRED_CONTAINERS[@]}"; do
+  if docker ps --format '{{.Names}}' | grep -q "$container"; then
+    echo "✅ $container container is running"
+  else
+    echo "❌ $container container is NOT running"
+    MISSING_CONTAINERS+=("$container")
+  fi
+done
+
+echo ""
+
+if [ ${#MISSING_CONTAINERS[@]} -ne 0 ]; then
+  echo "❌ Error: Required containers are not running: ${MISSING_CONTAINERS[*]}"
+  echo ""
+  echo "Please start your Supabase services first:"
+  echo "  docker-compose -f docker-compose.self-hosted.yml up -d"
+  echo ""
+  echo "Or if you used the setup script:"
+  echo "  ./scripts/setup-self-hosted.sh"
+  echo ""
+  echo "Then wait for services to be ready (about 30 seconds) and run this script again."
+  exit 1
+fi
+
 echo "Checking GoTrue auth service..."
 
 # Verify SERVICE_ROLE_KEY is set
