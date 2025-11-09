@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to create the first admin user in self-hosted Supabase
-# This bypasses the edge function authentication requirement
+# Uses GoTrue API to create user and then grants admin role via database
 
 set -e
 
@@ -33,10 +33,57 @@ echo "Creating admin user: $ADMIN_EMAIL"
 echo "Full name: $FULL_NAME"
 echo ""
 
-# Generate UUID for the user
-USER_ID=$(cat /proc/sys/kernel/random/uuid)
+echo "Waiting for GoTrue auth service to be ready..."
+sleep 5
 
-# SQL script to create admin user
+# Step 1: Create user via GoTrue API
+echo "Creating user via GoTrue API..."
+CREATE_USER_RESPONSE=$(curl -s -X POST "http://localhost:9999/admin/users" \
+  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"email\": \"$ADMIN_EMAIL\",
+    \"password\": \"$ADMIN_PASSWORD\",
+    \"email_confirm\": true,
+    \"user_metadata\": {
+      \"full_name\": \"$FULL_NAME\"
+    }
+  }")
+
+# Extract user ID from response
+USER_ID=$(echo "$CREATE_USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+if [ -z "$USER_ID" ]; then
+  echo "Error creating user via GoTrue API"
+  echo "Response: $CREATE_USER_RESPONSE"
+  
+  # Check if user already exists
+  if echo "$CREATE_USER_RESPONSE" | grep -q "already been registered"; then
+    echo ""
+    echo "User already exists. Attempting to get user ID..."
+    
+    # Get user by email
+    GET_USER_RESPONSE=$(curl -s -X GET "http://localhost:9999/admin/users?filter=email.eq.$ADMIN_EMAIL" \
+      -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
+    
+    USER_ID=$(echo "$GET_USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    
+    if [ -z "$USER_ID" ]; then
+      echo "❌ Failed to retrieve existing user ID"
+      exit 1
+    fi
+    
+    echo "Found existing user: $USER_ID"
+  else
+    exit 1
+  fi
+fi
+
+echo "User created/found with ID: $USER_ID"
+
+# Step 2: Create database tables and grant admin role via SQL
+echo "Setting up database tables and admin role..."
+
 SQL_SCRIPT=$(cat <<EOF
 -- Create app_role enum if it doesn't exist
 DO \$\$ BEGIN
@@ -66,84 +113,28 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Create the admin user in auth.users
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at,
-  confirmation_token,
-  email_change,
-  email_change_token_new,
-  recovery_token
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  '$USER_ID',
-  'authenticated',
-  'authenticated',
-  '$ADMIN_EMAIL',
-  crypt('$ADMIN_PASSWORD', gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}'::jsonb,
-  '{"full_name":"$FULL_NAME"}'::jsonb,
-  now(),
-  now(),
-  '',
-  '',
-  '',
-  ''
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Create identity entry (required for auth)
-INSERT INTO auth.identities (
-  id,
-  user_id,
-  identity_data,
-  provider,
-  last_sign_in_at,
-  created_at,
-  updated_at
-) VALUES (
-  gen_random_uuid(),
-  '$USER_ID',
-  format('{"sub":"%s","email":"%s"}', '$USER_ID', '$ADMIN_EMAIL')::jsonb,
-  'email',
-  now(),
-  now(),
-  now()
-);
-
--- Grant admin role
+-- Grant admin role (insert or update)
 INSERT INTO public.user_roles (user_id, role)
-VALUES ('$USER_ID', 'admin');
+VALUES ('$USER_ID', 'admin')
+ON CONFLICT (user_id, role) DO NOTHING;
 
--- Create profile
+-- Create/update profile
 INSERT INTO public.profiles (id, full_name)
-VALUES ('$USER_ID', '$FULL_NAME');
+VALUES ('$USER_ID', '$FULL_NAME')
+ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;
 
 -- Display success
-SELECT 'Admin user created successfully!' as message;
-SELECT 'Email: $ADMIN_EMAIL' as login_email;
-SELECT 'User ID: $USER_ID' as user_id;
+SELECT 'Admin user setup completed!' as message;
 EOF
 )
 
-# Execute SQL via docker with proper error handling
-echo "Executing SQL..."
+# Execute SQL
 RESULT=$(echo "$SQL_SCRIPT" | PGPASSWORD="$POSTGRES_PASSWORD" docker exec -i supabase-db psql -U postgres -d postgres 2>&1)
 EXIT_CODE=$?
 
 echo "$RESULT"
 
-if [ $EXIT_CODE -eq 0 ] && ! echo "$RESULT" | grep -qi "error"; then
+if [ $EXIT_CODE -eq 0 ] && ! echo "$RESULT" | grep -qi "^error"; then
   echo ""
   echo "=========================================="
   echo "✅ Admin user created successfully!"
@@ -152,10 +143,11 @@ if [ $EXIT_CODE -eq 0 ] && ! echo "$RESULT" | grep -qi "error"; then
   echo "User ID: $USER_ID"
   echo ""
   echo "You can now log in to your application"
+  echo "at http://localhost (or your configured URL)"
   echo "=========================================="
 else
   echo ""
-  echo "❌ Failed to create admin user"
+  echo "⚠️  User created but database setup had issues"
   echo "Check the error messages above"
   exit 1
 fi
