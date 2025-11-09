@@ -52,6 +52,8 @@ echo -e "${GREEN}✓ Volumes removed${NC}"
 echo ""
 echo -e "${BLUE}Step 4: Removing networks...${NC}"
 docker network ls --filter "name=order-snap-journal" --format "{{.Name}}" | xargs -r docker network rm 2>/dev/null || true
+docker network ls --filter "name=app-network" --format "{{.Name}}" | xargs -r docker network rm 2>/dev/null || true
+docker network prune -f 2>/dev/null || true
 echo -e "${GREEN}✓ Networks removed${NC}"
 
 echo ""
@@ -61,7 +63,7 @@ echo -e "${GREEN}✓ Docker system pruned${NC}"
 
 echo ""
 echo -e "${BLUE}Step 6: Checking for processes using required ports...${NC}"
-PORTS="80 3000 3001 4001 4040 5000 5001 8000 8080 9000 9999"
+PORTS="80 3000 3001 4000 4001 4040 5000 5001 8000 8080 9000 9999"
 PORT_CONFLICTS=""
 
 for PORT in $PORTS; do

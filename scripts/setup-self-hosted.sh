@@ -41,7 +41,7 @@ chmod +x scripts/cleanup-self-hosted.sh 2>/dev/null || true
 # Check for port conflicts
 echo ""
 echo -e "${BLUE}Checking port availability...${NC}"
-PORTS="80 3000 3001 4001 4040 5000 5001 8000 8080 9000 9999"
+PORTS="80 3000 3001 4000 4001 4040 5000 5001 8000 8080 9000 9999"
 PORT_CONFLICTS=""
 
 for PORT in $PORTS; do
