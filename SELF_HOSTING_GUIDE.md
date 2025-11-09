@@ -276,7 +276,32 @@ INSERT INTO public.user_roles (user_id, role)
 VALUES ('<user-id>', 'admin');
 ```
 
+
 ---
+
+## Cleanup and Reset
+
+If you need to completely remove the self-hosted setup and start fresh:
+
+```bash
+# Run the cleanup script
+./scripts/cleanup-self-hosted.sh
+```
+
+This will:
+- Stop all containers
+- Remove all volumes (⚠️ **destroys all data**)
+- Remove networks
+- Prune Docker system
+- Check for port conflicts
+
+After cleanup, you can start fresh:
+```bash
+./scripts/setup-self-hosted.sh
+```
+
+---
+
 
 ## Troubleshooting
 

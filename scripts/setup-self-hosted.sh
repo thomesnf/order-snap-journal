@@ -32,8 +32,37 @@ fi
 # Create necessary directories
 echo -e "${BLUE}Creating directories...${NC}"
 mkdir -p migrations
-chmod +x scripts/generate-keys.sh
-chmod +x scripts/migrate-schema.sh
+
+# Make scripts executable
+chmod +x scripts/generate-keys.sh 2>/dev/null || true
+chmod +x scripts/migrate-schema.sh 2>/dev/null || true
+chmod +x scripts/cleanup-self-hosted.sh 2>/dev/null || true
+
+# Check for port conflicts
+echo ""
+echo -e "${BLUE}Checking port availability...${NC}"
+PORTS="80 3000 3001 4001 4040 5000 5001 8000 8080 9000 9999"
+PORT_CONFLICTS=""
+
+for PORT in $PORTS; do
+    if lsof -i :$PORT >/dev/null 2>&1; then
+        echo -e "${RED}✗ Port $PORT is already in use${NC}"
+        PORT_CONFLICTS="yes"
+    fi
+done
+
+if [ -n "$PORT_CONFLICTS" ]; then
+    echo ""
+    echo -e "${RED}ERROR: Some required ports are in use${NC}"
+    echo -e "${YELLOW}Run the following to see what's using the ports:${NC}"
+    echo "  sudo lsof -i :<port_number>"
+    echo ""
+    echo -e "${YELLOW}Or run cleanup script to remove old containers:${NC}"
+    echo "  ./scripts/cleanup-self-hosted.sh"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ All required ports are available${NC}"
 
 # Generate keys if .env.self-hosted doesn't exist
 if [ ! -f .env.self-hosted ]; then
