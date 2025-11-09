@@ -79,7 +79,8 @@ fi
 
 # Load environment variables
 if [ -f .env.self-hosted ]; then
-    export $(cat .env.self-hosted | grep -v '^#' | xargs)
+    # Filter out any lines that don't match KEY=value format
+    export $(cat .env.self-hosted | grep -E '^[A-Z_]+=' | xargs)
     echo -e "${GREEN}✓ Environment variables loaded${NC}"
 else
     echo -e "${RED}ERROR: .env.self-hosted file not found${NC}"
