@@ -1,13 +1,25 @@
 -- Supabase initialization script for self-hosted setup
--- This creates additional system users that Supabase migrations don't auto-create
--- NOTE: supabase_admin is created by Supabase's own init scripts - we don't create it
+-- This MUST create supabase_admin FIRST before anything else
+-- Supabase's migrations expect this role to already exist
 
--- Enable required extensions (idempotent)
+-- STEP 1: Create supabase_admin role immediately (before extensions or anything else)
+DO $$
+DECLARE
+  db_password TEXT := '__POSTGRES_PASSWORD__';
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
+    EXECUTE 'CREATE USER supabase_admin WITH LOGIN SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created supabase_admin user';
+  END IF;
+END
+$$;
+
+-- STEP 2: Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "pgjwt";
 
--- Create additional system roles and users
+-- STEP 3: Create additional system roles and users
 DO $$
 DECLARE
   db_password TEXT := '__POSTGRES_PASSWORD__';
