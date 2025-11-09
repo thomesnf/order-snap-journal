@@ -105,9 +105,18 @@ fi
 # Replace password placeholder in init-db.sql
 echo ""
 echo -e "${BLUE}Preparing database initialization script...${NC}"
+# Remove any existing runtime file first
+rm -f init-db-runtime.sql
 # Create a working copy with the password substituted (using | as delimiter to handle special chars)
 sed "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" init-db.sql > init-db-runtime.sql
+# Verify the file was created
+if [ ! -f init-db-runtime.sql ]; then
+  echo -e "${RED}ERROR: Failed to create init-db-runtime.sql${NC}"
+  exit 1
+fi
 echo -e "${GREEN}✓ Database script prepared${NC}"
+echo -e "${BLUE}First 20 lines of init-db-runtime.sql:${NC}"
+head -n 20 init-db-runtime.sql
 
 # Clean up any existing containers AND volumes (critical for fixing corrupted data)
 echo ""
