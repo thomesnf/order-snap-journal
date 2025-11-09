@@ -109,15 +109,23 @@ echo -e "${BLUE}Preparing database initialization script...${NC}"
 sed "s/__POSTGRES_PASSWORD__/${POSTGRES_PASSWORD}/g" init-db.sql > init-db-runtime.sql
 echo -e "${GREEN}✓ Database script prepared${NC}"
 
-# Clean up any existing containers first
+# Clean up any existing containers AND volumes (critical for fixing corrupted data)
 echo ""
-echo -e "${BLUE}Cleaning up any existing containers...${NC}"
-docker-compose -f docker-compose.self-hosted.yml down --remove-orphans 2>/dev/null || true
+echo -e "${BLUE}Cleaning up existing containers and volumes...${NC}"
+echo -e "${YELLOW}⚠️  This will delete all existing database data!${NC}"
+
+# Stop containers and remove volumes
+docker-compose -f docker-compose.self-hosted.yml down -v --remove-orphans 2>/dev/null || true
+
+# Extra cleanup for any orphaned volumes
+docker volume rm order-snap-journal_postgres-data 2>/dev/null || echo "  (no old postgres volume found)"
+docker volume rm order-snap-journal_storage-data 2>/dev/null || echo "  (no old storage volume found)"
+
 echo -e "${GREEN}✓ Cleanup complete${NC}"
 
 # Start services
 echo ""
-echo -e "${BLUE}Starting Supabase services...${NC}"
+echo -e "${BLUE}Starting Supabase services with fresh volumes...${NC}"
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --force-recreate
 
 echo ""
