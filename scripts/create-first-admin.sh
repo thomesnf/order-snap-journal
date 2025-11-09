@@ -114,14 +114,33 @@ if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
   exit 1
 fi
 
+echo "Service role key is configured"
+echo ""
+
 # Check if GoTrue is accessible
-echo "Testing connection to GoTrue at http://localhost:9999..."
-if ! curl -s -f -o /dev/null "http://localhost:9999/health" 2>/dev/null; then
-  echo "⚠️  Warning: GoTrue health check failed. Waiting 10 seconds..."
-  sleep 10
+echo "Testing GoTrue health endpoint..."
+HEALTH_CHECK=$(curl --connect-timeout 3 --max-time 5 -s -o /dev/null -w "%{http_code}" "http://localhost:9999/health" 2>/dev/null || echo "000")
+
+if [ "$HEALTH_CHECK" != "200" ]; then
+  echo "❌ Error: GoTrue is not responding (HTTP $HEALTH_CHECK)"
+  echo ""
+  echo "The GoTrue auth service is running but not healthy. This usually means:"
+  echo "  1. GoTrue can't connect to the database"
+  echo "  2. GoTrue configuration is incorrect"
+  echo "  3. Required environment variables are missing"
+  echo ""
+  echo "To diagnose the issue:"
+  echo "  docker logs supabase-auth --tail=50"
+  echo ""
+  echo "Common fixes:"
+  echo "  - Ensure POSTGRES_PASSWORD matches in .env.self-hosted and docker-compose"
+  echo "  - Verify JWT_SECRET is set correctly"
+  echo "  - Check database is fully initialized: docker logs supabase-db --tail=20"
+  exit 1
 else
-  echo "✅ GoTrue is accessible"
+  echo "✅ GoTrue health check passed"
 fi
+echo ""
 
 # Step 1: Create user via GoTrue API
 echo "Creating user via GoTrue API..."
