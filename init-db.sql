@@ -30,6 +30,10 @@ BEGIN
     EXECUTE 'CREATE USER supabase_storage_admin WITH PASSWORD ' || quote_literal(db_password);
   END IF;
   
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
+    EXECUTE 'CREATE USER supabase_admin WITH PASSWORD ' || quote_literal(db_password);
+  END IF;
+  
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
     CREATE ROLE anon NOLOGIN;
   END IF;
