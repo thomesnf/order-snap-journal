@@ -77,11 +77,25 @@ else
     echo -e "${GREEN}✓ Using existing .env.self-hosted${NC}"
 fi
 
-# Load environment variables
+# Load and validate environment variables
 if [ -f .env.self-hosted ]; then
+    # Display the file contents for debugging
+    echo -e "${YELLOW}Checking .env.self-hosted contents:${NC}"
+    cat .env.self-hosted | grep -E '^[A-Z_]+=' || echo -e "${RED}No valid KEY=VALUE pairs found!${NC}"
+    echo ""
+    
     # Filter out any lines that don't match KEY=value format
     export $(cat .env.self-hosted | grep -E '^[A-Z_]+=' | xargs)
     echo -e "${GREEN}✓ Environment variables loaded${NC}"
+    
+    # Verify critical variables are set
+    if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
+        echo -e "${RED}ERROR: Critical environment variables are missing!${NC}"
+        echo "Please delete .env.self-hosted and run this script again:"
+        echo "  rm .env.self-hosted"
+        echo "  bash scripts/setup-self-hosted.sh"
+        exit 1
+    fi
 else
     echo -e "${RED}ERROR: .env.self-hosted file not found${NC}"
     echo "Please ensure .env.self-hosted exists with all required variables"
