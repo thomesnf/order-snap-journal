@@ -38,6 +38,34 @@ USER_ID=$(cat /proc/sys/kernel/random/uuid)
 
 # SQL script to create admin user
 SQL_SCRIPT=$(cat <<EOF
+-- Create app_role enum if it doesn't exist
+DO \$\$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END \$\$;
+
+-- Create user_roles table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  role public.app_role NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  UNIQUE(user_id, role)
+);
+
+-- Create profiles table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id uuid PRIMARY KEY,
+  full_name text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- Enable RLS if not already enabled
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
 -- Create the admin user in auth.users
 INSERT INTO auth.users (
   instance_id,
@@ -47,8 +75,6 @@ INSERT INTO auth.users (
   email,
   encrypted_password,
   email_confirmed_at,
-  recovery_sent_at,
-  last_sign_in_at,
   raw_app_meta_data,
   raw_user_meta_data,
   created_at,
@@ -65,8 +91,6 @@ INSERT INTO auth.users (
   '$ADMIN_EMAIL',
   crypt('$ADMIN_PASSWORD', gen_salt('bf')),
   now(),
-  now(),
-  now(),
   '{"provider":"email","providers":["email"]}'::jsonb,
   '{"full_name":"$FULL_NAME"}'::jsonb,
   now(),
@@ -75,7 +99,8 @@ INSERT INTO auth.users (
   '',
   '',
   ''
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Create identity entry (required for auth)
 INSERT INTO auth.identities (
@@ -111,11 +136,14 @@ SELECT 'User ID: $USER_ID' as user_id;
 EOF
 )
 
-# Execute SQL via docker
+# Execute SQL via docker with proper error handling
 echo "Executing SQL..."
-echo "$SQL_SCRIPT" | PGPASSWORD="$POSTGRES_PASSWORD" docker exec -i supabase-db psql -U postgres -d postgres
+RESULT=$(echo "$SQL_SCRIPT" | PGPASSWORD="$POSTGRES_PASSWORD" docker exec -i supabase-db psql -U postgres -d postgres 2>&1)
+EXIT_CODE=$?
 
-if [ $? -eq 0 ]; then
+echo "$RESULT"
+
+if [ $EXIT_CODE -eq 0 ] && ! echo "$RESULT" | grep -qi "error"; then
   echo ""
   echo "=========================================="
   echo "✅ Admin user created successfully!"
