@@ -136,7 +136,7 @@ services:
     image: supabase/realtime:v2.25.35
     container_name: supabase-realtime
     ports:
-      - "4000:4000"
+      - "4001:4000"
     environment:
       PORT: 4000
       DB_HOST: postgres
