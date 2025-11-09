@@ -44,15 +44,29 @@ fi
 echo "Checking required Docker containers..."
 echo ""
 
-REQUIRED_CONTAINERS=("auth" "postgres" "kong")
+REQUIRED_CONTAINERS=("supabase-auth:supabase-auth" "supabase-db:postgres" "supabase-kong:kong")
 MISSING_CONTAINERS=()
+UNHEALTHY_CONTAINERS=()
 
-for container in "${REQUIRED_CONTAINERS[@]}"; do
-  if docker ps --format '{{.Names}}' | grep -q "$container"; then
-    echo "✅ $container container is running"
+for container_pair in "${REQUIRED_CONTAINERS[@]}"; do
+  IFS=':' read -r container_name display_name <<< "$container_pair"
+  
+  if docker ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
+    # Check health status
+    HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$container_name" 2>/dev/null || echo "none")
+    
+    if [ "$HEALTH" = "unhealthy" ]; then
+      echo "⚠️  $display_name container is running but UNHEALTHY"
+      UNHEALTHY_CONTAINERS+=("$display_name")
+    elif [ "$HEALTH" = "starting" ]; then
+      echo "⏳ $display_name container is starting..."
+      UNHEALTHY_CONTAINERS+=("$display_name")
+    else
+      echo "✅ $display_name container is running"
+    fi
   else
-    echo "❌ $container container is NOT running"
-    MISSING_CONTAINERS+=("$container")
+    echo "❌ $display_name container is NOT running"
+    MISSING_CONTAINERS+=("$display_name")
   fi
 done
 
@@ -69,6 +83,27 @@ if [ ${#MISSING_CONTAINERS[@]} -ne 0 ]; then
   echo ""
   echo "Then wait for services to be ready (about 30 seconds) and run this script again."
   exit 1
+fi
+
+if [ ${#UNHEALTHY_CONTAINERS[@]} -ne 0 ]; then
+  echo "⚠️  Warning: Some containers are unhealthy or still starting: ${UNHEALTHY_CONTAINERS[*]}"
+  echo ""
+  echo "The database might not be ready yet. Common causes:"
+  echo "  1. Services are still starting up (wait 30-60 seconds)"
+  echo "  2. Database initialization is in progress"
+  echo "  3. Previous shutdown was unclean"
+  echo ""
+  echo "Suggested actions:"
+  echo "  - Check postgres logs: docker logs supabase-db"
+  echo "  - Wait a bit longer and try again"
+  echo "  - If stuck, restart services: docker-compose -f docker-compose.self-hosted.yml restart"
+  echo ""
+  read -p "Do you want to continue anyway? (y/N) " -n 1 -r
+  echo ""
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Exiting. Please ensure all containers are healthy first."
+    exit 1
+  fi
 fi
 
 echo "Checking GoTrue auth service..."
