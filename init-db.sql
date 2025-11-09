@@ -31,7 +31,7 @@ BEGIN
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
-    EXECUTE 'CREATE USER supabase_admin WITH PASSWORD ' || quote_literal(db_password);
+    EXECUTE 'CREATE USER supabase_admin WITH SUPERUSER CREATEDB CREATEROLE PASSWORD ' || quote_literal(db_password);
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
