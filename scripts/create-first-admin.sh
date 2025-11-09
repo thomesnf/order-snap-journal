@@ -5,6 +5,14 @@
 
 set -e
 
+# Load environment variables
+if [ -f .env.self-hosted ]; then
+  export $(cat .env.self-hosted | grep -v '^#' | xargs)
+else
+  echo "Error: .env.self-hosted file not found"
+  exit 1
+fi
+
 echo "=========================================="
 echo "Create First Admin User"
 echo "=========================================="
@@ -105,7 +113,7 @@ EOF
 
 # Execute SQL via docker
 echo "Executing SQL..."
-echo "$SQL_SCRIPT" | docker exec -i supabase-db psql -U supabase_admin -d postgres
+echo "$SQL_SCRIPT" | PGPASSWORD="$POSTGRES_PASSWORD" docker exec -i supabase-db psql -U postgres -d postgres
 
 if [ $? -eq 0 ]; then
   echo ""
