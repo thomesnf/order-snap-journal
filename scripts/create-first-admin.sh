@@ -54,7 +54,8 @@ fi
 echo "Creating user via GoTrue API..."
 echo "Using endpoint: http://localhost:9999/admin/users"
 
-CREATE_USER_RESPONSE=$(curl -w "\nHTTP_STATUS:%{http_code}" -X POST "http://localhost:9999/admin/users" \
+# Add timeout and better error handling
+CREATE_USER_RESPONSE=$(curl --max-time 10 -w "\nHTTP_STATUS:%{http_code}" -X POST "http://localhost:9999/admin/users" \
   -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
   -H "Content-Type: application/json" \
   -d "{
@@ -65,6 +66,23 @@ CREATE_USER_RESPONSE=$(curl -w "\nHTTP_STATUS:%{http_code}" -X POST "http://loca
       \"full_name\": \"$FULL_NAME\"
     }
   }" 2>&1)
+
+CURL_EXIT_CODE=$?
+
+# Check curl exit code first
+if [ $CURL_EXIT_CODE -ne 0 ]; then
+  echo "❌ Error: Failed to connect to GoTrue API (curl exit code: $CURL_EXIT_CODE)"
+  echo ""
+  echo "This usually means the GoTrue auth service is not running."
+  echo ""
+  echo "Please verify:"
+  echo "1. Docker containers are running: docker ps"
+  echo "2. Check for 'supabase-auth' or similar auth container"
+  echo "3. Check GoTrue logs: docker logs supabase-auth"
+  echo "4. Verify docker-compose is using the correct file: docker-compose -f docker-compose.self-hosted.yml ps"
+  echo ""
+  exit 1
+fi
 
 echo "Response received:"
 echo "$CREATE_USER_RESPONSE"
@@ -82,14 +100,6 @@ USER_ID=$(echo "$RESPONSE_BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -
 if [ -z "$USER_ID" ]; then
   echo "❌ Error: Failed to create user via GoTrue API"
   echo "Full response: $RESPONSE_BODY"
-  
-  # Check for common errors
-  if echo "$RESPONSE_BODY" | grep -q "curl:"; then
-    echo ""
-    echo "⚠️  Curl error detected. Is the GoTrue service running?"
-    echo "Check with: docker ps | grep auth"
-    exit 1
-  fi
   
   # Check if user already exists
   if echo "$CREATE_USER_RESPONSE" | grep -q "already been registered"; then
