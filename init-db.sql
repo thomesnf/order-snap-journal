@@ -7,11 +7,16 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "pgjwt";
 
--- Create system roles and users that Supabase doesn't auto-create
+-- Create system roles and users that Supabase needs
 DO $$
 DECLARE
   db_password TEXT := '__POSTGRES_PASSWORD__';
 BEGIN
+  -- Create supabase_admin FIRST (needed by Supabase migrations)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
+    EXECUTE 'CREATE USER supabase_admin WITH LOGIN SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created supabase_admin user';
+  
   -- Create authenticator if not exists
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
     EXECUTE 'CREATE USER authenticator WITH LOGIN PASSWORD ' || quote_literal(db_password);
