@@ -33,12 +33,28 @@ echo "Creating admin user: $ADMIN_EMAIL"
 echo "Full name: $FULL_NAME"
 echo ""
 
-echo "Waiting for GoTrue auth service to be ready..."
-sleep 5
+echo "Checking GoTrue auth service..."
+
+# Verify SERVICE_ROLE_KEY is set
+if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+  echo "❌ Error: SUPABASE_SERVICE_ROLE_KEY is not set in .env.self-hosted"
+  exit 1
+fi
+
+# Check if GoTrue is accessible
+echo "Testing connection to GoTrue at http://localhost:9999..."
+if ! curl -s -f -o /dev/null "http://localhost:9999/health" 2>/dev/null; then
+  echo "⚠️  Warning: GoTrue health check failed. Waiting 10 seconds..."
+  sleep 10
+else
+  echo "✅ GoTrue is accessible"
+fi
 
 # Step 1: Create user via GoTrue API
 echo "Creating user via GoTrue API..."
-CREATE_USER_RESPONSE=$(curl -s -X POST "http://localhost:9999/admin/users" \
+echo "Using endpoint: http://localhost:9999/admin/users"
+
+CREATE_USER_RESPONSE=$(curl -w "\nHTTP_STATUS:%{http_code}" -X POST "http://localhost:9999/admin/users" \
   -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
   -H "Content-Type: application/json" \
   -d "{
@@ -48,14 +64,32 @@ CREATE_USER_RESPONSE=$(curl -s -X POST "http://localhost:9999/admin/users" \
     \"user_metadata\": {
       \"full_name\": \"$FULL_NAME\"
     }
-  }")
+  }" 2>&1)
+
+echo "Response received:"
+echo "$CREATE_USER_RESPONSE"
+echo ""
+
+# Extract HTTP status and response body
+HTTP_STATUS=$(echo "$CREATE_USER_RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
+RESPONSE_BODY=$(echo "$CREATE_USER_RESPONSE" | sed '/HTTP_STATUS:/d')
+
+echo "HTTP Status: $HTTP_STATUS"
 
 # Extract user ID from response
-USER_ID=$(echo "$CREATE_USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+USER_ID=$(echo "$RESPONSE_BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
 if [ -z "$USER_ID" ]; then
-  echo "Error creating user via GoTrue API"
-  echo "Response: $CREATE_USER_RESPONSE"
+  echo "❌ Error: Failed to create user via GoTrue API"
+  echo "Full response: $RESPONSE_BODY"
+  
+  # Check for common errors
+  if echo "$RESPONSE_BODY" | grep -q "curl:"; then
+    echo ""
+    echo "⚠️  Curl error detected. Is the GoTrue service running?"
+    echo "Check with: docker ps | grep auth"
+    exit 1
+  fi
   
   # Check if user already exists
   if echo "$CREATE_USER_RESPONSE" | grep -q "already been registered"; then
