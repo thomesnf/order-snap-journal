@@ -105,8 +105,8 @@ fi
 # Replace password placeholder in init-db.sql
 echo ""
 echo -e "${BLUE}Preparing database initialization script...${NC}"
-# Create a working copy with the password substituted
-sed "s/__POSTGRES_PASSWORD__/${POSTGRES_PASSWORD}/g" init-db.sql > init-db-runtime.sql
+# Create a working copy with the password substituted (using | as delimiter to handle special chars)
+sed "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" init-db.sql > init-db-runtime.sql
 echo -e "${GREEN}✓ Database script prepared${NC}"
 
 # Clean up any existing containers AND volumes (critical for fixing corrupted data)

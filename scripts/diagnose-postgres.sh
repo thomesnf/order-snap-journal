@@ -33,7 +33,7 @@ if [ -f init-db-runtime.sql ]; then
 else
     echo -e "${RED}✗ init-db-runtime.sql NOT found${NC}"
     echo "Creating it now..."
-    sed "s/__POSTGRES_PASSWORD__/${POSTGRES_PASSWORD}/g" init-db.sql > init-db-runtime.sql
+    sed "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" init-db.sql > init-db-runtime.sql
 fi
 
 echo ""
