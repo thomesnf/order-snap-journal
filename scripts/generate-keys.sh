@@ -65,15 +65,23 @@ EOF
 
 # Check if Node.js is installed
 if command -v node &> /dev/null; then
-    # Check if jsonwebtoken is available globally, if not install it locally
-    if ! node -e "require('jsonwebtoken')" 2>/dev/null; then
-        echo "Installing jsonwebtoken package..."
-        npm init -y > /dev/null 2>&1
-        npm install jsonwebtoken > /dev/null 2>&1
-    fi
+    # Create a temporary directory for npm install
+    TEMP_DIR=$(mktemp -d)
+    cd "$TEMP_DIR"
     
-    node /tmp/generate-jwt.js "$JWT_SECRET"
-    rm /tmp/generate-jwt.js
+    echo "Installing jsonwebtoken package..."
+    npm init -y > /dev/null 2>&1
+    npm install jsonwebtoken > /dev/null 2>&1
+    
+    # Move the script to the temp directory
+    mv /tmp/generate-jwt.js "$TEMP_DIR/generate-jwt.js"
+    
+    # Run the script from the temp directory
+    node generate-jwt.js "$JWT_SECRET"
+    
+    # Cleanup
+    cd - > /dev/null
+    rm -rf "$TEMP_DIR"
     echo ""
 else
     echo "WARNING: Node.js not found. Using default JWT tokens."
