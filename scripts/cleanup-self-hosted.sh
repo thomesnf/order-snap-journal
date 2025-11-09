@@ -44,6 +44,9 @@ echo -e "${GREEN}✓ Containers removed${NC}"
 echo ""
 echo -e "${BLUE}Step 3: Removing volumes...${NC}"
 docker volume ls --filter "name=order-snap-journal" --format "{{.Name}}" | xargs -r docker volume rm -f 2>/dev/null || true
+docker volume ls --filter "name=supabase" --format "{{.Name}}" | xargs -r docker volume rm -f 2>/dev/null || true
+# Also remove any dangling volumes
+docker volume prune -f 2>/dev/null || true
 echo -e "${GREEN}✓ Volumes removed${NC}"
 
 echo ""
