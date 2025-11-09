@@ -102,10 +102,14 @@ echo ""
 echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
 sleep 10
 
-# Check if services are running
+# Check if services are running and show logs on failure
 if ! docker-compose -f docker-compose.self-hosted.yml ps | grep -q "Up"; then
     echo -e "${RED}ERROR: Some services failed to start${NC}"
-    echo "Check logs with: docker-compose -f docker-compose.self-hosted.yml logs"
+    echo ""
+    echo -e "${YELLOW}Checking database logs:${NC}"
+    docker logs supabase-db 2>&1 | tail -50
+    echo ""
+    echo -e "${RED}Setup failed. Check the logs above for details.${NC}"
     exit 1
 fi
 
