@@ -232,7 +232,7 @@ services:
     image: supabase/logflare:1.4.0
     container_name: supabase-analytics
     ports:
-      - "4000:4000"
+      - "4040:4000"
     environment:
       LOGFLARE_NODE_HOST: 127.0.0.1
       DB_USERNAME: supabase_admin
