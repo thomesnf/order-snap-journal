@@ -1,6 +1,17 @@
 -- Supabase initialization script for self-hosted setup
 -- This creates all required system users and schemas
--- Note: supabase_admin is created by Supabase's own init scripts
+
+-- CRITICAL: Create supabase_admin FIRST - required by Supabase migrations
+DO $$
+DECLARE
+  db_password TEXT := '__POSTGRES_PASSWORD__';
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
+    EXECUTE 'CREATE USER supabase_admin WITH LOGIN SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created supabase_admin user';
+  END IF;
+END
+$$;
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
