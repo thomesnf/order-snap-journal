@@ -12,20 +12,22 @@ CREATE SCHEMA IF NOT EXISTS storage;
 CREATE SCHEMA IF NOT EXISTS realtime;
 CREATE SCHEMA IF NOT EXISTS supabase_functions;
 
--- Create system users with passwords from environment
--- These users may already exist in the supabase/postgres image
+-- Create system users
+-- The setup script will replace __POSTGRES_PASSWORD__ with the actual password
 DO $$
+DECLARE
+  db_password TEXT := '__POSTGRES_PASSWORD__';
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
-    EXECUTE 'CREATE USER authenticator WITH PASSWORD ''' || current_setting('ENV_POSTGRES_PASSWORD') || '''';
+    EXECUTE 'CREATE USER authenticator WITH PASSWORD ' || quote_literal(db_password);
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_auth_admin') THEN
-    EXECUTE 'CREATE USER supabase_auth_admin WITH PASSWORD ''' || current_setting('ENV_POSTGRES_PASSWORD') || '''';
+    EXECUTE 'CREATE USER supabase_auth_admin WITH PASSWORD ' || quote_literal(db_password);
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_storage_admin') THEN
-    EXECUTE 'CREATE USER supabase_storage_admin WITH PASSWORD ''' || current_setting('ENV_POSTGRES_PASSWORD') || '''';
+    EXECUTE 'CREATE USER supabase_storage_admin WITH PASSWORD ' || quote_literal(db_password);
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
