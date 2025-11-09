@@ -31,12 +31,14 @@ fi
 echo ""
 echo -e "${BLUE}Step 1: Stopping all containers...${NC}"
 docker-compose -f docker-compose.self-hosted.yml down --remove-orphans 2>/dev/null || true
+docker stop $(docker ps -aq) 2>/dev/null || true
 echo -e "${GREEN}✓ Containers stopped${NC}"
 
 echo ""
 echo -e "${BLUE}Step 2: Removing all project containers...${NC}"
 docker ps -a --filter "name=supabase-" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
 docker ps -a --filter "name=order-snap-journal" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+docker rm -f $(docker ps -aq) 2>/dev/null || true
 echo -e "${GREEN}✓ Containers removed${NC}"
 
 echo ""

@@ -87,10 +87,16 @@ else
     exit 1
 fi
 
+# Clean up any existing containers first
+echo ""
+echo -e "${BLUE}Cleaning up any existing containers...${NC}"
+docker-compose -f docker-compose.self-hosted.yml down --remove-orphans 2>/dev/null || true
+echo -e "${GREEN}✓ Cleanup complete${NC}"
+
 # Start services
 echo ""
 echo -e "${BLUE}Starting Supabase services...${NC}"
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --force-recreate
 
 echo ""
 echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
