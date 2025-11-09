@@ -48,10 +48,20 @@ else
     echo -e "${GREEN}✓ Using existing .env.self-hosted${NC}"
 fi
 
+# Load environment variables
+if [ -f .env.self-hosted ]; then
+    export $(cat .env.self-hosted | grep -v '^#' | xargs)
+    echo -e "${GREEN}✓ Environment variables loaded${NC}"
+else
+    echo -e "${RED}ERROR: .env.self-hosted file not found${NC}"
+    echo "Please ensure .env.self-hosted exists with all required variables"
+    exit 1
+fi
+
 # Start services
 echo ""
 echo -e "${BLUE}Starting Supabase services...${NC}"
-docker-compose -f docker-compose.self-hosted.yml up -d
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d
 
 echo ""
 echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
