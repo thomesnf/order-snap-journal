@@ -126,9 +126,17 @@ fi
 # Step 1: Create user via GoTrue API
 echo "Creating user via GoTrue API..."
 echo "Using endpoint: http://localhost:9999/admin/users"
+echo "Attempting to create user (timeout: 10s)..."
+echo ""
 
-# Add timeout and better error handling
-CREATE_USER_RESPONSE=$(curl --max-time 10 -w "\nHTTP_STATUS:%{http_code}" -X POST "http://localhost:9999/admin/users" \
+# Add connection timeout and max time
+CREATE_USER_RESPONSE=$(curl \
+  --connect-timeout 5 \
+  --max-time 10 \
+  --silent \
+  --show-error \
+  -w "\nHTTP_STATUS:%{http_code}" \
+  -X POST "http://localhost:9999/admin/users" \
   -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
   -H "Content-Type: application/json" \
   -d "{
