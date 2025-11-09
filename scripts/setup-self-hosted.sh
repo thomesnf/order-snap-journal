@@ -1,0 +1,105 @@
+#!/bin/bash
+
+# Complete setup script for self-hosted Supabase
+set -e
+
+echo "============================================"
+echo "Supabase Self-Hosted Setup"
+echo "============================================"
+echo ""
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}ERROR: Docker is not installed${NC}"
+    echo "Please install Docker from https://docs.docker.com/get-docker/"
+    exit 1
+fi
+
+# Check if Docker Compose is installed
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    echo -e "${RED}ERROR: Docker Compose is not installed${NC}"
+    echo "Please install Docker Compose from https://docs.docker.com/compose/install/"
+    exit 1
+fi
+
+# Create necessary directories
+echo -e "${BLUE}Creating directories...${NC}"
+mkdir -p migrations
+chmod +x scripts/generate-keys.sh
+chmod +x scripts/migrate-schema.sh
+
+# Generate keys if .env.self-hosted doesn't exist
+if [ ! -f .env.self-hosted ]; then
+    echo -e "${YELLOW}Generating secrets...${NC}"
+    ./scripts/generate-keys.sh > .env.self-hosted
+    echo -e "${GREEN}✓ Secrets generated and saved to .env.self-hosted${NC}"
+    echo ""
+    echo -e "${YELLOW}IMPORTANT: Review and update .env.self-hosted before proceeding${NC}"
+    echo "Press Enter to continue once you've reviewed the file..."
+    read
+else
+    echo -e "${GREEN}✓ Using existing .env.self-hosted${NC}"
+fi
+
+# Start services
+echo ""
+echo -e "${BLUE}Starting Supabase services...${NC}"
+docker-compose -f docker-compose.self-hosted.yml up -d
+
+echo ""
+echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
+sleep 10
+
+# Check if services are running
+if ! docker-compose -f docker-compose.self-hosted.yml ps | grep -q "Up"; then
+    echo -e "${RED}ERROR: Some services failed to start${NC}"
+    echo "Check logs with: docker-compose -f docker-compose.self-hosted.yml logs"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ All services started successfully${NC}"
+echo ""
+
+# Ask if user wants to migrate data
+echo -e "${YELLOW}Do you want to migrate data from Lovable Cloud? (y/n)${NC}"
+read -r MIGRATE
+
+if [ "$MIGRATE" = "y" ]; then
+    echo ""
+    echo -e "${BLUE}Migrating data from Lovable Cloud...${NC}"
+    ./scripts/migrate-schema.sh
+fi
+
+echo ""
+echo -e "${GREEN}============================================${NC}"
+echo -e "${GREEN}Setup completed successfully!${NC}"
+echo -e "${GREEN}============================================${NC}"
+echo ""
+echo -e "${YELLOW}Services running:${NC}"
+echo "  • Frontend:         http://localhost"
+echo "  • Supabase API:     http://localhost:8000"
+echo "  • Supabase Studio:  http://localhost:3001"
+echo "  • Email Testing:    http://localhost:9000"
+echo "  • PostgreSQL:       localhost:5432"
+echo ""
+echo -e "${YELLOW}Default credentials:${NC}"
+echo "  • Database: postgres / (see POSTGRES_PASSWORD in .env.self-hosted)"
+echo ""
+echo -e "${YELLOW}To create your first admin user:${NC}"
+echo "  1. Go to http://localhost:3001"
+echo "  2. Navigate to Authentication → Users"
+echo "  3. Create a new user"
+echo "  4. Add admin role in user_roles table"
+echo ""
+echo -e "${YELLOW}To stop services:${NC}"
+echo "  docker-compose -f docker-compose.self-hosted.yml down"
+echo ""
+echo -e "${YELLOW}To view logs:${NC}"
+echo "  docker-compose -f docker-compose.self-hosted.yml logs -f"
