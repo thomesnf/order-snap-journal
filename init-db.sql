@@ -66,11 +66,31 @@ BEGIN
   GRANT authenticated TO authenticator;
   GRANT service_role TO authenticator;
   
-  -- Grant permissions to auth admin
-  GRANT CREATE ON DATABASE postgres TO supabase_auth_admin;
+  -- Grant schema permissions to auth admin
+  GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
+  GRANT CREATE ON SCHEMA public TO supabase_auth_admin;
+  GRANT ALL ON ALL TABLES IN SCHEMA public TO supabase_auth_admin;
+  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO supabase_auth_admin;
+  GRANT ALL ON ALL ROUTINES IN SCHEMA public TO supabase_auth_admin;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO supabase_auth_admin;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO supabase_auth_admin;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO supabase_auth_admin;
   
-  -- Grant permissions to storage admin
-  GRANT CREATE ON DATABASE postgres TO supabase_storage_admin;
+  -- Grant schema permissions to storage admin
+  GRANT USAGE ON SCHEMA public TO supabase_storage_admin;
+  GRANT CREATE ON SCHEMA public TO supabase_storage_admin;
+  GRANT ALL ON ALL TABLES IN SCHEMA public TO supabase_storage_admin;
+  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO supabase_storage_admin;
+  GRANT ALL ON ALL ROUTINES IN SCHEMA public TO supabase_storage_admin;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO supabase_storage_admin;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO supabase_storage_admin;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO supabase_storage_admin;
+  
+  -- Grant permissions to supabase_admin as well
+  GRANT ALL ON SCHEMA public TO supabase_admin;
+  GRANT ALL ON ALL TABLES IN SCHEMA public TO supabase_admin;
+  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO supabase_admin;
+  GRANT ALL ON ALL ROUTINES IN SCHEMA public TO supabase_admin;
   
   RAISE NOTICE 'Database initialization complete - all Supabase roles created';
 END
