@@ -203,6 +203,14 @@ if [ "$CREATE_ADMIN" = "y" ]; then
     if [ -f scripts/create-first-admin.sh ]; then
         chmod +x scripts/create-first-admin.sh
         ./scripts/create-first-admin.sh
+        
+        # Restart all services to ensure GoTrue and other services recover from any initialization issues
+        echo ""
+        echo -e "${BLUE}Restarting all services to ensure stability...${NC}"
+        docker-compose -f docker-compose.self-hosted.yml restart
+        
+        echo -e "${YELLOW}Waiting for services to restart (15 seconds)...${NC}"
+        sleep 15
     else
         echo -e "${RED}ERROR: create-first-admin.sh not found${NC}"
         echo "You can create an admin user manually later"
