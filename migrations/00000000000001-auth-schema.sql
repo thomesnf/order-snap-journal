@@ -73,3 +73,33 @@ EXCEPTION
     RAISE NOTICE 'auth.users table does not exist yet - skipping grants';
 END
 $$;
+
+-- Create auth.uid() function for RLS policies
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT COALESCE(
+    current_setting('request.jwt.claim.sub', true),
+    (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')
+  )::uuid
+$$;
+
+-- Grant execute permission on auth.uid() to all roles
+GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
+
+-- Create auth.role() function for checking user roles
+CREATE OR REPLACE FUNCTION auth.role()
+RETURNS text
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT COALESCE(
+    current_setting('request.jwt.claim.role', true),
+    (current_setting('request.jwt.claims', true)::jsonb ->> 'role')
+  )::text
+$$;
+
+-- Grant execute permission on auth.role() to all roles
+GRANT EXECUTE ON FUNCTION auth.role() TO anon, authenticated, service_role;
