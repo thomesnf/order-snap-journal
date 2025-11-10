@@ -66,8 +66,8 @@ DECLARE
     new_user_id UUID := gen_random_uuid();
     encrypted_password TEXT;
 BEGIN
-    -- Generate bcrypt password hash using pgcrypto
-    encrypted_password := crypt('$ADMIN_PASSWORD', gen_salt('bf'));
+    -- Generate bcrypt password hash using pgcrypto (2a format for GoTrue compatibility)
+    encrypted_password := crypt('$ADMIN_PASSWORD', gen_salt('bf', 10));
     
     -- Insert or update user in auth.users
     INSERT INTO auth.users (

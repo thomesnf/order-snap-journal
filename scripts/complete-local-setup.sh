@@ -115,7 +115,7 @@ BEGIN
   ) VALUES (
     gen_random_uuid(),
     '$ADMIN_EMAIL',
-    crypt('$ADMIN_PASSWORD', gen_salt('bf')),
+    crypt('$ADMIN_PASSWORD', gen_salt('bf', 10)),
     now(),
     '{"full_name": "$ADMIN_NAME"}'::jsonb,
     'authenticated',
@@ -124,7 +124,7 @@ BEGIN
     now()
   )
   ON CONFLICT (email) DO UPDATE
-  SET encrypted_password = crypt('$ADMIN_PASSWORD', gen_salt('bf')),
+  SET encrypted_password = crypt('$ADMIN_PASSWORD', gen_salt('bf', 10)),
       email_confirmed_at = now(),
       raw_user_meta_data = '{"full_name": "$ADMIN_NAME"}'::jsonb;
 
