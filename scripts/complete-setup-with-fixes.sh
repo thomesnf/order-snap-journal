@@ -257,9 +257,8 @@ echo -e "${GREEN}✓${NC} Admin user created"
 echo ""
 
 # Step 10: Build and start all containers
-echo -e "${BLUE}[10/10]${NC} Building app and ensuring all containers are running..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d
+echo -e "${BLUE}[10/10]${NC} Building and starting all containers..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build
 echo -e "${GREEN}✓${NC} All containers started"
 echo ""
 
