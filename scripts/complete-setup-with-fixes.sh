@@ -85,18 +85,43 @@ echo ""
 
 # Step 6: Wait for database to be ready
 echo -e "${BLUE}[6/10]${NC} Waiting for database to be ready..."
-for i in {1..20}; do
+echo "  This may take up to 3 minutes for first-time initialization..."
+
+# Wait for container to be healthy first
+for i in {1..60}; do
+    CONTAINER_STATUS=$(docker inspect -f '{{.State.Status}}' supabase-db 2>/dev/null || echo "not_found")
+    
+    if [ "$CONTAINER_STATUS" != "running" ]; then
+        if [ $i -eq 60 ]; then
+            echo -e "${RED}✗${NC} Database container failed to start"
+            docker logs supabase-db --tail 100
+            exit 1
+        fi
+        echo "  Container starting... ($i/60)"
+        sleep 3
+        continue
+    fi
+    
+    # Container is running, now check if PostgreSQL is ready
     if docker exec supabase-db pg_isready -U postgres > /dev/null 2>&1; then
-        echo -e "${GREEN}✓${NC} Database is ready (took $i attempts)"
+        echo -e "${GREEN}✓${NC} Database is ready (took $i attempts / $((i*3)) seconds)"
         break
     fi
-    if [ $i -eq 20 ]; then
-        echo -e "${RED}✗${NC} Database failed to start after 60 seconds"
-        echo "Checking logs:"
-        docker logs supabase-db --tail 50
+    
+    if [ $i -eq 60 ]; then
+        echo -e "${RED}✗${NC} Database failed to become ready after 3 minutes"
+        echo ""
+        echo "Container status: $CONTAINER_STATUS"
+        echo "Last 100 lines of logs:"
+        docker logs supabase-db --tail 100
         exit 1
     fi
-    echo "  Waiting for database... ($i/20)"
+    
+    # Show progress every 10 attempts
+    if [ $((i % 10)) -eq 0 ]; then
+        echo "  Still waiting for PostgreSQL... ($i/60 - $((i*3))s elapsed)"
+    fi
+    
     sleep 3
 done
 echo ""
