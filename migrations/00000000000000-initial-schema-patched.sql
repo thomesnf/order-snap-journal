@@ -1,17 +1,20 @@
 -- Patched Supabase initial schema with IF NOT EXISTS protection
--- This replaces the built-in migration to prevent role creation conflicts
+-- This runs as postgres superuser and creates all necessary roles
 
--- Create supabase_admin role (safe if already exists)
+-- Get password from setup script
 DO $$
 DECLARE
   db_password TEXT;
 BEGIN
-  -- Get password from environment or use default
-  db_password := current_setting('custom.postgres_password', true);
-  IF db_password IS NULL THEN
-    db_password := 'postgres';
-  END IF;
+  -- Try to get from environment, fallback to postgres
+  BEGIN
+    db_password := current_setting('app.postgres_password');
+  EXCEPTION
+    WHEN undefined_object THEN
+      db_password := 'postgres';
+  END;
   
+  -- Create supabase_admin role
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
     EXECUTE 'CREATE ROLE supabase_admin LOGIN CREATEROLE CREATEDB REPLICATION BYPASSRLS PASSWORD ' || quote_literal(db_password);
     RAISE NOTICE 'Created supabase_admin role';
