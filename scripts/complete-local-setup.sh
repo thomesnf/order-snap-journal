@@ -52,14 +52,14 @@ echo "  VITE_SUPABASE_PROJECT_ID=local"
 # Step 2: Stop any running containers and remove old app image
 echo ""
 echo -e "${BLUE}[2/7]${NC} Stopping existing containers..."
-docker-compose -f docker-compose.self-hosted.yml down 2>/dev/null || true
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted down 2>/dev/null || true
 docker rmi order-snap-journal-app 2>/dev/null || true
 echo -e "${GREEN}  ✓${NC} Containers stopped and old images removed"
 
 # Step 3: Start Supabase services
 echo ""
 echo -e "${BLUE}[3/7]${NC} Starting Supabase services..."
-docker-compose -f docker-compose.self-hosted.yml up -d postgres kong auth rest realtime storage meta
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d postgres kong auth rest realtime storage meta
 echo -e "${GREEN}  ✓${NC} Services started"
 
 # Step 4: Wait for database
@@ -152,8 +152,8 @@ echo -e "${GREEN}  ✓${NC} Admin user created: $ADMIN_EMAIL"
 echo ""
 echo -e "${BLUE}[7/7]${NC} Building and starting app container..."
 echo -e "${YELLOW}  ⚠${NC} This may take a few minutes for a clean build..."
-docker-compose -f docker-compose.self-hosted.yml build --no-cache app
-docker-compose -f docker-compose.self-hosted.yml up -d app
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app
 echo -e "${GREEN}  ✓${NC} App container started"
 
 echo ""

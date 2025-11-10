@@ -23,7 +23,7 @@ if [ ! -f .env.self-hosted ]; then
 fi
 
 echo -e "${BLUE}Step 1:${NC} Stopping all containers..."
-docker-compose -f docker-compose.self-hosted.yml down
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted down
 echo -e "${GREEN}✓${NC} Containers stopped"
 
 echo ""
@@ -33,7 +33,7 @@ echo -e "${GREEN}✓${NC} Environment configured for local instance"
 
 echo ""
 echo -e "${BLUE}Step 3:${NC} Starting Supabase services..."
-docker-compose -f docker-compose.self-hosted.yml up -d postgres kong auth rest realtime storage meta analytics
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d postgres kong auth rest realtime storage meta analytics
 echo -e "${GREEN}✓${NC} Supabase services started"
 
 echo ""
@@ -43,7 +43,7 @@ echo -e "${GREEN}✓${NC} Services should be ready"
 
 echo ""
 echo -e "${BLUE}Step 5:${NC} Building and starting app container..."
-docker-compose -f docker-compose.self-hosted.yml up -d --build app
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app
 echo -e "${GREEN}✓${NC} App container started"
 
 echo ""
