@@ -33,6 +33,7 @@ services:
       - ./init-db-runtime.sql:/docker-entrypoint-initdb.d/00-init-extensions.sql:ro
       - ./migrations/00000000000000-initial-schema-patched.sql:/docker-entrypoint-initdb.d/init-scripts/00000000000000-initial-schema.sql:ro
       - ./migrations/00000000000001-auth-schema-patched.sql:/docker-entrypoint-initdb.d/init-scripts/00000000000001-auth-schema.sql:ro
+      - ./migrations/00000000000002-storage-schema-patched.sql:/docker-entrypoint-initdb.d/init-scripts/00000000000002-storage-schema.sql:ro
     networks:
       - app-network
     healthcheck:
