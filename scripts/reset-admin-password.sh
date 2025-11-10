@@ -82,17 +82,25 @@ WHERE email = '$ADMIN_EMAIL';
 SQL
 
 if [ $? -eq 0 ]; then
-    echo ""
-    echo "=============================================="
-    echo -e "${GREEN}✅ Password Reset Successfully!${NC}"
-    echo "=============================================="
-    echo ""
-    echo "Email: $ADMIN_EMAIL"
-    echo "Password: [as entered]"
-    echo ""
-    echo "Test login:"
-    echo "  sudo ./scripts/test-local-login.sh"
-    echo ""
+echo ""
+echo "=============================================="
+echo -e "${GREEN}✅ Password Reset Successfully!${NC}"
+echo "=============================================="
+echo ""
+
+# CRITICAL: Restart GoTrue to clear any cached credentials
+echo -e "${BLUE}Restarting GoTrue service...${NC}"
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted restart auth
+sleep 5
+echo -e "${GREEN}✓${NC} GoTrue restarted"
+echo ""
+
+echo "Email: $ADMIN_EMAIL"
+echo "Password: [as entered]"
+echo ""
+echo "Test login:"
+echo "  sudo ./scripts/test-local-login.sh"
+echo ""
 else
     echo ""
     echo -e "${RED}✗${NC} Password reset failed!"

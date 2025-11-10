@@ -83,11 +83,12 @@ WHERE email = '$EMAIL';
 " 2>/dev/null)
 
 echo "Password hash prefix: $HASH_PREFIX"
-if [[ "$HASH_PREFIX" =~ ^\$2[aby]\$ ]]; then
-    echo -e "${GREEN}✓${NC} Password hash appears to be bcrypt format"
+# Check if it's valid bcrypt format (includes cost factor like $2b$10$)
+if [[ "$HASH_PREFIX" =~ ^\$2[aby]\$[0-9]+\$ ]] || [[ "$HASH_PREFIX" =~ ^\$2[aby]\$ ]]; then
+    echo -e "${GREEN}✓${NC} Password hash is valid bcrypt format"
 else
     echo -e "${RED}✗${NC} Password hash format may be incorrect!"
-    echo "  Expected: \$2a\$ or \$2b\$ or \$2y\$ (bcrypt)"
+    echo "  Expected: \$2a\$, \$2b\$, or \$2y\$ with optional cost factor (bcrypt)"
     echo "  Found: $HASH_PREFIX"
 fi
 echo ""
