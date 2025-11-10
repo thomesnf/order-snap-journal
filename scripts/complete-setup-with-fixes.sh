@@ -33,10 +33,18 @@ echo ""
 
 # Step 2: Stop and clean existing containers
 echo -e "${BLUE}[2/10]${NC} Stopping and removing existing containers..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted down -v 2>/dev/null || true
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted down 2>/dev/null || true
 docker rm -f order-snap-journal-app-1 2>/dev/null || true
-docker rmi order-snap-journal-app 2>/dev/null || true
-echo -e "${GREEN}✓${NC} Cleanup complete"
+echo -e "${GREEN}✓${NC} Containers stopped"
+echo ""
+
+# Step 2b: Clean volumes and fix permissions
+echo -e "${BLUE}[2b/10]${NC} Cleaning volumes and fixing permissions..."
+docker volume rm order-snap-journal_postgres-data 2>/dev/null || true
+docker volume rm order-snap-journal_storage-data 2>/dev/null || true
+docker volume create order-snap-journal_postgres-data
+docker volume create order-snap-journal_storage-data
+echo -e "${GREEN}✓${NC} Volumes recreated"
 echo ""
 
 # Step 3: Setup environment files
@@ -64,30 +72,35 @@ else
 fi
 echo ""
 
-# Step 5: Start Supabase services
-echo -e "${BLUE}[5/10]${NC} Starting Supabase services..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d postgres kong auth rest realtime storage meta analytics inbucket studio
-echo -e "${GREEN}✓${NC} Supabase services started"
+# Step 5: Start database first
+echo -e "${BLUE}[5/10]${NC} Starting PostgreSQL database..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d postgres
+echo -e "${GREEN}✓${NC} Database starting"
 echo ""
 
 # Step 6: Wait for database to be ready
-echo -e "${BLUE}[6/10]${NC} Waiting for database to be ready (30 seconds)..."
-sleep 30
-
-# Verify postgres is accepting connections
-echo "Testing database connection..."
-for i in {1..10}; do
+echo -e "${BLUE}[6/10]${NC} Waiting for database to be ready..."
+for i in {1..20}; do
     if docker exec supabase-db pg_isready -U postgres > /dev/null 2>&1; then
-        echo -e "${GREEN}✓${NC} Database is ready"
+        echo -e "${GREEN}✓${NC} Database is ready (took $i attempts)"
         break
     fi
-    if [ $i -eq 10 ]; then
-        echo -e "${RED}✗${NC} Database failed to start"
+    if [ $i -eq 20 ]; then
+        echo -e "${RED}✗${NC} Database failed to start after 60 seconds"
+        echo "Checking logs:"
+        docker logs supabase-db --tail 50
         exit 1
     fi
-    echo "  Waiting... ($i/10)"
+    echo "  Waiting for database... ($i/20)"
     sleep 3
 done
+echo ""
+
+# Step 6b: Start remaining Supabase services
+echo -e "${BLUE}[6b/10]${NC} Starting remaining Supabase services..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d kong auth rest realtime storage imgproxy meta analytics inbucket studio
+echo -e "${GREEN}✓${NC} All Supabase services started"
+sleep 10
 echo ""
 
 # Step 7: Apply app schema
@@ -213,20 +226,27 @@ echo "$SQL_SCRIPT" | docker exec -i supabase-db psql -U postgres -d postgres > /
 echo -e "${GREEN}✓${NC} Admin user created"
 echo ""
 
-# Step 10: Start all services and build app
-echo -e "${BLUE}[10/10]${NC} Starting all services and building application..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build
-echo -e "${GREEN}✓${NC} All services started"
+# Step 10: Build and start app container
+echo -e "${BLUE}[10/10]${NC} Building and starting app container..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app
+echo -e "${GREEN}✓${NC} App container started"
 echo ""
 
-echo "Waiting for services to initialize (15 seconds)..."
-sleep 15
+echo "Waiting for app to initialize (10 seconds)..."
+sleep 10
 echo ""
 
 echo "=============================================="
 echo -e "${GREEN}  Setup Complete!${NC}"
 echo "=============================================="
 echo ""
+
+# Verify all containers are running
+echo "Container status:"
+docker-compose -f docker-compose.self-hosted.yml ps
+echo ""
+
 echo "Access your application:"
 echo -e "  ${GREEN}Frontend:${NC} http://13.37.0.96"
 echo -e "  ${GREEN}Supabase Studio:${NC} http://localhost:3001"
