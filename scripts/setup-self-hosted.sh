@@ -43,10 +43,8 @@ fi
 echo -e "${BLUE}Creating directories...${NC}"
 mkdir -p migrations
 
-# Make scripts executable
-chmod +x scripts/generate-keys.sh 2>/dev/null || true
-chmod +x scripts/migrate-schema.sh 2>/dev/null || true
-chmod +x scripts/cleanup-self-hosted.sh 2>/dev/null || true
+# Make all scripts executable
+chmod +x scripts/*.sh 2>/dev/null || true
 
 # Check for port conflicts
 echo ""
@@ -142,10 +140,17 @@ docker volume rm order-snap-journal_storage-data 2>/dev/null || echo "  (no old 
 
 echo -e "${GREEN}✓ Cleanup complete${NC}"
 
+# Copy environment files
+echo ""
+echo -e "${BLUE}Setting up environment files...${NC}"
+cp .env.self-hosted .env
+cp .env.self-hosted .env.docker
+echo -e "${GREEN}✓ Environment files configured${NC}"
+
 # Start services
 echo ""
 echo -e "${BLUE}Starting Supabase services with fresh volumes...${NC}"
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --force-recreate
+docker-compose -f docker-compose.self-hosted.yml up -d --force-recreate
 
 echo ""
 echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
@@ -176,6 +181,17 @@ if docker exec supabase-db psql -U postgres -c "SELECT 1" > /dev/null 2>&1; then
 else
     echo -e "${RED}WARNING: Database may not be fully ready yet${NC}"
     echo "You can check logs with: docker logs supabase-db"
+fi
+
+# Apply Supabase migrations
+echo ""
+echo -e "${BLUE}Applying Supabase migrations...${NC}"
+if [ -f scripts/apply-supabase-migrations.sh ]; then
+    ./scripts/apply-supabase-migrations.sh
+    echo -e "${GREEN}✓ Migrations applied successfully${NC}"
+else
+    echo -e "${YELLOW}WARNING: apply-supabase-migrations.sh not found${NC}"
+    echo "Skipping migrations..."
 fi
 
 # Ask if user wants to migrate data
