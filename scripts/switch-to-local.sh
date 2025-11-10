@@ -27,18 +27,9 @@ docker-compose -f docker-compose.self-hosted.yml down
 echo -e "${GREEN}✓${NC} Containers stopped"
 
 echo ""
-echo -e "${BLUE}Step 2:${NC} Verifying environment configuration..."
-source .env.self-hosted
-
-echo "  VITE_SUPABASE_URL: $VITE_SUPABASE_URL"
-echo "  VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:0:50}..."
-echo "  JWT_SECRET: ${JWT_SECRET:0:20}..."
-
-if [ "$VITE_SUPABASE_URL" != "http://13.37.0.96:8000" ]; then
-    echo -e "${RED}✗${NC} VITE_SUPABASE_URL is not set to local instance!"
-    exit 1
-fi
-echo -e "${GREEN}✓${NC} Environment variables verified"
+echo -e "${BLUE}Step 2:${NC} Setting up environment variables..."
+./scripts/setup-local-env.sh
+echo -e "${GREEN}✓${NC} Environment configured for local instance"
 
 echo ""
 echo -e "${BLUE}Step 3:${NC} Starting Supabase services..."
