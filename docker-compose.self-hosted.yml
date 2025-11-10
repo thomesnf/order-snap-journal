@@ -4,13 +4,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: http://localhost:8000
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_ANON_KEY}
+        VITE_SUPABASE_PROJECT_ID: local
     ports:
       - "80:80"
-    env_file:
-      - .env.self-hosted
-    environment:
-      - VITE_SUPABASE_URL=http://localhost:8000
-      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
     depends_on:
       - kong
     networks:
