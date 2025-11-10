@@ -55,9 +55,14 @@ if [ -f .env ]; then
     echo -e "${YELLOW}⚠${NC} Backed up cloud .env to .env.cloud-backup"
 fi
 
-# Copy .env.self-hosted to all needed locations
+# Copy .env.self-hosted to .env (docker-compose reads this automatically)
 cp .env.self-hosted .env
-cp .env.self-hosted .env.docker
+
+# Export all variables so docker-compose can use them
+set -a
+source .env.self-hosted
+set +a
+
 echo -e "${GREEN}✓${NC} Environment files configured"
 echo ""
 
