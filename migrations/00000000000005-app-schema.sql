@@ -20,7 +20,22 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
   UNIQUE(user_id, role)
 );
 
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+-- Enable RLS if not already enabled
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_tables 
+    WHERE schemaname = 'public' 
+    AND tablename = 'user_roles' 
+    AND rowsecurity = true
+  ) THEN
+    ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+    RAISE NOTICE 'Enabled RLS on user_roles';
+  ELSE
+    RAISE NOTICE 'RLS already enabled on user_roles - skipping';
+  END IF;
+END
+$$;
 
 -- Create profiles table if not exists  
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -36,7 +51,22 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   emergency_contact text
 );
 
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- Enable RLS if not already enabled
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_tables 
+    WHERE schemaname = 'public' 
+    AND tablename = 'profiles' 
+    AND rowsecurity = true
+  ) THEN
+    ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+    RAISE NOTICE 'Enabled RLS on profiles';
+  ELSE
+    RAISE NOTICE 'RLS already enabled on profiles - skipping';
+  END IF;
+END
+$$;
 
 -- Create has_role security definer function
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
