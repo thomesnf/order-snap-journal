@@ -13,7 +13,7 @@ BEGIN
   ELSE
     RAISE NOTICE 'supabase_admin role already exists - skipping';
   END IF;
+  
+  RAISE NOTICE 'Init complete - supabase_admin role ready for Supabase initialization';
 END
 $$;
-
-RAISE NOTICE 'Init complete - supabase_admin role ready for Supabase initialization';
