@@ -107,26 +107,24 @@ BEGIN
       'authenticated'
     );
     
-    -- Insert into auth.identities
+    -- Insert into auth.identities (using correct schema)
     INSERT INTO auth.identities (
       id,
       user_id,
-      provider_id,
       identity_data,
       provider,
       last_sign_in_at,
       created_at,
       updated_at
     ) VALUES (
-      new_user_id,
-      new_user_id,
       new_user_id::text,
+      new_user_id,
       jsonb_build_object('sub', new_user_id::text, 'email', '$ADMIN_EMAIL'),
       'email',
       now(),
       now(),
       now()
-    );
+    ) ON CONFLICT (provider, id) DO NOTHING;
     
     RAISE NOTICE 'Created user with ID: %', new_user_id;
   ELSE
