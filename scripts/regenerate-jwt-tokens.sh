@@ -114,9 +114,19 @@ SERVICE_KEY=$(echo "$NEW_TOKENS" | grep "SUPABASE_SERVICE_ROLE_KEY=" | cut -d'='
 # Backup original file
 cp .env.self-hosted .env.self-hosted.backup
 
-# Update .env.self-hosted with new tokens
-sed -i "s|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=$ANON_KEY|" .env.self-hosted
-sed -i "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY|" .env.self-hosted
+# Update .env.self-hosted with new tokens using a temp file
+# This is more reliable than sed -i across different systems
+while IFS= read -r line; do
+    if [[ $line =~ ^SUPABASE_ANON_KEY= ]]; then
+        echo "SUPABASE_ANON_KEY=$ANON_KEY"
+    elif [[ $line =~ ^SUPABASE_SERVICE_ROLE_KEY= ]]; then
+        echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY"
+    else
+        echo "$line"
+    fi
+done < .env.self-hosted > .env.self-hosted.tmp
+
+mv .env.self-hosted.tmp .env.self-hosted
 
 # Cleanup
 rm -f /tmp/generate_jwt.py
