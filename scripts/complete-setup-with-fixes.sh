@@ -115,25 +115,111 @@ sleep 10
 echo -e "${GREEN}✓${NC} GoTrue restarted"
 echo ""
 
-# Step 9: Create admin user
+# Step 9: Create admin user with default password
 echo -e "${BLUE}[9/10]${NC} Creating admin user..."
-if [ -f scripts/create-admin-direct.sh ]; then
-    chmod +x scripts/create-admin-direct.sh
-    ./scripts/create-admin-direct.sh
-    echo -e "${GREEN}✓${NC} Admin user created"
-else
-    echo -e "${RED}✗${NC} Admin creation script not found!"
-    echo "Please create admin manually"
+ADMIN_EMAIL="admin@localhost"
+ADMIN_PASSWORD="admin123456"
+FULL_NAME="Admin User"
+
+echo "Creating admin: $ADMIN_EMAIL"
+echo "Password: $ADMIN_PASSWORD"
+
+# Generate password hash using Python
+PASSWORD_HASH=$(docker exec -i supabase-db python3 << 'PYTHON_EOF'
+import crypt
+import random
+import string
+
+password = "admin123456"
+salt = '$2b$10$' + ''.join(random.choices(string.ascii_letters + string.digits + './', k=22))
+hashed = crypt.crypt(password, salt)
+print(hashed)
+PYTHON_EOF
+)
+
+if [ -z "$PASSWORD_HASH" ]; then
+    echo -e "${RED}✗${NC} Failed to generate password hash"
+    exit 1
 fi
+
+# Create admin user directly in database
+SQL_SCRIPT=$(cat <<EOF
+BEGIN;
+
+DO \$\$
+DECLARE
+  new_user_id uuid;
+  user_exists boolean;
+BEGIN
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = '$ADMIN_EMAIL') INTO user_exists;
+  
+  IF NOT user_exists THEN
+    new_user_id := gen_random_uuid();
+    
+    INSERT INTO auth.users (
+      id, instance_id, email, encrypted_password, email_confirmed_at,
+      raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+      confirmation_token, aud, role
+    ) VALUES (
+      new_user_id, '00000000-0000-0000-0000-000000000000', '$ADMIN_EMAIL',
+      '$PASSWORD_HASH', now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{"full_name":"$FULL_NAME"}'::jsonb, now(), now(), '', 'authenticated', 'authenticated'
+    );
+    
+    INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    VALUES (new_user_id::text, new_user_id, jsonb_build_object('sub', new_user_id::text, 'email', '$ADMIN_EMAIL'),
+            'email', now(), now(), now())
+    ON CONFLICT (provider, id) DO NOTHING;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
+      CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
+      CREATE TABLE public.user_roles (
+        id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id uuid NOT NULL, role public.app_role NOT NULL,
+        created_at timestamp with time zone NOT NULL DEFAULT now(),
+        UNIQUE(user_id, role)
+      );
+      ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+      CREATE TABLE public.profiles (
+        id uuid NOT NULL PRIMARY KEY, created_at timestamp with time zone NOT NULL DEFAULT now(),
+        updated_at timestamp with time zone NOT NULL DEFAULT now(), full_name text, phone text,
+        email text, address text, hourly_rate numeric DEFAULT 0, employment_contract_url text, emergency_contact text
+      );
+      ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+    END IF;
+    
+    INSERT INTO public.user_roles (user_id, role) VALUES (new_user_id, 'admin'::public.app_role)
+    ON CONFLICT (user_id, role) DO NOTHING;
+    
+    INSERT INTO public.profiles (id, full_name, email) VALUES (new_user_id, '$FULL_NAME', '$ADMIN_EMAIL')
+    ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, email = EXCLUDED.email, updated_at = now();
+  ELSE
+    SELECT id INTO new_user_id FROM auth.users WHERE email = '$ADMIN_EMAIL';
+  END IF;
+END \$\$;
+
+COMMIT;
+EOF
+)
+
+echo "$SQL_SCRIPT" | docker exec -i supabase-db psql -U postgres -d postgres > /dev/null 2>&1
+echo -e "${GREEN}✓${NC} Admin user created"
 echo ""
 
-# Step 10: Build and start app
-echo -e "${BLUE}[10/10]${NC} Building and starting application..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app
-echo -e "${GREEN}✓${NC} Application started"
+# Step 10: Start all services and build app
+echo -e "${BLUE}[10/10]${NC} Starting all services and building application..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build
+echo -e "${GREEN}✓${NC} All services started"
 echo ""
 
-echo "Waiting for app to initialize (15 seconds)..."
+echo "Waiting for services to initialize (15 seconds)..."
 sleep 15
 echo ""
 
@@ -146,8 +232,9 @@ echo -e "  ${GREEN}Frontend:${NC} http://13.37.0.96"
 echo -e "  ${GREEN}Supabase Studio:${NC} http://localhost:3001"
 echo -e "  ${GREEN}API Gateway:${NC} http://13.37.0.96:8000"
 echo ""
-echo "Admin credentials:"
-echo "  Check the output above for admin email/password"
+echo -e "${YELLOW}Default Admin Credentials:${NC}"
+echo -e "  Email: ${GREEN}admin@localhost${NC}"
+echo -e "  Password: ${GREEN}admin123456${NC}"
 echo ""
 echo "Verify setup:"
 echo "  sudo ./scripts/verify-local-connection.sh"
