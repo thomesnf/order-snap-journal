@@ -1,7 +1,8 @@
 -- Early initialization - runs as postgres superuser
--- Create supabase_admin role FIRST, then extensions
+-- ONLY create supabase_admin role here
+-- Let Supabase's built-in scripts handle extensions and schemas
 
--- Step 1: Create supabase_admin role with IF NOT EXISTS protection
+-- Create supabase_admin role with IF NOT EXISTS protection
 DO $$
 DECLARE
   db_password TEXT := '__POSTGRES_PASSWORD__';
@@ -15,13 +16,4 @@ BEGIN
 END
 $$;
 
--- Step 2: Create required PostgreSQL extensions with IF NOT EXISTS
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "pgjwt";
-
--- Step 3: Create auth schema if needed
-CREATE SCHEMA IF NOT EXISTS auth;
-GRANT ALL ON SCHEMA auth TO supabase_admin;
-
-RAISE NOTICE 'Init complete - supabase_admin role and extensions ready';
+RAISE NOTICE 'Init complete - supabase_admin role ready for Supabase initialization';
