@@ -60,11 +60,11 @@ BEGIN
   ELSE
     RAISE NOTICE 'authenticator role already exists - skipping';
   END IF;
+  
+  RAISE NOTICE 'Auth roles initialized successfully';
 END
 $$;
 
 -- Create auth schema if it doesn't exist
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
-
-RAISE NOTICE 'Auth roles and schema initialized';
