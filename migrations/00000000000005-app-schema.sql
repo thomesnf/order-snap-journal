@@ -68,6 +68,29 @@ BEGIN
 END
 $$;
 
+-- Create auth.uid() function if not exists (core Supabase function)
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT COALESCE(
+    nullif(current_setting('request.jwt.claim.sub', true), '')::uuid,
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid
+  )
+$$;
+
+-- Grant execute permission on auth.uid() (idempotent)
+DO $$
+BEGIN
+  GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
+  RAISE NOTICE 'Granted execute on auth.uid function';
+EXCEPTION
+  WHEN undefined_function THEN
+    RAISE NOTICE 'auth.uid function does not exist - skipping grant';
+END
+$$;
+
 -- Create has_role security definer function
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
 RETURNS boolean
