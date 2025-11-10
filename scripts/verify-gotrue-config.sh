@@ -82,14 +82,19 @@ FROM auth.users
 WHERE email = '$EMAIL';
 " 2>/dev/null)
 
-echo "Password hash prefix: $HASH_PREFIX"
-# Check if it's valid bcrypt format (includes cost factor like $2b$10$)
-if [[ "$HASH_PREFIX" =~ ^\$2[aby]\$[0-9]+\$ ]] || [[ "$HASH_PREFIX" =~ ^\$2[aby]\$ ]]; then
+HASH_PREFIX_TRIMMED=$(echo "$HASH_PREFIX" | xargs)
+echo "Password hash prefix: $HASH_PREFIX_TRIMMED"
+
+# Check if it's valid bcrypt format (must include cost factor like $2b$10$)
+if [[ "$HASH_PREFIX_TRIMMED" =~ ^\$2[aby]\$[0-9]{2}\$ ]]; then
     echo -e "${GREEN}✓${NC} Password hash is valid bcrypt format"
+    # Extract cost factor
+    COST_FACTOR=$(echo "$HASH_PREFIX_TRIMMED" | grep -oP '\$\d+\$' | tr -d '$')
+    echo "  Cost factor: $COST_FACTOR (recommended: 10)"
 else
-    echo -e "${RED}✗${NC} Password hash format may be incorrect!"
-    echo "  Expected: \$2a\$, \$2b\$, or \$2y\$ with optional cost factor (bcrypt)"
-    echo "  Found: $HASH_PREFIX"
+    echo -e "${RED}✗${NC} Password hash format is incorrect!"
+    echo "  Expected: \$2a\$10\$ or \$2b\$10\$ or \$2y\$10\$ (bcrypt with cost factor)"
+    echo "  Found: $HASH_PREFIX_TRIMMED"
 fi
 echo ""
 
