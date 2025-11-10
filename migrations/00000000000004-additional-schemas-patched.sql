@@ -43,15 +43,15 @@ BEGIN
   ELSE
     RAISE NOTICE 'supabase_auth_admin role already exists - skipping';
   END IF;
+  
+  -- Grant permissions
+  GRANT USAGE ON SCHEMA storage TO supabase_storage_admin;
+  GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
+  GRANT USAGE ON SCHEMA auth TO supabase_auth_admin;
+  GRANT ALL ON SCHEMA auth TO supabase_auth_admin;
+  GRANT USAGE ON SCHEMA _realtime TO supabase_realtime_admin;
+  GRANT ALL ON SCHEMA _realtime TO supabase_realtime_admin;
+  
+  RAISE NOTICE 'Additional Supabase schemas and roles initialized';
 END
 $$;
-
--- Grant permissions
-GRANT USAGE ON SCHEMA storage TO supabase_storage_admin;
-GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
-GRANT USAGE ON SCHEMA auth TO supabase_auth_admin;
-GRANT ALL ON SCHEMA auth TO supabase_auth_admin;
-GRANT USAGE ON SCHEMA _realtime TO supabase_realtime_admin;
-GRANT ALL ON SCHEMA _realtime TO supabase_realtime_admin;
-
-RAISE NOTICE 'Additional Supabase schemas and roles initialized';

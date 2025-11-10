@@ -22,11 +22,11 @@ BEGIN
   ELSE
     RAISE NOTICE 'supabase_realtime_admin role already exists - skipping';
   END IF;
+  
+  -- Grant permissions
+  GRANT USAGE ON SCHEMA realtime TO supabase_realtime_admin;
+  GRANT ALL ON SCHEMA realtime TO supabase_realtime_admin;
+  
+  RAISE NOTICE 'Realtime schema initialized';
 END
 $$;
-
--- Grant permissions
-GRANT USAGE ON SCHEMA realtime TO supabase_realtime_admin;
-GRANT ALL ON SCHEMA realtime TO supabase_realtime_admin;
-
-RAISE NOTICE 'Realtime schema initialized';
