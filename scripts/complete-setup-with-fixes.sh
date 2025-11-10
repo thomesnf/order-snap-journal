@@ -77,6 +77,17 @@ else
 fi
 echo ""
 
+# Step 4b: Generate init-db-runtime.sql
+echo -e "${BLUE}[4b/10]${NC} Generating database initialization file..."
+if [ -f init-db.sql ]; then
+    sed "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" init-db.sql > init-db-runtime.sql
+    echo -e "${GREEN}✓${NC} Database init file generated"
+else
+    echo -e "${RED}✗${NC} init-db.sql not found!"
+    exit 1
+fi
+echo ""
+
 # Step 5: Start database first
 echo -e "${BLUE}[5/10]${NC} Starting PostgreSQL database..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d postgres
