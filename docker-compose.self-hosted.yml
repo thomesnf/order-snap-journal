@@ -113,7 +113,7 @@ services:
       SITE_URL: http://localhost
       
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@supabase-db:5432/postgres
       
       GOTRUE_SITE_URL: http://localhost
       GOTRUE_URI_ALLOW_LIST: "*"
