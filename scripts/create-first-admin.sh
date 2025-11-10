@@ -178,6 +178,22 @@ echo "Using endpoint: http://localhost:9999/admin/users"
 echo "Attempting to create user (timeout: 10s)..."
 echo ""
 
+# Reload environment variables to get latest tokens
+if [ -f .env.self-hosted ]; then
+  export $(cat .env.self-hosted | grep -E '^[A-Z_]+=' | xargs)
+  echo "Reloaded environment variables from .env.self-hosted"
+fi
+
+# Verify we have the service role key
+if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+  echo "❌ ERROR: SUPABASE_SERVICE_ROLE_KEY is not set"
+  echo "Run: sudo ./scripts/regenerate-jwt-tokens.sh"
+  exit 1
+fi
+
+echo "Using SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:0:50}..."
+echo ""
+
 # Add connection timeout and max time
 CREATE_USER_RESPONSE=$(curl \
   --connect-timeout 5 \
