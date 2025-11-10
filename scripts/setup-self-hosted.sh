@@ -1,11 +1,21 @@
 #!/bin/bash
 
-# Complete setup script for self-hosted Supabase
+# Complete automated setup script for self-hosted Supabase
 set -e
 
 echo "============================================"
-echo "Supabase Self-Hosted Setup"
+echo "Supabase Self-Hosted Complete Setup"
 echo "============================================"
+echo ""
+echo "This script will:"
+echo "  ✓ Verify Docker installation"
+echo "  ✓ Check port availability"
+echo "  ✓ Generate security keys"
+echo "  ✓ Create init-db-runtime.sql with passwords"
+echo "  ✓ Clean up old containers and volumes"
+echo "  ✓ Start all services with fresh configuration"
+echo "  ✓ Verify services are healthy"
+echo "  ✓ Optionally create admin user"
 echo ""
 
 # Colors
@@ -155,14 +165,48 @@ fi
 echo -e "${GREEN}✓ All services started successfully${NC}"
 echo ""
 
+# Additional wait for database to be fully ready
+echo -e "${YELLOW}Waiting for database to be fully initialized (30 seconds)...${NC}"
+sleep 30
+
+# Verify database is accessible
+echo -e "${BLUE}Verifying database connection...${NC}"
+if docker exec supabase-db psql -U postgres -c "SELECT 1" > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ Database is ready${NC}"
+else
+    echo -e "${RED}WARNING: Database may not be fully ready yet${NC}"
+    echo "You can check logs with: docker logs supabase-db"
+fi
+
 # Ask if user wants to migrate data
+echo ""
 echo -e "${YELLOW}Do you want to migrate data from Lovable Cloud? (y/n)${NC}"
 read -r MIGRATE
 
 if [ "$MIGRATE" = "y" ]; then
     echo ""
     echo -e "${BLUE}Migrating data from Lovable Cloud...${NC}"
-    ./scripts/migrate-schema.sh
+    if [ -f scripts/migrate-schema.sh ]; then
+        ./scripts/migrate-schema.sh
+    else
+        echo -e "${RED}ERROR: migrate-schema.sh not found${NC}"
+    fi
+fi
+
+# Ask if user wants to create admin user
+echo ""
+echo -e "${YELLOW}Do you want to create the first admin user now? (y/n)${NC}"
+read -r CREATE_ADMIN
+
+if [ "$CREATE_ADMIN" = "y" ]; then
+    echo ""
+    if [ -f scripts/create-first-admin.sh ]; then
+        chmod +x scripts/create-first-admin.sh
+        ./scripts/create-first-admin.sh
+    else
+        echo -e "${RED}ERROR: create-first-admin.sh not found${NC}"
+        echo "You can create an admin user manually later"
+    fi
 fi
 
 echo ""
@@ -177,17 +221,14 @@ echo "  • Supabase Studio:  http://localhost:3001"
 echo "  • Email Testing:    http://localhost:9000"
 echo "  • PostgreSQL:       localhost:5432"
 echo ""
-echo -e "${YELLOW}Default credentials:${NC}"
-echo "  • Database: postgres / (see POSTGRES_PASSWORD in .env.self-hosted)"
+echo -e "${YELLOW}Important files:${NC}"
+echo "  • Environment:      .env.self-hosted"
+echo "  • Init script:      init-db-runtime.sql (generated)"
 echo ""
-echo -e "${YELLOW}To create your first admin user:${NC}"
-echo "  1. Go to http://localhost:3001"
-echo "  2. Navigate to Authentication → Users"
-echo "  3. Create a new user"
-echo "  4. Add admin role in user_roles table"
+echo -e "${YELLOW}Useful commands:${NC}"
+echo "  • View logs:        docker-compose -f docker-compose.self-hosted.yml logs -f"
+echo "  • Stop services:    docker-compose -f docker-compose.self-hosted.yml down"
+echo "  • Restart:          docker-compose -f docker-compose.self-hosted.yml restart"
+echo "  • Full reset:       ./scripts/reset-self-hosted.sh"
 echo ""
-echo -e "${YELLOW}To stop services:${NC}"
-echo "  docker-compose -f docker-compose.self-hosted.yml down"
-echo ""
-echo -e "${YELLOW}To view logs:${NC}"
-echo "  docker-compose -f docker-compose.self-hosted.yml logs -f"
+echo -e "${GREEN}Setup complete! You can now access your application.${NC}"
