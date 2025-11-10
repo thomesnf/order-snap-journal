@@ -1,5 +1,5 @@
 -- Database initialization for self-hosted Supabase
--- Creates all required roles and users for Supabase services
+-- Creates all required roles, schemas, and permissions
 
 DO $$
 DECLARE
@@ -66,32 +66,68 @@ BEGIN
   GRANT authenticated TO authenticator;
   GRANT service_role TO authenticator;
   
-  -- Grant schema permissions to auth admin
-  GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
-  GRANT CREATE ON SCHEMA public TO supabase_auth_admin;
-  GRANT ALL ON ALL TABLES IN SCHEMA public TO supabase_auth_admin;
-  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO supabase_auth_admin;
-  GRANT ALL ON ALL ROUTINES IN SCHEMA public TO supabase_auth_admin;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO supabase_auth_admin;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO supabase_auth_admin;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO supabase_auth_admin;
-  
-  -- Grant schema permissions to storage admin
-  GRANT USAGE ON SCHEMA public TO supabase_storage_admin;
-  GRANT CREATE ON SCHEMA public TO supabase_storage_admin;
-  GRANT ALL ON ALL TABLES IN SCHEMA public TO supabase_storage_admin;
-  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO supabase_storage_admin;
-  GRANT ALL ON ALL ROUTINES IN SCHEMA public TO supabase_storage_admin;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO supabase_storage_admin;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO supabase_storage_admin;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO supabase_storage_admin;
-  
-  -- Grant permissions to supabase_admin as well
-  GRANT ALL ON SCHEMA public TO supabase_admin;
-  GRANT ALL ON ALL TABLES IN SCHEMA public TO supabase_admin;
-  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO supabase_admin;
-  GRANT ALL ON ALL ROUTINES IN SCHEMA public TO supabase_admin;
-  
-  RAISE NOTICE 'Database initialization complete - all Supabase roles created';
+  RAISE NOTICE 'All roles created successfully';
 END
 $$;
+
+-- Create schemas with proper ownership
+-- Auth schema - owned by supabase_auth_admin
+CREATE SCHEMA IF NOT EXISTS auth AUTHORIZATION supabase_auth_admin;
+
+-- Storage schema - owned by supabase_storage_admin  
+CREATE SCHEMA IF NOT EXISTS storage AUTHORIZATION supabase_storage_admin;
+
+-- Extensions schema - owned by postgres (for extensions)
+CREATE SCHEMA IF NOT EXISTS extensions AUTHORIZATION postgres;
+
+-- Realtime schema - owned by supabase_admin
+CREATE SCHEMA IF NOT EXISTS realtime AUTHORIZATION supabase_admin;
+
+-- Grant usage on schemas
+GRANT USAGE ON SCHEMA auth TO postgres, anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA storage TO postgres, anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA extensions TO postgres, anon, authenticated, service_role;
+
+-- Grant permissions on public schema
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT CREATE ON SCHEMA public TO postgres, supabase_admin;
+
+-- Grant all privileges to supabase_admin on all schemas
+GRANT ALL ON SCHEMA public TO supabase_admin;
+GRANT ALL ON SCHEMA auth TO supabase_admin;
+GRANT ALL ON SCHEMA storage TO supabase_admin;
+GRANT ALL ON SCHEMA extensions TO supabase_admin;
+GRANT ALL ON SCHEMA realtime TO supabase_admin;
+
+-- Grant table privileges
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, supabase_admin;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, supabase_admin;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, supabase_admin;
+
+-- Set default privileges for future objects in public schema
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, supabase_admin;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, supabase_admin;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO postgres, supabase_admin;
+
+-- Allow authenticated and service_role to access public tables
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO authenticated, service_role;
+
+-- Grant authenticator ability to switch roles
+GRANT anon TO authenticator;
+GRANT authenticated TO authenticator;
+GRANT service_role TO authenticator;
+
+-- Enable necessary extensions in extensions schema
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" SCHEMA extensions;
+
+-- Make extensions functions available to all
+GRANT USAGE ON SCHEMA extensions TO PUBLIC;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO PUBLIC;
+ALTER DEFAULT PRIVILEGES IN SCHEMA extensions GRANT EXECUTE ON FUNCTIONS TO PUBLIC;
+
+SELECT 'Database initialization complete - all roles and schemas created' as status;
