@@ -122,15 +122,7 @@ GRANT anon TO authenticator;
 GRANT authenticated TO authenticator;
 GRANT service_role TO authenticator;
 
--- Install essential extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS "pgjwt" SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" SCHEMA extensions;
-
--- Make extension functions publicly available
-GRANT USAGE ON SCHEMA extensions TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO PUBLIC;
-ALTER DEFAULT PRIVILEGES IN SCHEMA extensions GRANT EXECUTE ON FUNCTIONS TO PUBLIC;
+-- Note: Extensions are created automatically by Supabase postgres image
+-- during its initialization process. We don't need to create them manually.
 
 SELECT 'Database initialization complete - all roles, schemas, and permissions configured' as status;
