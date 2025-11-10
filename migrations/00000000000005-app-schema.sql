@@ -83,12 +83,28 @@ AS $$
   )
 $$;
 
--- Grant execute permission on has_role to authenticated users
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated, anon;
+-- Grant execute permission on has_role to authenticated users (idempotent)
+DO $$
+BEGIN
+  GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated, anon;
+  RAISE NOTICE 'Granted execute on has_role function';
+EXCEPTION
+  WHEN undefined_function THEN
+    RAISE NOTICE 'has_role function does not exist - skipping grant';
+END
+$$;
 
--- RLS Policies for user_roles
-DROP POLICY IF EXISTS "Users can view own role, admins view all" ON public.user_roles;
-DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
+-- RLS Policies for user_roles (idempotent drops)
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Users can view own role, admins view all" ON public.user_roles;
+  DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
+  RAISE NOTICE 'Dropped existing user_roles policies';
+EXCEPTION
+  WHEN undefined_table THEN
+    RAISE NOTICE 'user_roles table does not exist - skipping policy drops';
+END
+$$;
 
 CREATE POLICY "Users can view own role, admins view all"
 ON public.user_roles
@@ -100,12 +116,20 @@ ON public.user_roles
 FOR ALL
 USING (public.has_role(auth.uid(), 'admin'));
 
--- RLS Policies for profiles
-DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+-- RLS Policies for profiles (idempotent drops)
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+  DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+  DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+  DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+  DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+  RAISE NOTICE 'Dropped existing profiles policies';
+EXCEPTION
+  WHEN undefined_table THEN
+    RAISE NOTICE 'profiles table does not exist - skipping policy drops';
+END
+$$;
 
 CREATE POLICY "Users can view own profile"
 ON public.profiles
@@ -146,9 +170,21 @@ CREATE TABLE IF NOT EXISTS auth.identities (
   PRIMARY KEY (provider, id)
 );
 
--- Grant permissions on auth.identities
-GRANT SELECT ON auth.identities TO anon, authenticated;
-GRANT ALL ON auth.identities TO service_role;
+-- Grant permissions on auth.identities (idempotent)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'auth' AND tablename = 'identities') THEN
+    GRANT SELECT ON auth.identities TO anon, authenticated;
+    GRANT ALL ON auth.identities TO service_role;
+    RAISE NOTICE 'Granted permissions on auth.identities';
+  ELSE
+    RAISE NOTICE 'auth.identities table does not exist - skipping grants';
+  END IF;
+EXCEPTION
+  WHEN undefined_table THEN
+    RAISE NOTICE 'auth.identities table does not exist - skipping grants';
+END
+$$;
 
 -- Create index on user_id for better performance
 CREATE INDEX IF NOT EXISTS identities_user_id_idx ON auth.identities(user_id);
