@@ -35,18 +35,26 @@ if [ -f .env ]; then
 fi
 
 source .env.self-hosted
+
+# Create .env file for local instance
 cat > .env << EOF
 VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
 VITE_SUPABASE_PROJECT_ID=local
 EOF
-echo -e "${GREEN}  ✓${NC} Environment configured for local instance"
 
-# Step 2: Stop any running containers
+echo -e "${GREEN}  ✓${NC} Environment configured for local instance"
+echo ""
+echo "  VITE_SUPABASE_URL=$VITE_SUPABASE_URL"
+echo "  VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY:0:20}..."
+echo "  VITE_SUPABASE_PROJECT_ID=local"
+
+# Step 2: Stop any running containers and remove old app image
 echo ""
 echo -e "${BLUE}[2/7]${NC} Stopping existing containers..."
 docker-compose -f docker-compose.self-hosted.yml down 2>/dev/null || true
-echo -e "${GREEN}  ✓${NC} Containers stopped"
+docker rmi order-snap-journal-app 2>/dev/null || true
+echo -e "${GREEN}  ✓${NC} Containers stopped and old images removed"
 
 # Step 3: Start Supabase services
 echo ""
@@ -140,10 +148,12 @@ SQL
 
 echo -e "${GREEN}  ✓${NC} Admin user created: $ADMIN_EMAIL"
 
-# Step 7: Build and start app
+# Step 7: Build and start app (force clean build)
 echo ""
 echo -e "${BLUE}[7/7]${NC} Building and starting app container..."
-docker-compose -f docker-compose.self-hosted.yml up -d --build app
+echo -e "${YELLOW}  ⚠${NC} This may take a few minutes for a clean build..."
+docker-compose -f docker-compose.self-hosted.yml build --no-cache app
+docker-compose -f docker-compose.self-hosted.yml up -d app
 echo -e "${GREEN}  ✓${NC} App container started"
 
 echo ""
