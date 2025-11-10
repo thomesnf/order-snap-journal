@@ -61,6 +61,14 @@ BEGIN
     RAISE NOTICE 'service_role role already exists';
   END IF;
   
+  -- Create supabase_realtime_admin role (for Realtime service)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_realtime_admin') THEN
+    EXECUTE 'CREATE ROLE supabase_realtime_admin NOINHERIT CREATEROLE LOGIN PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created supabase_realtime_admin role';
+  ELSE
+    RAISE NOTICE 'supabase_realtime_admin role already exists';
+  END IF;
+  
   RAISE NOTICE 'All roles created successfully';
 END
 $$;
@@ -76,7 +84,7 @@ GRANT ALL ON SCHEMA auth TO postgres, supabase_admin, supabase_auth_admin;
 GRANT ALL ON SCHEMA storage TO postgres, supabase_admin, supabase_storage_admin;
 GRANT ALL ON SCHEMA public TO postgres, supabase_admin, supabase_auth_admin, supabase_storage_admin;
 GRANT ALL ON SCHEMA extensions TO postgres, supabase_admin;
-GRANT ALL ON SCHEMA realtime TO postgres, supabase_admin;
+GRANT ALL ON SCHEMA realtime TO postgres, supabase_admin, supabase_realtime_admin;
 
 -- Grant usage to API roles
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;

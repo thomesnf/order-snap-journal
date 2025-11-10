@@ -1,55 +1,17 @@
 -- Patched Supabase auth schema with IF NOT EXISTS protection
--- This runs as postgres superuser and creates necessary roles and tables
+-- NOTE: Roles are created in init-db.sql, this only handles schema and tables
 -- FULLY IDEMPOTENT - safe to run multiple times
 
 DO $$
-DECLARE
-  db_password TEXT;
 BEGIN
-  -- Try to get password from environment
-  BEGIN
-    db_password := current_setting('app.postgres_password');
-  EXCEPTION
-    WHEN undefined_object THEN
-      db_password := 'postgres';
-  END;
-  
-  -- Create anon role if it doesn't exist
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon NOLOGIN NOINHERIT;
-    RAISE NOTICE 'Created anon role';
-  ELSE
-    RAISE NOTICE 'anon role already exists - skipping';
+  -- Grant roles to authenticator (safe to run multiple times, roles exist from init-db.sql)
+  PERFORM 1 FROM pg_catalog.pg_roles WHERE rolname = 'authenticator';
+  IF FOUND THEN
+    GRANT anon TO authenticator;
+    GRANT authenticated TO authenticator;
+    GRANT service_role TO authenticator;
+    RAISE NOTICE 'Granted roles to authenticator';
   END IF;
-  
-  -- Create authenticated role if it doesn't exist
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated NOLOGIN NOINHERIT;
-    RAISE NOTICE 'Created authenticated role';
-  ELSE
-    RAISE NOTICE 'authenticated role already exists - skipping';
-  END IF;
-  
-  -- Create service_role if it doesn't exist
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
-    RAISE NOTICE 'Created service_role role';
-  ELSE
-    RAISE NOTICE 'service_role role already exists - skipping';
-  END IF;
-  
-  -- Create authenticator role if it doesn't exist
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
-    EXECUTE 'CREATE ROLE authenticator LOGIN NOINHERIT PASSWORD ' || quote_literal(db_password);
-    RAISE NOTICE 'Created authenticator role';
-  ELSE
-    RAISE NOTICE 'authenticator role already exists - skipping';
-  END IF;
-  
-  -- Grant roles to authenticator (safe to run multiple times)
-  GRANT anon TO authenticator;
-  GRANT authenticated TO authenticator;
-  GRANT service_role TO authenticator;
   
   RAISE NOTICE 'Auth roles migration completed';
 END
