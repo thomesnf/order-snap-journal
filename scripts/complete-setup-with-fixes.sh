@@ -256,14 +256,14 @@ echo "$SQL_SCRIPT" | docker exec -i supabase-db psql -U postgres -d postgres > /
 echo -e "${GREEN}✓${NC} Admin user created"
 echo ""
 
-# Step 10: Build and start app container
-echo -e "${BLUE}[10/10]${NC} Building and starting app container..."
+# Step 10: Build and start all containers
+echo -e "${BLUE}[10/10]${NC} Building app and ensuring all containers are running..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app
-echo -e "${GREEN}✓${NC} App container started"
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d
+echo -e "${GREEN}✓${NC} All containers started"
 echo ""
 
-echo "Waiting for app to initialize (10 seconds)..."
+echo "Waiting for services to stabilize (10 seconds)..."
 sleep 10
 echo ""
 
