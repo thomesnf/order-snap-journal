@@ -33,9 +33,14 @@ echo ""
 
 # Step 2: Stop and clean existing containers
 echo -e "${BLUE}[2/10]${NC} Stopping and removing existing containers..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted down 2>/dev/null || true
-docker rm -f order-snap-journal-app-1 2>/dev/null || true
-echo -e "${GREEN}✓${NC} Containers stopped"
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted down -v 2>/dev/null || true
+docker rm -f order-snap-journal-app-1 supabase-db 2>/dev/null || true
+
+# Remove the postgres container to force fresh initialization
+echo "  Removing postgres container and image cache..."
+docker rmi supabase/postgres:15.1.0.147 2>/dev/null || true
+
+echo -e "${GREEN}✓${NC} Containers stopped and cleaned"
 echo ""
 
 # Step 2b: Clean volumes and fix permissions
@@ -144,22 +149,9 @@ echo -e "${GREEN}✓${NC} All Supabase services started"
 sleep 10
 echo ""
 
-# Step 7: Apply app schema
-echo -e "${BLUE}[7/10]${NC} Applying app schema..."
-if [ -f migrations/00000000000005-app-schema.sql ]; then
-    # Check if schema already exists
-    SCHEMA_EXISTS=$(docker exec -i supabase-db psql -U postgres -t -c \
-        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'orders');" | tr -d '[:space:]')
-    
-    if [ "$SCHEMA_EXISTS" = "t" ]; then
-        echo -e "${YELLOW}⚠${NC} App schema already exists, skipping"
-    else
-        docker exec -i supabase-db psql -U postgres < migrations/00000000000005-app-schema.sql
-        echo -e "${GREEN}✓${NC} App schema applied"
-    fi
-else
-    echo -e "${YELLOW}⚠${NC} App schema migration not found, skipping"
-fi
+# Step 7: Migrations now run automatically during DB initialization via 02-run-migrations.sql
+echo -e "${BLUE}[7/10]${NC} Migrations will run automatically during database startup..."
+echo -e "${GREEN}✓${NC} Migration setup complete"
 echo ""
 
 # Step 8: Restart GoTrue to ensure it picks up DATABASE_URL
