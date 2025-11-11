@@ -32,6 +32,7 @@ services:
       - ./init-db-runtime.sql:/docker-entrypoint-initdb.d/01-init-roles.sql:ro
       - ./migrations:/migrations:ro
       - ./migrations/00-init-migrations.sql:/docker-entrypoint-initdb.d/02-run-migrations.sql:ro
+      - /dev/null:/docker-entrypoint-initdb.d/migrate.sh:ro
     networks:
       - app-network
     healthcheck:
