@@ -1,12 +1,75 @@
--- Database initialization for self-hosted Supabase
--- NOTE: All core roles (supabase_admin, authenticator, anon, authenticated, service_role, etc.) 
--- are created automatically by the Supabase Docker image during initialization.
--- This script only handles schemas and permissions.
+-- Complete database initialization for self-hosted Supabase
+-- Creates all required roles, schemas, and permissions for Supabase services
 
 DO $$
+DECLARE
+  db_password TEXT := '__POSTGRES_PASSWORD__';
 BEGIN
-  RAISE NOTICE 'Database initialization - Core roles handled by Supabase Docker image';
-  RAISE NOTICE 'Configuring schemas and permissions only';
+  -- Create supabase_admin role (main admin with full privileges)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
+    EXECUTE 'CREATE ROLE supabase_admin LOGIN CREATEROLE CREATEDB REPLICATION BYPASSRLS PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created supabase_admin role';
+  ELSE
+    RAISE NOTICE 'supabase_admin role already exists';
+  END IF;
+  
+  -- Create supabase_auth_admin role (for GoTrue auth service)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_auth_admin') THEN
+    EXECUTE 'CREATE ROLE supabase_auth_admin NOINHERIT CREATEROLE LOGIN PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created supabase_auth_admin role';
+  ELSE
+    RAISE NOTICE 'supabase_auth_admin role already exists';
+  END IF;
+  
+  -- Create supabase_storage_admin role (for Storage service)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_storage_admin') THEN
+    EXECUTE 'CREATE ROLE supabase_storage_admin NOINHERIT CREATEROLE LOGIN PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created supabase_storage_admin role';
+  ELSE
+    RAISE NOTICE 'supabase_storage_admin role already exists';
+  END IF;
+  
+  -- Create authenticator role (used by PostgREST for role switching)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
+    EXECUTE 'CREATE ROLE authenticator NOINHERIT LOGIN PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created authenticator role';
+  ELSE
+    RAISE NOTICE 'authenticator role already exists';
+  END IF;
+  
+  -- Create anon role (for anonymous/unauthenticated access)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
+    CREATE ROLE anon NOLOGIN;
+    RAISE NOTICE 'Created anon role';
+  ELSE
+    RAISE NOTICE 'anon role already exists';
+  END IF;
+  
+  -- Create authenticated role (for authenticated users)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+    RAISE NOTICE 'Created authenticated role';
+  ELSE
+    RAISE NOTICE 'authenticated role already exists';
+  END IF;
+  
+  -- Create service_role (for service/admin API access with bypass RLS)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role NOLOGIN BYPASSRLS;
+    RAISE NOTICE 'Created service_role';
+  ELSE
+    RAISE NOTICE 'service_role role already exists';
+  END IF;
+  
+  -- Create supabase_realtime_admin role (for Realtime service)
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_realtime_admin') THEN
+    EXECUTE 'CREATE ROLE supabase_realtime_admin NOINHERIT CREATEROLE LOGIN PASSWORD ' || quote_literal(db_password);
+    RAISE NOTICE 'Created supabase_realtime_admin role';
+  ELSE
+    RAISE NOTICE 'supabase_realtime_admin role already exists';
+  END IF;
+  
+  RAISE NOTICE 'All roles created successfully';
 END
 $$;
 
