@@ -265,16 +265,32 @@ echo "$SQL_SCRIPT" | docker exec -i supabase-db psql -U postgres -d postgres > /
 echo -e "${GREEN}✓${NC} Admin user created"
 echo ""
 
-# Step 10: Build and start all containers
-echo -e "${BLUE}[10/10]${NC} Building and starting all containers..."
+# Step 10: Build and start the app container
+echo -e "${BLUE}[10/10]${NC} Building and starting the app container..."
 
-# Export environment variables needed for app build
-export VITE_SUPABASE_URL
-export VITE_SUPABASE_PUBLISHABLE_KEY
-export VITE_SUPABASE_PROJECT_ID=local
+# Explicitly set environment variables with their values for docker-compose
+export VITE_SUPABASE_URL="${VITE_SUPABASE_URL}"
+export VITE_SUPABASE_PUBLISHABLE_KEY="${VITE_SUPABASE_PUBLISHABLE_KEY}"
+export VITE_SUPABASE_PROJECT_ID="${VITE_SUPABASE_PROJECT_ID:-local}"
 
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build
-echo -e "${GREEN}✓${NC} All containers started"
+# Verify the variables are set before building
+if [ -z "$VITE_SUPABASE_URL" ]; then
+    echo -e "${RED}✗${NC} VITE_SUPABASE_URL is not set!"
+    exit 1
+fi
+
+if [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+    echo -e "${RED}✗${NC} VITE_SUPABASE_PUBLISHABLE_KEY is not set!"
+    exit 1
+fi
+
+echo "Building app with:"
+echo "  VITE_SUPABASE_URL=$VITE_SUPABASE_URL"
+echo "  VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID"
+
+# Build and start the app container specifically
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app
+echo -e "${GREEN}✓${NC} App container built and started"
 echo ""
 
 echo "Waiting for services to stabilize (10 seconds)..."
