@@ -261,6 +261,12 @@ echo ""
 
 # Step 10: Build and start all containers
 echo -e "${BLUE}[10/10]${NC} Building and starting all containers..."
+
+# Export environment variables needed for app build
+export VITE_SUPABASE_URL
+export VITE_SUPABASE_PUBLISHABLE_KEY
+export VITE_SUPABASE_PROJECT_ID=local
+
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build
 echo -e "${GREEN}✓${NC} All containers started"
 echo ""
