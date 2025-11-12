@@ -23,6 +23,8 @@ LOGFLARE_API_KEY=$(grep "^LOGFLARE_API_KEY=" .env.self-hosted | cut -d'=' -f2-)
 SITE_URL=$(grep "^SITE_URL=" .env.self-hosted | cut -d'=' -f2- || echo "http://localhost")
 API_EXTERNAL_URL=$(grep "^API_EXTERNAL_URL=" .env.self-hosted | cut -d'=' -f2- || echo "http://localhost:8000")
 GOTRUE_SITE_URL=$(grep "^GOTRUE_SITE_URL=" .env.self-hosted | cut -d'=' -f2- || echo "http://localhost")
+VITE_SUPABASE_URL=$(grep "^VITE_SUPABASE_URL=" .env.self-hosted | cut -d'=' -f2- || echo "http://13.37.0.96:8000")
+VITE_SUPABASE_PROJECT_ID=$(grep "^VITE_SUPABASE_PROJECT_ID=" .env.self-hosted | cut -d'=' -f2- || echo "local")
 
 if [ -z "$JWT_SECRET" ]; then
     echo "ERROR: JWT_SECRET not found in .env.self-hosted"
@@ -162,6 +164,15 @@ SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY
 SITE_URL=$SITE_URL
 API_EXTERNAL_URL=$API_EXTERNAL_URL
 GOTRUE_SITE_URL=$GOTRUE_SITE_URL
+
+############
+# FRONTEND #
+############
+
+# Frontend environment variables (for the React app)
+VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+VITE_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY
+VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID
 
 ############
 # OPTIONAL #

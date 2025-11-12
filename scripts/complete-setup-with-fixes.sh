@@ -76,7 +76,13 @@ echo -e "${BLUE}[4/10]${NC} Fixing JWT tokens..."
 if [ -f scripts/fix-jwt-tokens.sh ]; then
     chmod +x scripts/fix-jwt-tokens.sh
     ./scripts/fix-jwt-tokens.sh
-    echo -e "${GREEN}✓${NC} JWT tokens fixed"
+    
+    # Re-source the environment file after JWT fix rewrites it
+    set -a
+    source .env.self-hosted
+    set +a
+    
+    echo -e "${GREEN}✓${NC} JWT tokens fixed and environment reloaded"
 else
     echo -e "${YELLOW}⚠${NC} JWT fix script not found, skipping"
 fi
