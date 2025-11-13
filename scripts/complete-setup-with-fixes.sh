@@ -163,8 +163,31 @@ echo -e "${GREEN}✓${NC} All Supabase services started"
 sleep 10
 echo ""
 
-# Step 7: Run only app migrations (auth/storage/realtime handled by Supabase services)
-echo -e "${BLUE}[7/10]${NC} Running application schema migrations..."
+# Step 7: Wait for GoTrue to complete its migrations
+echo -e "${BLUE}[7/10]${NC} Waiting for GoTrue to complete auth schema setup..."
+for i in {1..30}; do
+    # Check if auth.users table exists (created by GoTrue migrations)
+    AUTH_READY=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'users');" 2>/dev/null | xargs)
+    
+    if [ "$AUTH_READY" = "t" ]; then
+        echo -e "${GREEN}✓${NC} GoTrue migrations complete (attempt $i)"
+        break
+    fi
+    
+    if [ $i -eq 30 ]; then
+        echo -e "${RED}✗${NC} GoTrue migrations failed to complete"
+        echo "Checking GoTrue logs:"
+        docker logs supabase-auth --tail 100
+        exit 1
+    fi
+    
+    echo "  Waiting for auth.users table... ($i/30)"
+    sleep 2
+done
+echo ""
+
+# Step 7b: Now run only app migrations (auth/storage/realtime handled by Supabase services)
+echo -e "${BLUE}[7b/10]${NC} Running application schema migrations..."
 docker exec -i supabase-db psql -U postgres -d postgres < migrations/00000000000005-app-schema.sql > /dev/null 2>&1
 echo -e "${GREEN}✓${NC} Application migrations complete"
 echo ""

@@ -31,8 +31,10 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./init-db-runtime.sql:/docker-entrypoint-initdb.d/01-init-roles.sql:ro
       - ./migrations:/migrations:ro
-      - ./migrations/00-init-migrations.sql:/docker-entrypoint-initdb.d/02-run-migrations.sql:ro
+      # Disable Supabase's internal migrate.sh to prevent role conflicts
       - /dev/null:/docker-entrypoint-initdb.d/migrate.sh:ro
+      # NOTE: Do NOT run migrations here - let GoTrue/Storage/Realtime services handle their schemas
+      # App migrations are run by setup script after services initialize
     networks:
       - app-network
     healthcheck:
