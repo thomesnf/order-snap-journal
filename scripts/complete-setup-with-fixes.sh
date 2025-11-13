@@ -173,82 +173,78 @@ ADMIN_EMAIL="admin@localhost"
 ADMIN_PASSWORD="admin123456"
 FULL_NAME="Admin User"
 
-echo "Creating admin: $ADMIN_EMAIL"
-echo "Password: $ADMIN_PASSWORD"
+echo "Creating admin user via GoTrue API: $ADMIN_EMAIL"
 
-# Generate password hash using PostgreSQL's crypt function
-PASSWORD_HASH=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c "SELECT crypt('$ADMIN_PASSWORD', gen_salt('bf'));" | xargs)
+# Wait for GoTrue to be ready
+echo "Waiting for GoTrue to be ready..."
+sleep 5
 
-if [ -z "$PASSWORD_HASH" ]; then
-    echo -e "${RED}✗${NC} Failed to generate password hash"
-    echo "Attempting alternative method..."
-    # Fallback: use a pre-generated bcrypt hash for "admin123456"
-    PASSWORD_HASH='$2a$10$rVjTkXKfJZXq7c8YvXqR4eK9pXqYvZ5.5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5u'
+# Create admin user via GoTrue API (this handles password hashing correctly)
+RESPONSE=$(curl -s -X POST \
+  http://localhost:8000/auth/v1/admin/users \
+  -H "apikey: $SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"email\": \"$ADMIN_EMAIL\",
+    \"password\": \"$ADMIN_PASSWORD\",
+    \"email_confirm\": true,
+    \"user_metadata\": {
+      \"full_name\": \"$FULL_NAME\"
+    }
+  }")
+
+# Extract user ID from response
+USER_ID=$(echo "$RESPONSE" | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
+
+if [ -z "$USER_ID" ]; then
+    echo -e "${RED}✗${NC} Failed to create user via GoTrue API"
+    echo "Response: $RESPONSE"
+    exit 1
 fi
 
-echo "Generated password hash: ${PASSWORD_HASH:0:20}..."
+echo -e "${GREEN}✓${NC} User created successfully via GoTrue"
+echo "User ID: $USER_ID"
 
-# Create admin user directly in database
+# Now assign admin role and create profile in database
 SQL_SCRIPT=$(cat <<EOF
 BEGIN;
 
 DO \$\$
-DECLARE
-  new_user_id uuid;
-  user_exists boolean;
 BEGIN
-  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = '$ADMIN_EMAIL') INTO user_exists;
-  
-  IF NOT user_exists THEN
-    new_user_id := gen_random_uuid();
-    
-    INSERT INTO auth.users (
-      id, instance_id, email, encrypted_password, email_confirmed_at,
-      raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-      confirmation_token, aud, role
-    ) VALUES (
-      new_user_id, '00000000-0000-0000-0000-000000000000', '$ADMIN_EMAIL',
-      '$PASSWORD_HASH', now(),
-      '{"provider":"email","providers":["email"]}'::jsonb,
-      '{"full_name":"$FULL_NAME"}'::jsonb, now(), now(), '', 'authenticated', 'authenticated'
-    );
-    
-    INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
-    VALUES (new_user_id::text, new_user_id, jsonb_build_object('sub', new_user_id::text, 'email', '$ADMIN_EMAIL'),
-            'email', now(), now(), now())
-    ON CONFLICT (provider, id) DO NOTHING;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
-      CREATE TYPE public.app_role AS ENUM ('admin', 'user');
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
-      CREATE TABLE public.user_roles (
-        id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-        user_id uuid NOT NULL, role public.app_role NOT NULL,
-        created_at timestamp with time zone NOT NULL DEFAULT now(),
-        UNIQUE(user_id, role)
-      );
-      ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
-      CREATE TABLE public.profiles (
-        id uuid NOT NULL PRIMARY KEY, created_at timestamp with time zone NOT NULL DEFAULT now(),
-        updated_at timestamp with time zone NOT NULL DEFAULT now(), full_name text, phone text,
-        email text, address text, hourly_rate numeric DEFAULT 0, employment_contract_url text, emergency_contact text
-      );
-      ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-    END IF;
-    
-    INSERT INTO public.user_roles (user_id, role) VALUES (new_user_id, 'admin'::public.app_role)
-    ON CONFLICT (user_id, role) DO NOTHING;
-    
-    INSERT INTO public.profiles (id, full_name, email) VALUES (new_user_id, '$FULL_NAME', '$ADMIN_EMAIL')
-    ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, email = EXCLUDED.email, updated_at = now();
-  ELSE
-    SELECT id INTO new_user_id FROM auth.users WHERE email = '$ADMIN_EMAIL';
+  -- Create app_role enum if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
+    CREATE TYPE public.app_role AS ENUM ('admin', 'user');
   END IF;
+  
+  -- Create user_roles table if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
+    CREATE TABLE public.user_roles (
+      id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+      user_id uuid NOT NULL, role public.app_role NOT NULL,
+      created_at timestamp with time zone NOT NULL DEFAULT now(),
+      UNIQUE(user_id, role)
+    );
+    ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+  END IF;
+  
+  -- Create profiles table if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+    CREATE TABLE public.profiles (
+      id uuid NOT NULL PRIMARY KEY, created_at timestamp with time zone NOT NULL DEFAULT now(),
+      updated_at timestamp with time zone NOT NULL DEFAULT now(), full_name text, phone text,
+      email text, address text, hourly_rate numeric DEFAULT 0, employment_contract_url text, emergency_contact text
+    );
+    ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+  END IF;
+  
+  -- Assign admin role
+  INSERT INTO public.user_roles (user_id, role) VALUES ('$USER_ID', 'admin'::public.app_role)
+  ON CONFLICT (user_id, role) DO NOTHING;
+  
+  -- Create profile
+  INSERT INTO public.profiles (id, full_name, email) VALUES ('$USER_ID', '$FULL_NAME', '$ADMIN_EMAIL')
+  ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, email = EXCLUDED.email, updated_at = now();
 END \$\$;
 
 COMMIT;
@@ -256,7 +252,7 @@ EOF
 )
 
 echo "$SQL_SCRIPT" | docker exec -i supabase-db psql -U postgres -d postgres > /dev/null 2>&1
-echo -e "${GREEN}✓${NC} Admin user created"
+echo -e "${GREEN}✓${NC} Admin role and profile created"
 echo ""
 
 # Step 10: Build and start the app container
