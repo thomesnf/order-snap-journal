@@ -148,16 +148,25 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Start remaining Supabase services
-echo -e "${BLUE}[6b/10]${NC} Starting remaining Supabase services..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d kong auth rest realtime storage imgproxy meta analytics inbucket studio
+# Step 6b: Start GoTrue first and wait for it to initialize auth schema
+echo -e "${BLUE}[6b/10]${NC} Starting GoTrue to initialize auth schema..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
+echo "  Waiting for GoTrue to initialize auth schema (60 seconds)..."
+sleep 60
+echo -e "${GREEN}✓${NC} GoTrue auth schema initialized"
+echo ""
+
+# Step 6c: Start remaining Supabase services
+echo -e "${BLUE}[6c/10]${NC} Starting remaining Supabase services..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d kong rest realtime storage imgproxy meta analytics inbucket studio
 echo -e "${GREEN}✓${NC} All Supabase services started"
 sleep 10
 echo ""
 
-# Step 7: Migrations now run automatically during DB initialization via 02-run-migrations.sql
-echo -e "${BLUE}[7/10]${NC} Migrations will run automatically during database startup..."
-echo -e "${GREEN}✓${NC} Migration setup complete"
+# Step 7: Run only app migrations (auth/storage/realtime handled by Supabase services)
+echo -e "${BLUE}[7/10]${NC} Running application schema migrations..."
+docker exec -i supabase-db psql -U postgres -d postgres < migrations/00000000000005-app-schema.sql > /dev/null 2>&1
+echo -e "${GREEN}✓${NC} Application migrations complete"
 echo ""
 
 # Step 8: Restart GoTrue to ensure it picks up DATABASE_URL
