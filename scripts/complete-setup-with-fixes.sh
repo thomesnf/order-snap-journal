@@ -192,116 +192,173 @@ docker exec -i supabase-db psql -U postgres -d postgres < migrations/00000000000
 echo -e "${GREEN}✓${NC} Application migrations complete"
 echo ""
 
-# Step 8: Restart GoTrue to ensure it picks up DATABASE_URL
-echo -e "${BLUE}[8/10]${NC} Restarting GoTrue with correct configuration..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted restart auth
-sleep 10
-echo -e "${GREEN}✓${NC} GoTrue restarted"
+# Step 8: Verify GoTrue is healthy
+echo -e "${BLUE}[8/10]${NC} Verifying GoTrue health..."
+for i in {1..20}; do
+    # Check GoTrue directly on its internal port
+    GOTRUE_HEALTH=$(docker exec supabase-auth wget -q -O- http://localhost:9999/health 2>/dev/null || echo "fail")
+    
+    if [[ "$GOTRUE_HEALTH" == *"ok"* ]] || [[ "$GOTRUE_HEALTH" == *"healthy"* ]]; then
+        echo -e "${GREEN}✓${NC} GoTrue is healthy (attempt $i)"
+        break
+    fi
+    
+    if [ $i -eq 20 ]; then
+        echo -e "${YELLOW}⚠${NC} GoTrue health check inconclusive, proceeding anyway"
+        echo "GoTrue response: $GOTRUE_HEALTH"
+        break
+    fi
+    
+    echo "  Checking GoTrue health... ($i/20)"
+    sleep 2
+done
 echo ""
 
-# Step 9: Create admin user with default password
+# Step 8b: Wait for Kong to be ready to route
+echo -e "${BLUE}[8b/10]${NC} Waiting for Kong gateway to be ready..."
+for i in {1..20}; do
+    KONG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000 2>/dev/null || echo "000")
+    
+    if [ "$KONG_STATUS" != "000" ]; then
+        echo -e "${GREEN}✓${NC} Kong is responding (attempt $i)"
+        break
+    fi
+    
+    if [ $i -eq 20 ]; then
+        echo -e "${YELLOW}⚠${NC} Kong not fully ready, but proceeding"
+        break
+    fi
+    
+    echo "  Waiting for Kong... ($i/20)"
+    sleep 2
+done
+sleep 5
+echo ""
+
+# Step 9: Create admin user directly in database with proper bcrypt hash
 echo -e "${BLUE}[9/10]${NC} Creating admin user..."
 ADMIN_EMAIL="admin@localhost"
 ADMIN_PASSWORD="admin123456"
 FULL_NAME="Admin User"
 
-echo "Creating admin user via GoTrue API: $ADMIN_EMAIL"
+echo "Creating admin user in database: $ADMIN_EMAIL"
 
-# Wait for GoTrue to be fully ready with health check
-echo "Waiting for GoTrue API to be ready..."
-for i in {1..30}; do
-    HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/auth/v1/health 2>/dev/null || echo "000")
-    
-    if [ "$HEALTH_CHECK" = "200" ]; then
-        echo -e "${GREEN}✓${NC} GoTrue API is ready (attempt $i)"
-        break
-    fi
-    
-    if [ $i -eq 30 ]; then
-        echo -e "${RED}✗${NC} GoTrue API failed to become ready"
-        echo "Checking GoTrue logs:"
-        docker logs supabase-auth --tail 50
-        exit 1
-    fi
-    
-    echo "  Waiting for GoTrue API... ($i/30)"
-    sleep 2
-done
-
-# Create admin user via GoTrue API (this handles password hashing correctly)
-RESPONSE=$(curl -s -X POST \
-  http://localhost:8000/auth/v1/admin/users \
-  -H "apikey: $SUPABASE_ANON_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"email\": \"$ADMIN_EMAIL\",
-    \"password\": \"$ADMIN_PASSWORD\",
-    \"email_confirm\": true,
-    \"user_metadata\": {
-      \"full_name\": \"$FULL_NAME\"
-    }
-  }")
-
-# Extract user ID from response
-USER_ID=$(echo "$RESPONSE" | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
-
-if [ -z "$USER_ID" ]; then
-    echo -e "${RED}✗${NC} Failed to create user via GoTrue API"
-    echo "Response: $RESPONSE"
-    exit 1
-fi
-
-echo -e "${GREEN}✓${NC} User created successfully via GoTrue"
-echo "User ID: $USER_ID"
-
-# Now assign admin role and create profile in database
-SQL_SCRIPT=$(cat <<EOF
-BEGIN;
-
-DO \$\$
+# Create user directly in database with proper bcrypt hash
+# GoTrue uses bcrypt with cost 10 by default
+docker exec -i supabase-db psql -U postgres -d postgres << 'EOSQL'
+DO $$
+DECLARE
+  v_user_id uuid;
+  v_encrypted_password text;
 BEGIN
-  -- Create app_role enum if it doesn't exist
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
-    CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+  -- Generate bcrypt hash with cost factor 10
+  v_encrypted_password := crypt('admin123456', gen_salt('bf', 10));
+  
+  -- Insert or update user in auth.users
+  INSERT INTO auth.users (
+    id,
+    instance_id,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    aud,
+    role,
+    created_at,
+    updated_at,
+    confirmation_token,
+    recovery_token,
+    email_change_token_new,
+    email_change
+  ) VALUES (
+    gen_random_uuid(),
+    '00000000-0000-0000-0000-000000000000',
+    'admin@localhost',
+    v_encrypted_password,
+    now(),
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{"full_name": "Admin User"}'::jsonb,
+    'authenticated',
+    'authenticated',
+    now(),
+    now(),
+    '',
+    '',
+    '',
+    ''
+  )
+  ON CONFLICT (email) 
+  DO UPDATE SET
+    encrypted_password = EXCLUDED.encrypted_password,
+    email_confirmed_at = now(),
+    updated_at = now(),
+    raw_user_meta_data = EXCLUDED.raw_user_meta_data
+  RETURNING id INTO v_user_id;
+  
+  -- Get user_id if it was an update
+  IF v_user_id IS NULL THEN
+    SELECT id INTO v_user_id FROM auth.users WHERE email = 'admin@localhost';
   END IF;
   
-  -- Create user_roles table if it doesn't exist
-  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
-    CREATE TABLE public.user_roles (
-      id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-      user_id uuid NOT NULL, role public.app_role NOT NULL,
-      created_at timestamp with time zone NOT NULL DEFAULT now(),
-      UNIQUE(user_id, role)
-    );
-    ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
-  END IF;
+  -- Create identity for email provider
+  INSERT INTO auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  ) VALUES (
+    v_user_id,
+    v_user_id,
+    jsonb_build_object('sub', v_user_id::text, 'email', 'admin@localhost'),
+    'email',
+    now(),
+    now(),
+    now()
+  )
+  ON CONFLICT (provider, id) 
+  DO UPDATE SET
+    last_sign_in_at = now(),
+    updated_at = now();
+    
+  RAISE NOTICE 'User created/updated with ID: %', v_user_id;
+END $$;
+EOSQL
+
+# Get the user ID for role assignment
+docker exec -i supabase-db psql -U postgres -d postgres << 'EOSQL'
+DO $$
+DECLARE
+  v_user_id uuid;
+BEGIN
+  -- Get the user ID we just created
+  SELECT id INTO v_user_id FROM auth.users WHERE email = 'admin@localhost';
   
-  -- Create profiles table if it doesn't exist
-  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
-    CREATE TABLE public.profiles (
-      id uuid NOT NULL PRIMARY KEY, created_at timestamp with time zone NOT NULL DEFAULT now(),
-      updated_at timestamp with time zone NOT NULL DEFAULT now(), full_name text, phone text,
-      email text, address text, hourly_rate numeric DEFAULT 0, employment_contract_url text, emergency_contact text
-    );
-    ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Failed to find created user';
   END IF;
   
   -- Assign admin role
-  INSERT INTO public.user_roles (user_id, role) VALUES ('$USER_ID', 'admin'::public.app_role)
+  INSERT INTO public.user_roles (user_id, role) 
+  VALUES (v_user_id, 'admin'::public.app_role)
   ON CONFLICT (user_id, role) DO NOTHING;
   
   -- Create profile
-  INSERT INTO public.profiles (id, full_name, email) VALUES ('$USER_ID', '$FULL_NAME', '$ADMIN_EMAIL')
-  ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, email = EXCLUDED.email, updated_at = now();
-END \$\$;
+  INSERT INTO public.profiles (id, full_name, email) 
+  VALUES (v_user_id, 'Admin User', 'admin@localhost')
+  ON CONFLICT (id) DO UPDATE 
+  SET full_name = EXCLUDED.full_name, 
+      email = EXCLUDED.email, 
+      updated_at = now();
+      
+  RAISE NOTICE 'Admin role and profile created for user: %', v_user_id;
+END $$;
+EOSQL
 
-COMMIT;
-EOF
-)
-
-echo "$SQL_SCRIPT" | docker exec -i supabase-db psql -U postgres -d postgres > /dev/null 2>&1
-echo -e "${GREEN}✓${NC} Admin role and profile created"
+echo -e "${GREEN}✓${NC} Admin user, role, and profile created"
 echo ""
 
 # Step 10: Build and start the app container
