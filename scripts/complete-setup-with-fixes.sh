@@ -175,9 +175,26 @@ FULL_NAME="Admin User"
 
 echo "Creating admin user via GoTrue API: $ADMIN_EMAIL"
 
-# Wait for GoTrue to be ready
-echo "Waiting for GoTrue to be ready..."
-sleep 5
+# Wait for GoTrue to be fully ready with health check
+echo "Waiting for GoTrue API to be ready..."
+for i in {1..30}; do
+    HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/auth/v1/health 2>/dev/null || echo "000")
+    
+    if [ "$HEALTH_CHECK" = "200" ]; then
+        echo -e "${GREEN}✓${NC} GoTrue API is ready (attempt $i)"
+        break
+    fi
+    
+    if [ $i -eq 30 ]; then
+        echo -e "${RED}✗${NC} GoTrue API failed to become ready"
+        echo "Checking GoTrue logs:"
+        docker logs supabase-auth --tail 50
+        exit 1
+    fi
+    
+    echo "  Waiting for GoTrue API... ($i/30)"
+    sleep 2
+done
 
 # Create admin user via GoTrue API (this handles password hashing correctly)
 RESPONSE=$(curl -s -X POST \
