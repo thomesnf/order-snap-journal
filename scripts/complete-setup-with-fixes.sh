@@ -385,8 +385,8 @@ fi
 echo -e "${GREEN}✓${NC} Admin user, role, and profile created"
 echo ""
 
-# Step 10: Build and start the app container
-echo -e "${BLUE}[10/10]${NC} Building and starting the app container..."
+# Build and start the app container as part of step 6c
+echo "  Building and starting the app container..."
 
 # Explicitly set environment variables with their values for docker-compose
 export VITE_SUPABASE_URL="${VITE_SUPABASE_URL}"
@@ -557,6 +557,9 @@ else
     echo "   docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app"
     exit 1
 fi
+
+echo -e "${GREEN}✓${NC} App container started and verified"
+echo -e "${GREEN}✓${NC} Step 6c complete: Admin user created and app container running"
 echo ""
 
 echo ""
