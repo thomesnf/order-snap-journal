@@ -396,13 +396,41 @@ echo "Building app with:"
 echo "  VITE_SUPABASE_URL=$VITE_SUPABASE_URL"
 echo "  VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID"
 
+# Stop existing app container if running
+echo "Stopping existing app container..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted stop app 2>/dev/null || true
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted rm -f app 2>/dev/null || true
+
 # Build and start the app container specifically
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app
-echo -e "${GREEN}✓${NC} App container built and started"
+echo "Building app container (this may take a few minutes)..."
+if docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app; then
+    echo -e "${GREEN}✓${NC} App container built and started"
+else
+    echo -e "${RED}✗${NC} Failed to build/start app container!"
+    echo ""
+    echo "Try manually with:"
+    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app"
+    exit 1
+fi
 echo ""
 
-echo "Waiting for services to stabilize (10 seconds)..."
-sleep 10
+echo "Waiting for app to initialize (15 seconds)..."
+sleep 15
+echo ""
+
+# Verify app container is actually running
+if docker ps | grep -q "order-snap-journal-app"; then
+    echo -e "${GREEN}✓${NC} App container is running"
+else
+    echo -e "${RED}✗${NC} App container failed to start!"
+    echo ""
+    echo "Check logs with:"
+    echo "  docker logs order-snap-journal-app"
+    echo ""
+    echo "Or restart manually:"
+    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app"
+    exit 1
+fi
 echo ""
 
 echo "=============================================="
@@ -411,22 +439,33 @@ echo "=============================================="
 echo ""
 
 # Verify all containers are running
-echo "Container status:"
-docker-compose -f docker-compose.self-hosted.yml ps
+echo "Final container status:"
+docker-compose -f docker-compose.self-hosted.yml ps | grep -E "(order-snap-journal-app|supabase-db|supabase-auth|kong)" || docker ps | grep -E "(order-snap-journal-app|supabase)" 
 echo ""
 
+echo "=============================================="
+echo -e "${GREEN}  ✓ Setup Complete!${NC}"
+echo "=============================================="
+echo ""
 echo "Access your application:"
-echo -e "  ${GREEN}Frontend:${NC} http://13.37.0.96"
-echo -e "  ${GREEN}Supabase Studio:${NC} http://localhost:3001"
-echo -e "  ${GREEN}API Gateway:${NC} http://13.37.0.96:8000"
+echo -e "  ${GREEN}🌐 Frontend:${NC} http://13.37.0.96"
+echo -e "  ${GREEN}📊 Studio:${NC} http://localhost:3001"
+echo -e "  ${GREEN}🔌 API:${NC} http://13.37.0.96:8000"
 echo ""
-echo -e "${YELLOW}Default Admin Credentials:${NC}"
-echo -e "  Email: ${GREEN}admin@localhost${NC}"
-echo -e "  Password: ${GREEN}admin123456${NC}"
+echo -e "${YELLOW}Default Admin Login:${NC}"
+echo -e "  📧 Email: ${GREEN}admin@localhost${NC}"
+echo -e "  🔑 Password: ${GREEN}admin123456${NC}"
 echo ""
-echo "Verify setup:"
-echo "  sudo ./scripts/verify-local-connection.sh"
+echo -e "${BLUE}Next Steps:${NC}"
+echo "  1. Open http://13.37.0.96 in your browser"
+echo "  2. Login with the credentials above"
 echo ""
-echo "Test login:"
-echo "  sudo ./scripts/test-local-login.sh"
+echo -e "${BLUE}Verification Commands:${NC}"
+echo "  • Check connection: sudo ./scripts/verify-local-connection.sh"
+echo "  • Test login: sudo ./scripts/test-local-login.sh"
+echo "  • View logs: docker logs order-snap-journal-app"
+echo ""
+echo -e "${YELLOW}Troubleshooting:${NC}"
+echo "  • If app not accessible: sudo ./scripts/diagnose-network.sh"
+echo "  • Rebuild app: sudo ./scripts/rebuild-app-local.sh"
 echo ""
