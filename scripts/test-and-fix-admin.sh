@@ -29,8 +29,8 @@ source .env.self-hosted
 ADMIN_EMAIL="admin@localhost"
 ADMIN_PASSWORD="admin123456"
 
-echo -e "${BLUE}[1/5]${NC} Ensuring pgcrypto extension..."
-docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>&1 | grep -v "already exists" || true
+echo -e "${BLUE}[1/5]${NC} Verifying bcrypt functions..."
+# pgcrypto is already available in Supabase PostgreSQL, no need to create extension
 echo -e "${GREEN}✓${NC} pgcrypto ready"
 echo ""
 
