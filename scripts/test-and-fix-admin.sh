@@ -29,15 +29,11 @@ source .env.self-hosted
 ADMIN_EMAIL="admin@localhost"
 ADMIN_PASSWORD="admin123456"
 
-echo -e "${BLUE}[1/5]${NC} Checking pgcrypto extension..."
-PGCRYPTO_CHECK=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c "SELECT COUNT(*) FROM pg_extension WHERE extname = 'pgcrypto';" 2>&1 | xargs)
-if [ "$PGCRYPTO_CHECK" != "1" ]; then
-    echo -e "${YELLOW}⚠${NC} pgcrypto not enabled - enabling now..."
-    docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>&1
-    echo -e "${GREEN}✓${NC} pgcrypto extension enabled"
-else
-    echo -e "${GREEN}✓${NC} pgcrypto extension available"
-fi
+echo -e "${BLUE}[1/5]${NC} Ensuring pgcrypto extension..."
+docker exec -i supabase-db psql -U postgres -d postgres << 'SQL' 2>&1 | grep -v "already exists" || true
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+SQL
+echo -e "${GREEN}✓${NC} pgcrypto ready"
 echo ""
 
 echo -e "${BLUE}[2/5]${NC} Checking if admin user exists..."
