@@ -34,12 +34,29 @@ echo ""
 
 # Check nginx process inside container
 echo -e "${BLUE}[2/6]${NC} Checking nginx inside container..."
-NGINX_RUNNING=$(docker exec order-snap-journal-app pgrep nginx >/dev/null 2>&1 && echo "yes" || echo "no")
-if [ "$NGINX_RUNNING" = "yes" ]; then
-    echo -e "${GREEN}✓${NC} Nginx is running inside container"
+
+# Get the actual container name (could have -1 suffix)
+APP_CONTAINER=$(docker ps --filter "name=order-snap-journal-app" --format "{{.Names}}" | head -1)
+
+if [ -z "$APP_CONTAINER" ]; then
+    echo -e "${RED}✗${NC} Cannot find app container!"
 else
-    echo -e "${RED}✗${NC} Nginx is NOT running inside container!"
-    echo "  Check logs: docker logs order-snap-journal-app"
+    # Check multiple ways to detect nginx
+    NGINX_PROCESS=$(docker exec "$APP_CONTAINER" ps aux 2>/dev/null | grep -E "nginx: (master|worker)" | grep -v grep || echo "")
+    NGINX_PID=$(docker exec "$APP_CONTAINER" pidof nginx 2>/dev/null || echo "")
+    
+    if [ -n "$NGINX_PROCESS" ] || [ -n "$NGINX_PID" ]; then
+        NGINX_COUNT=$(docker exec "$APP_CONTAINER" pgrep nginx 2>/dev/null | wc -l)
+        echo -e "${GREEN}✓${NC} Nginx is running inside container ($NGINX_COUNT processes)"
+    else
+        echo -e "${RED}✗${NC} Nginx is NOT running inside container!"
+        echo ""
+        echo "Container processes:"
+        docker exec "$APP_CONTAINER" ps aux 2>/dev/null | head -15 || echo "  Cannot list processes"
+        echo ""
+        echo "Recent container logs:"
+        docker logs --tail 20 "$APP_CONTAINER" 2>&1 || echo "  Cannot get logs"
+    fi
 fi
 echo ""
 
