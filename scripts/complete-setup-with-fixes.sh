@@ -385,15 +385,15 @@ fi
 echo -e "${GREEN}✓${NC} Admin user, role, and profile created"
 echo ""
 
-# Build and start the app container as part of step 6c
-echo "  Building and starting the app container..."
+echo ""
+echo -e "${BLUE}[10/10]${NC} Building and starting app container..."
 
-# Explicitly set environment variables with their values for docker-compose
+# Explicitly set environment variables for docker-compose
 export VITE_SUPABASE_URL="${VITE_SUPABASE_URL}"
 export VITE_SUPABASE_PUBLISHABLE_KEY="${VITE_SUPABASE_PUBLISHABLE_KEY}"
 export VITE_SUPABASE_PROJECT_ID="${VITE_SUPABASE_PROJECT_ID:-local}"
 
-# Verify the variables are set before building
+# Verify the variables are set
 if [ -z "$VITE_SUPABASE_URL" ]; then
     echo -e "${RED}✗${NC} VITE_SUPABASE_URL is not set!"
     exit 1
@@ -404,157 +404,74 @@ if [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
     exit 1
 fi
 
-echo "Building app with:"
-echo "  VITE_SUPABASE_URL=$VITE_SUPABASE_URL"
-echo "  VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID"
+echo "  Environment configured:"
+echo "    VITE_SUPABASE_URL=$VITE_SUPABASE_URL"
+echo "    VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID"
 
-# Stop existing app container if running
-echo "Stopping existing app container..."
+# Clean up any existing app container
+echo "  Cleaning up existing app container..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted stop app 2>/dev/null || true
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted rm -f app 2>/dev/null || true
 docker rmi order-snap-journal-app 2>/dev/null || true
 
-# Build the app container first (separate from up)
-echo "Building app container (this may take a few minutes)..."
-echo -e "${YELLOW}Build output:${NC}"
-if ! docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app 2>&1 | tee /tmp/app-build.log; then
-    echo -e "${RED}✗${NC} Failed to build app container!"
-    echo ""
-    echo "Build logs saved to: /tmp/app-build.log"
+# Build and start app using the same command that works manually
+echo "  Building and starting app container (this may take a few minutes)..."
+if docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app; then
+    echo -e "${GREEN}✓${NC} App container build started"
+else
+    echo -e "${RED}✗${NC} Failed to build/start app container!"
     echo ""
     echo "Try manually:"
-    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app"
+    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app"
     exit 1
 fi
 
-echo -e "${GREEN}✓${NC} App container built successfully"
-echo ""
+# Wait for container to initialize
+echo "  Waiting for app to initialize (25 seconds)..."
+sleep 25
 
-# Now start the app container with retry logic
-echo "Starting app container..."
-START_ATTEMPT=1
-MAX_START_ATTEMPTS=3
+# Verify app container is running
+CONTAINER_NAME=$(docker ps --filter "name=order-snap-journal-app" --filter "status=running" --format "{{.Names}}" | head -1)
 
-while [ $START_ATTEMPT -le $MAX_START_ATTEMPTS ]; do
-    echo "  Attempt $START_ATTEMPT/$MAX_START_ATTEMPTS..."
-    
-    if docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app 2>&1; then
-        echo -e "${GREEN}✓${NC} App container started"
-        break
-    else
-        echo -e "${YELLOW}⚠${NC} Failed to start app container (attempt $START_ATTEMPT)"
-        
-        if [ $START_ATTEMPT -lt $MAX_START_ATTEMPTS ]; then
-            echo "  Cleaning up and retrying..."
-            docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted rm -f app 2>/dev/null || true
-            sleep 5
-            START_ATTEMPT=$((START_ATTEMPT + 1))
-        else
-            echo -e "${RED}✗${NC} Failed to start app container after $MAX_START_ATTEMPTS attempts!"
-            echo ""
-            echo "Try manually:"
-            echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app"
-            exit 1
-        fi
-    fi
-done
-
-echo "Waiting for app to initialize (20 seconds)..."
-sleep 20
-echo ""
-
-# Show app container logs during startup
-echo "App container startup logs:"
-echo "----------------------------------------"
-docker logs $(docker ps -a --filter "name=order-snap-journal-app" --format "{{.Names}}" | head -1) 2>&1 | tail -30
-echo "----------------------------------------"
-echo ""
-
-# Verify app container is actually running
-echo "Verifying app container status..."
-CONTAINER_NAME=$(docker ps -a --filter "name=order-snap-journal-app" --format "{{.Names}}" | head -1)
-CONTAINER_RUNNING=$(docker ps --filter "name=order-snap-journal-app" --filter "status=running" --format "{{.Names}}" | wc -l)
-
-if [ "$CONTAINER_RUNNING" -gt "0" ]; then
+if [ -n "$CONTAINER_NAME" ]; then
     echo -e "${GREEN}✓${NC} App container is running: $CONTAINER_NAME"
     
-    # Check if Nginx is running inside (multiple detection methods)
-    echo "Checking Nginx status..."
-    NGINX_RUNNING=0
-    
-    # Method 1: Check for nginx processes
+    # Check if Nginx is running
     if docker exec "$CONTAINER_NAME" pgrep nginx >/dev/null 2>&1; then
-        NGINX_RUNNING=1
-    fi
-    
-    # Method 2: Check ps output for nginx master/worker
-    if docker exec "$CONTAINER_NAME" ps aux 2>/dev/null | grep -qE "nginx: (master|worker)"; then
-        NGINX_RUNNING=1
-    fi
-    
-    if [ $NGINX_RUNNING -eq 1 ]; then
         NGINX_COUNT=$(docker exec "$CONTAINER_NAME" pgrep nginx 2>/dev/null | wc -l)
-        echo -e "${GREEN}✓${NC} Nginx is running inside container ($NGINX_COUNT processes)"
+        echo -e "${GREEN}✓${NC} Nginx is running ($NGINX_COUNT processes)"
         
-        # Test if port 80 is accessible
-        echo "Testing HTTP access..."
+        # Test HTTP access
         sleep 3
         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://13.37.0.96 2>/dev/null || echo "000")
         
         if [ "$HTTP_CODE" = "200" ]; then
-            echo -e "${GREEN}✓${NC} App is accessible on http://13.37.0.96 (HTTP $HTTP_CODE)"
-        elif [ "$HTTP_CODE" != "000" ]; then
-            echo -e "${YELLOW}⚠${NC} App responding but returned HTTP $HTTP_CODE"
+            echo -e "${GREEN}✓${NC} App is accessible at http://13.37.0.96"
         else
-            echo -e "${YELLOW}⚠${NC} Cannot reach app, check network configuration"
+            echo -e "${YELLOW}⚠${NC} App returned HTTP $HTTP_CODE"
         fi
     else
-        echo -e "${YELLOW}⚠${NC} Nginx might not be running. Checking what's in the container:"
-        echo ""
-        echo "Container processes:"
-        docker exec "$CONTAINER_NAME" ps aux 2>/dev/null || echo "Cannot list processes"
-        echo ""
-        echo "Recent container logs:"
-        docker logs --tail 30 "$CONTAINER_NAME"
-        echo ""
-        echo "Files in /usr/share/nginx/html:"
-        docker exec "$CONTAINER_NAME" ls -la /usr/share/nginx/html 2>/dev/null || echo "Cannot list files"
+        echo -e "${YELLOW}⚠${NC} Nginx not detected in container"
+        echo "  Container logs:"
+        docker logs --tail 20 "$CONTAINER_NAME" 2>&1
     fi
 else
-    echo -e "${RED}✗${NC} App container failed to start or exited!"
-    echo ""
-    echo -e "${YELLOW}Container status:${NC}"
-    docker ps -a | grep "order-snap-journal-app" || echo "Container not found"
-    echo ""
+    echo -e "${RED}✗${NC} App container is not running!"
     
-    # Get the actual container name if it exists
+    # Show logs from failed container
     FAILED_CONTAINER=$(docker ps -a --filter "name=order-snap-journal-app" --format "{{.Names}}" | head -1)
-    
     if [ -n "$FAILED_CONTAINER" ]; then
-        echo -e "${YELLOW}Full container logs for $FAILED_CONTAINER:${NC}"
-        docker logs "$FAILED_CONTAINER" 2>&1 || echo "No logs available"
         echo ""
-        echo -e "${YELLOW}Container inspection:${NC}"
-        docker inspect "$FAILED_CONTAINER" --format='{{.State.Status}}: {{.State.Error}}' 2>&1 || echo "Cannot inspect"
+        echo "Container logs:"
+        docker logs --tail 30 "$FAILED_CONTAINER" 2>&1
         echo ""
-        echo -e "${YELLOW}Exit code:${NC}"
-        docker inspect "$FAILED_CONTAINER" --format='{{.State.ExitCode}}' 2>&1 || echo "Unknown"
+        echo "Container status:"
+        docker inspect "$FAILED_CONTAINER" --format='Status: {{.State.Status}}, Exit Code: {{.State.ExitCode}}' 2>&1
     fi
     
     echo ""
-    echo "Troubleshooting steps:"
-    echo "1. Check if build included all files:"
-    echo "   docker run --rm order-snap-journal-app ls -la /usr/share/nginx/html"
-    echo ""
-    echo "2. Manually start with logs (foreground):"
-    echo "   docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up app"
-    echo ""
-    echo "3. Test the entrypoint manually:"
-    echo "   docker run --rm -it order-snap-journal-app sh -c 'ls -la /usr/share/nginx/html && nginx -t'"
-    echo ""
-    echo "4. Rebuild from scratch:"
-    echo "   docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app"
-    echo "   docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app"
+    echo "Try manually:"
+    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app"
     exit 1
 fi
 
