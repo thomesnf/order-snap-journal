@@ -198,8 +198,12 @@ for i in {1..30}; do
     # Check GoTrue health endpoint
     GOTRUE_HEALTH=$(docker exec supabase-auth wget -q -O- http://localhost:9999/health 2>/dev/null || echo "fail")
     
-    if [[ "$GOTRUE_HEALTH" == *"ok"* ]] || [[ "$GOTRUE_HEALTH" == *"healthy"* ]]; then
+    # A healthy response contains "name":"GoTrue" - this indicates the service is running
+    # Response format: {"error":"","name":"GoTrue","description":"GoTrue is a user registration and authentication API"}
+    # An empty "error" field means NO error (success)
+    if [[ "$GOTRUE_HEALTH" == *'"name":"GoTrue"'* ]]; then
         echo -e "${GREEN}✓${NC} GoTrue is healthy (attempt $i)"
+        echo "Response: $GOTRUE_HEALTH"
         break
     fi
     
