@@ -261,6 +261,9 @@ DO \$\$
 DECLARE
   v_user_id uuid;
 BEGIN
+  -- Enable pgcrypto extension for password hashing
+  CREATE EXTENSION IF NOT EXISTS pgcrypto;
+  
   -- Delete existing user if present
   DELETE FROM auth.identities WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
   DELETE FROM public.user_roles WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
