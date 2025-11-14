@@ -257,13 +257,13 @@ echo "  Creating admin user: $ADMIN_EMAIL"
 
 # Create user directly in database - simpler approach
 docker exec -i supabase-db psql -U postgres -d postgres <<EOF
+-- Enable pgcrypto extension for password hashing (must be outside DO block)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 DO \$\$
 DECLARE
   v_user_id uuid;
 BEGIN
-  -- Enable pgcrypto extension for password hashing
-  CREATE EXTENSION IF NOT EXISTS pgcrypto;
-  
   -- Delete existing user if present
   DELETE FROM auth.identities WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
   DELETE FROM public.user_roles WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
