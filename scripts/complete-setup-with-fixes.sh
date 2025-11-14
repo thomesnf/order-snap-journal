@@ -192,10 +192,10 @@ docker exec -i supabase-db psql -U postgres -d postgres < migrations/00000000000
 echo -e "${GREEN}✓${NC} Application migrations complete"
 echo ""
 
-# Step 8: Verify GoTrue is healthy
-echo -e "${BLUE}[8/10]${NC} Verifying GoTrue health..."
-for i in {1..20}; do
-    # Check GoTrue directly on its internal port
+# Step 8: Verify GoTrue is healthy and check auth configuration
+echo -e "${BLUE}[8/10]${NC} Verifying GoTrue health and configuration..."
+for i in {1..30}; do
+    # Check GoTrue health endpoint
     GOTRUE_HEALTH=$(docker exec supabase-auth wget -q -O- http://localhost:9999/health 2>/dev/null || echo "fail")
     
     if [[ "$GOTRUE_HEALTH" == *"ok"* ]] || [[ "$GOTRUE_HEALTH" == *"healthy"* ]]; then
@@ -203,13 +203,21 @@ for i in {1..20}; do
         break
     fi
     
-    if [ $i -eq 20 ]; then
-        echo -e "${YELLOW}⚠${NC} GoTrue health check inconclusive, proceeding anyway"
+    if [ $i -eq 30 ]; then
+        echo -e "${RED}✗${NC} GoTrue health check failed!"
         echo "GoTrue response: $GOTRUE_HEALTH"
-        break
+        echo ""
+        echo "Checking GoTrue logs for errors:"
+        docker logs supabase-auth --tail 50 2>&1 | grep -i "error\|fatal\|fail" || echo "No obvious errors in logs"
+        echo ""
+        echo "Full GoTrue configuration:"
+        docker exec supabase-auth env | grep -E "GOTRUE_|API_|SITE_" | sort
+        exit 1
     fi
     
-    echo "  Checking GoTrue health... ($i/20)"
+    if [ $((i % 10)) -eq 0 ]; then
+        echo "  Waiting for GoTrue health... ($i/30)"
+    fi
     sleep 2
 done
 echo ""
@@ -418,18 +426,37 @@ fi
 echo -e "${GREEN}✓${NC} App container built successfully"
 echo ""
 
-# Now start the app container
+# Now start the app container with retry logic
 echo "Starting app container..."
-if ! docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app 2>&1; then
-    echo -e "${RED}✗${NC} Failed to start app container!"
-    echo ""
-    echo "Try manually:"
-    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app"
-    exit 1
-fi
+START_ATTEMPT=1
+MAX_START_ATTEMPTS=3
 
-echo "Waiting for app to initialize (15 seconds)..."
-sleep 15
+while [ $START_ATTEMPT -le $MAX_START_ATTEMPTS ]; do
+    echo "  Attempt $START_ATTEMPT/$MAX_START_ATTEMPTS..."
+    
+    if docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app 2>&1; then
+        echo -e "${GREEN}✓${NC} App container started"
+        break
+    else
+        echo -e "${YELLOW}⚠${NC} Failed to start app container (attempt $START_ATTEMPT)"
+        
+        if [ $START_ATTEMPT -lt $MAX_START_ATTEMPTS ]; then
+            echo "  Cleaning up and retrying..."
+            docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted rm -f app 2>/dev/null || true
+            sleep 5
+            START_ATTEMPT=$((START_ATTEMPT + 1))
+        else
+            echo -e "${RED}✗${NC} Failed to start app container after $MAX_START_ATTEMPTS attempts!"
+            echo ""
+            echo "Try manually:"
+            echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app"
+            exit 1
+        fi
+    fi
+done
+
+echo "Waiting for app to initialize (20 seconds)..."
+sleep 20
 echo ""
 
 # Show app container logs during startup
@@ -447,18 +474,35 @@ CONTAINER_RUNNING=$(docker ps --filter "name=order-snap-journal-app" --filter "s
 if [ "$CONTAINER_RUNNING" -gt "0" ]; then
     echo -e "${GREEN}✓${NC} App container is running: $CONTAINER_NAME"
     
-    # Check if Nginx is running inside
+    # Check if Nginx is running inside (multiple detection methods)
     echo "Checking Nginx status..."
-    if docker exec "$CONTAINER_NAME" ps aux 2>/dev/null | grep -q "[n]ginx"; then
-        echo -e "${GREEN}✓${NC} Nginx is running inside container"
+    NGINX_RUNNING=0
+    
+    # Method 1: Check for nginx processes
+    if docker exec "$CONTAINER_NAME" pgrep nginx >/dev/null 2>&1; then
+        NGINX_RUNNING=1
+    fi
+    
+    # Method 2: Check ps output for nginx master/worker
+    if docker exec "$CONTAINER_NAME" ps aux 2>/dev/null | grep -qE "nginx: (master|worker)"; then
+        NGINX_RUNNING=1
+    fi
+    
+    if [ $NGINX_RUNNING -eq 1 ]; then
+        NGINX_COUNT=$(docker exec "$CONTAINER_NAME" pgrep nginx 2>/dev/null | wc -l)
+        echo -e "${GREEN}✓${NC} Nginx is running inside container ($NGINX_COUNT processes)"
         
         # Test if port 80 is accessible
         echo "Testing HTTP access..."
         sleep 3
-        if curl -s -o /dev/null -w "%{http_code}" http://13.37.0.96 | grep -q "200"; then
-            echo -e "${GREEN}✓${NC} App is accessible on http://13.37.0.96"
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://13.37.0.96 2>/dev/null || echo "000")
+        
+        if [ "$HTTP_CODE" = "200" ]; then
+            echo -e "${GREEN}✓${NC} App is accessible on http://13.37.0.96 (HTTP $HTTP_CODE)"
+        elif [ "$HTTP_CODE" != "000" ]; then
+            echo -e "${YELLOW}⚠${NC} App responding but returned HTTP $HTTP_CODE"
         else
-            echo -e "${YELLOW}⚠${NC} App may not be fully ready yet, check manually"
+            echo -e "${YELLOW}⚠${NC} Cannot reach app, check network configuration"
         fi
     else
         echo -e "${YELLOW}⚠${NC} Nginx might not be running. Checking what's in the container:"
@@ -522,6 +566,39 @@ echo "Final container status:"
 docker ps --filter "name=supabase" --filter "name=order-snap" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo ""
 
+# Verify admin user exists and check auth
+echo "Verifying admin user and authentication..."
+ADMIN_EXISTS=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c \
+  "SELECT EXISTS(SELECT 1 FROM auth.users WHERE email='admin@localhost');" 2>/dev/null | xargs)
+
+if [ "$ADMIN_EXISTS" = "t" ]; then
+    echo -e "${GREEN}✓${NC} Admin user exists in database"
+    
+    # Show user confirmation status
+    ADMIN_CONFIRMED=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c \
+      "SELECT email_confirmed_at IS NOT NULL FROM auth.users WHERE email='admin@localhost';" 2>/dev/null | xargs)
+    
+    if [ "$ADMIN_CONFIRMED" = "t" ]; then
+        echo -e "${GREEN}✓${NC} Admin email is confirmed"
+    else
+        echo -e "${YELLOW}⚠${NC} Admin email is NOT confirmed!"
+    fi
+else
+    echo -e "${RED}✗${NC} Admin user NOT found in database!"
+    echo "  You may need to create it manually"
+fi
+
+echo ""
+echo "Checking GoTrue auth service..."
+GOTRUE_HEALTH=$(docker exec supabase-auth wget -q -O- http://localhost:9999/health 2>/dev/null || echo "unreachable")
+if [[ "$GOTRUE_HEALTH" == *"ok"* ]] || [[ "$GOTRUE_HEALTH" == *"healthy"* ]]; then
+    echo -e "${GREEN}✓${NC} GoTrue auth service is healthy"
+else
+    echo -e "${YELLOW}⚠${NC} GoTrue health check: $GOTRUE_HEALTH"
+    echo "  Check logs: docker logs supabase-auth --tail 50"
+fi
+
+echo ""
 echo "=============================================="
 echo -e "${GREEN}  ✓ Setup Complete!${NC}"
 echo "=============================================="
@@ -535,17 +612,14 @@ echo -e "${YELLOW}Default Admin Login:${NC}"
 echo -e "  📧 Email: ${GREEN}admin@localhost${NC}"
 echo -e "  🔑 Password: ${GREEN}admin123456${NC}"
 echo ""
-echo -e "${BLUE}Next Steps:${NC}"
-echo "  1. Open http://13.37.0.96 in your browser"
-echo "  2. Login with the credentials above"
+echo -e "${BLUE}⚠ Troubleshooting if login fails:${NC}"
+echo "  • Check GoTrue logs: docker logs supabase-auth --tail 50"
+echo "  • Test auth directly: curl http://13.37.0.96:8000/auth/v1/health"
+echo "  • Verify admin user: sudo ./scripts/test-local-login.sh"
+echo "  • Check all services: docker ps --filter 'name=supabase'"
 echo ""
 echo -e "${BLUE}Verification Commands:${NC}"
-echo "  • Check connection: sudo ./scripts/verify-local-connection.sh"
-echo "  • Test login: sudo ./scripts/test-local-login.sh"
+echo "  • Network status: sudo ./scripts/diagnose-network.sh"
+echo "  • App container: sudo ./scripts/check-app-container.sh"
 echo "  • View logs: docker logs $CONTAINER_NAME"
-echo "  • Check app status: sudo ./scripts/check-app-container.sh"
-echo ""
-echo -e "${YELLOW}Troubleshooting:${NC}"
-echo "  • If app not accessible: sudo ./scripts/diagnose-network.sh"
-echo "  • Rebuild app: sudo ./scripts/rebuild-app-local.sh"
 echo ""
