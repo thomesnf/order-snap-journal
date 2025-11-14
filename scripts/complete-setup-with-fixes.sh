@@ -435,20 +435,21 @@ echo ""
 # Show app container logs during startup
 echo "App container startup logs:"
 echo "----------------------------------------"
-docker logs order-snap-journal-app 2>&1 | tail -30
+docker logs $(docker ps -a --filter "name=order-snap-journal-app" --format "{{.Names}}" | head -1) 2>&1 | tail -30
 echo "----------------------------------------"
 echo ""
 
 # Verify app container is actually running
 echo "Verifying app container status..."
-CONTAINER_RUNNING=$(docker ps --filter "name=order-snap-journal-app" --filter "status=running" --format "{{.Names}}" | grep -c "order-snap-journal-app" || echo "0")
+CONTAINER_NAME=$(docker ps -a --filter "name=order-snap-journal-app" --format "{{.Names}}" | head -1)
+CONTAINER_RUNNING=$(docker ps --filter "name=order-snap-journal-app" --filter "status=running" --format "{{.Names}}" | wc -l)
 
-if [ "$CONTAINER_RUNNING" = "1" ]; then
-    echo -e "${GREEN}✓${NC} App container is running"
+if [ "$CONTAINER_RUNNING" -gt "0" ]; then
+    echo -e "${GREEN}✓${NC} App container is running: $CONTAINER_NAME"
     
     # Check if Nginx is running inside
     echo "Checking Nginx status..."
-    if docker exec order-snap-journal-app ps aux 2>/dev/null | grep -q "[n]ginx"; then
+    if docker exec "$CONTAINER_NAME" ps aux 2>/dev/null | grep -q "[n]ginx"; then
         echo -e "${GREEN}✓${NC} Nginx is running inside container"
         
         # Test if port 80 is accessible
@@ -460,8 +461,16 @@ if [ "$CONTAINER_RUNNING" = "1" ]; then
             echo -e "${YELLOW}⚠${NC} App may not be fully ready yet, check manually"
         fi
     else
-        echo -e "${YELLOW}⚠${NC} Nginx might not be running. Recent logs:"
-        docker logs --tail 20 order-snap-journal-app
+        echo -e "${YELLOW}⚠${NC} Nginx might not be running. Checking what's in the container:"
+        echo ""
+        echo "Container processes:"
+        docker exec "$CONTAINER_NAME" ps aux 2>/dev/null || echo "Cannot list processes"
+        echo ""
+        echo "Recent container logs:"
+        docker logs --tail 30 "$CONTAINER_NAME"
+        echo ""
+        echo "Files in /usr/share/nginx/html:"
+        docker exec "$CONTAINER_NAME" ls -la /usr/share/nginx/html 2>/dev/null || echo "Cannot list files"
     fi
 else
     echo -e "${RED}✗${NC} App container failed to start or exited!"
@@ -469,34 +478,48 @@ else
     echo -e "${YELLOW}Container status:${NC}"
     docker ps -a | grep "order-snap-journal-app" || echo "Container not found"
     echo ""
-    echo -e "${YELLOW}Full container logs:${NC}"
-    docker logs order-snap-journal-app 2>&1 || echo "No logs available"
-    echo ""
-    echo -e "${YELLOW}Container inspection:${NC}"
-    docker inspect order-snap-journal-app --format='{{.State.Status}}: {{.State.Error}}' 2>&1 || echo "Cannot inspect"
+    
+    # Get the actual container name if it exists
+    FAILED_CONTAINER=$(docker ps -a --filter "name=order-snap-journal-app" --format "{{.Names}}" | head -1)
+    
+    if [ -n "$FAILED_CONTAINER" ]; then
+        echo -e "${YELLOW}Full container logs for $FAILED_CONTAINER:${NC}"
+        docker logs "$FAILED_CONTAINER" 2>&1 || echo "No logs available"
+        echo ""
+        echo -e "${YELLOW}Container inspection:${NC}"
+        docker inspect "$FAILED_CONTAINER" --format='{{.State.Status}}: {{.State.Error}}' 2>&1 || echo "Cannot inspect"
+        echo ""
+        echo -e "${YELLOW}Exit code:${NC}"
+        docker inspect "$FAILED_CONTAINER" --format='{{.State.ExitCode}}' 2>&1 || echo "Unknown"
+    fi
+    
     echo ""
     echo "Troubleshooting steps:"
     echo "1. Check if build included all files:"
     echo "   docker run --rm order-snap-journal-app ls -la /usr/share/nginx/html"
     echo ""
-    echo "2. Manually start with logs:"
+    echo "2. Manually start with logs (foreground):"
     echo "   docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up app"
     echo ""
-    echo "3. Rebuild from scratch:"
+    echo "3. Test the entrypoint manually:"
+    echo "   docker run --rm -it order-snap-journal-app sh -c 'ls -la /usr/share/nginx/html && nginx -t'"
+    echo ""
+    echo "4. Rebuild from scratch:"
     echo "   docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app"
     echo "   docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app"
     exit 1
 fi
 echo ""
 
+echo ""
 echo "=============================================="
-echo -e "${GREEN}  Setup Complete!${NC}"
+echo -e "${GREEN}  Verifying Final Status${NC}"
 echo "=============================================="
 echo ""
 
 # Verify all containers are running
 echo "Final container status:"
-docker-compose -f docker-compose.self-hosted.yml ps | grep -E "(order-snap-journal-app|supabase-db|supabase-auth|kong)" || docker ps | grep -E "(order-snap-journal-app|supabase)" 
+docker ps --filter "name=supabase" --filter "name=order-snap" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo ""
 
 echo "=============================================="
@@ -519,7 +542,8 @@ echo ""
 echo -e "${BLUE}Verification Commands:${NC}"
 echo "  • Check connection: sudo ./scripts/verify-local-connection.sh"
 echo "  • Test login: sudo ./scripts/test-local-login.sh"
-echo "  • View logs: docker logs order-snap-journal-app"
+echo "  • View logs: docker logs $CONTAINER_NAME"
+echo "  • Check app status: sudo ./scripts/check-app-container.sh"
 echo ""
 echo -e "${YELLOW}Troubleshooting:${NC}"
 echo "  • If app not accessible: sudo ./scripts/diagnose-network.sh"
