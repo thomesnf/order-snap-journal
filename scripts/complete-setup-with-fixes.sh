@@ -243,18 +243,36 @@ FULL_NAME="Admin User"
 
 echo "Creating admin user in database: $ADMIN_EMAIL"
 
+# First, ensure pgcrypto extension is enabled (required for bcrypt)
+echo "  Enabling pgcrypto extension..."
+docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>&1 | grep -v "already exists" || true
+
+# Verify pgcrypto is available
+PGCRYPTO_CHECK=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c "SELECT COUNT(*) FROM pg_extension WHERE extname = 'pgcrypto';" | xargs)
+if [ "$PGCRYPTO_CHECK" != "1" ]; then
+    echo -e "${RED}✗${NC} Failed to enable pgcrypto extension!"
+    exit 1
+fi
+echo -e "${GREEN}✓${NC} pgcrypto extension enabled"
+
 # Create user directly in database with proper bcrypt hash
-# GoTrue uses bcrypt with cost 10 by default
-docker exec -i supabase-db psql -U postgres -d postgres << 'EOSQL'
+echo "  Creating user with bcrypt password hash..."
+ADMIN_CREATION_RESULT=$(docker exec -i supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 << 'EOSQL' 2>&1
 DO $$
 DECLARE
   v_user_id uuid;
   v_encrypted_password text;
 BEGIN
-  -- Generate bcrypt hash with cost factor 10
+  -- Generate bcrypt hash with cost factor 10 (GoTrue default)
   v_encrypted_password := crypt('admin123456', gen_salt('bf', 10));
   
-  -- Insert or update user in auth.users
+  -- Delete existing user if present (clean slate)
+  DELETE FROM auth.identities WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
+  DELETE FROM public.user_roles WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
+  DELETE FROM public.profiles WHERE id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
+  DELETE FROM auth.users WHERE email = 'admin@localhost';
+  
+  -- Insert new user in auth.users
   INSERT INTO auth.users (
     id,
     instance_id,
@@ -288,18 +306,7 @@ BEGIN
     '',
     ''
   )
-  ON CONFLICT (email) 
-  DO UPDATE SET
-    encrypted_password = EXCLUDED.encrypted_password,
-    email_confirmed_at = now(),
-    updated_at = now(),
-    raw_user_meta_data = EXCLUDED.raw_user_meta_data
   RETURNING id INTO v_user_id;
-  
-  -- Get user_id if it was an update
-  IF v_user_id IS NULL THEN
-    SELECT id INTO v_user_id FROM auth.users WHERE email = 'admin@localhost';
-  END IF;
   
   -- Create identity for email provider
   INSERT INTO auth.identities (
@@ -313,50 +320,63 @@ BEGIN
   ) VALUES (
     v_user_id,
     v_user_id,
-    jsonb_build_object('sub', v_user_id::text, 'email', 'admin@localhost'),
+    jsonb_build_object(
+      'sub', v_user_id::text, 
+      'email', 'admin@localhost',
+      'email_verified', true,
+      'phone_verified', false,
+      'provider', 'email'
+    ),
     'email',
     now(),
     now(),
     now()
-  )
-  ON CONFLICT (provider, id) 
-  DO UPDATE SET
-    last_sign_in_at = now(),
-    updated_at = now();
-    
-  RAISE NOTICE 'User created/updated with ID: %', v_user_id;
-END $$;
-EOSQL
-
-# Get the user ID for role assignment
-docker exec -i supabase-db psql -U postgres -d postgres << 'EOSQL'
-DO $$
-DECLARE
-  v_user_id uuid;
-BEGIN
-  -- Get the user ID we just created
-  SELECT id INTO v_user_id FROM auth.users WHERE email = 'admin@localhost';
-  
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Failed to find created user';
-  END IF;
+  );
   
   -- Assign admin role
   INSERT INTO public.user_roles (user_id, role) 
-  VALUES (v_user_id, 'admin'::public.app_role)
-  ON CONFLICT (user_id, role) DO NOTHING;
+  VALUES (v_user_id, 'admin'::public.app_role);
   
   -- Create profile
   INSERT INTO public.profiles (id, full_name, email) 
-  VALUES (v_user_id, 'Admin User', 'admin@localhost')
-  ON CONFLICT (id) DO UPDATE 
-  SET full_name = EXCLUDED.full_name, 
-      email = EXCLUDED.email, 
-      updated_at = now();
-      
-  RAISE NOTICE 'Admin role and profile created for user: %', v_user_id;
+  VALUES (v_user_id, 'Admin User', 'admin@localhost');
+  
+  RAISE NOTICE 'SUCCESS: Admin user created with ID: %', v_user_id;
 END $$;
 EOSQL
+)
+
+# Check if creation was successful
+if echo "$ADMIN_CREATION_RESULT" | grep -q "SUCCESS:"; then
+    echo -e "${GREEN}✓${NC} Admin user created successfully"
+else
+    echo -e "${RED}✗${NC} Failed to create admin user!"
+    echo "Error output: $ADMIN_CREATION_RESULT"
+    exit 1
+fi
+
+# Verify the user exists
+echo "  Verifying admin user..."
+USER_EXISTS=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c \
+  "SELECT EXISTS(SELECT 1 FROM auth.users WHERE email='admin@localhost');" | xargs)
+
+if [ "$USER_EXISTS" = "t" ]; then
+    echo -e "${GREEN}✓${NC} Admin user verified in database"
+else
+    echo -e "${RED}✗${NC} Admin user verification failed!"
+    exit 1
+fi
+
+# Verify admin role
+ROLE_EXISTS=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c \
+  "SELECT EXISTS(SELECT 1 FROM public.user_roles ur JOIN auth.users u ON ur.user_id = u.id WHERE u.email='admin@localhost' AND ur.role='admin');" | xargs)
+
+if [ "$ROLE_EXISTS" = "t" ]; then
+    echo -e "${GREEN}✓${NC} Admin role verified"
+else
+    echo -e "${RED}✗${NC} Admin role verification failed!"
+    exit 1
+fi
 
 echo -e "${GREEN}✓${NC} Admin user, role, and profile created"
 echo ""

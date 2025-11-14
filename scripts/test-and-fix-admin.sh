@@ -29,34 +29,87 @@ source .env.self-hosted
 ADMIN_EMAIL="admin@localhost"
 ADMIN_PASSWORD="admin123456"
 
-echo -e "${BLUE}[1/5]${NC} Checking if admin user exists..."
-USER_EXISTS=$(docker exec -i supabase-db psql -U postgres -t -c \
-  "SELECT EXISTS(SELECT 1 FROM auth.users WHERE email='$ADMIN_EMAIL');" | xargs)
+echo -e "${BLUE}[1/5]${NC} Checking pgcrypto extension..."
+PGCRYPTO_CHECK=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c "SELECT COUNT(*) FROM pg_extension WHERE extname = 'pgcrypto';" 2>&1 | xargs)
+if [ "$PGCRYPTO_CHECK" != "1" ]; then
+    echo -e "${YELLOW}⚠${NC} pgcrypto not enabled - enabling now..."
+    docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>&1
+    echo -e "${GREEN}✓${NC} pgcrypto extension enabled"
+else
+    echo -e "${GREEN}✓${NC} pgcrypto extension available"
+fi
+echo ""
+
+echo -e "${BLUE}[2/5]${NC} Checking if admin user exists..."
+USER_EXISTS=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c \
+  "SELECT EXISTS(SELECT 1 FROM auth.users WHERE email='$ADMIN_EMAIL');" 2>&1 | xargs)
 
 if [ "$USER_EXISTS" = "t" ]; then
     echo -e "${GREEN}✓${NC} Admin user exists"
 else
     echo -e "${RED}✗${NC} Admin user does not exist!"
-    echo "  Run: sudo ./scripts/complete-setup-with-fixes.sh"
-    exit 1
+    echo "  Creating admin user now..."
+    
+    # Create the admin user
+    docker exec -i supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 << 'EOSQL'
+DO $$
+DECLARE
+  v_user_id uuid;
+  v_encrypted_password text;
+BEGIN
+  -- Generate bcrypt hash
+  v_encrypted_password := crypt('admin123456', gen_salt('bf', 10));
+  
+  -- Create user
+  INSERT INTO auth.users (
+    id, instance_id, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, aud, role,
+    created_at, updated_at, confirmation_token, recovery_token,
+    email_change_token_new, email_change
+  ) VALUES (
+    gen_random_uuid(), '00000000-0000-0000-0000-000000000000',
+    'admin@localhost', v_encrypted_password, now(),
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{"full_name": "Admin User"}'::jsonb,
+    'authenticated', 'authenticated', now(), now(), '', '', '', ''
+  )
+  RETURNING id INTO v_user_id;
+  
+  -- Create identity
+  INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  VALUES (v_user_id, v_user_id,
+    jsonb_build_object('sub', v_user_id::text, 'email', 'admin@localhost', 'email_verified', true),
+    'email', now(), now(), now());
+  
+  -- Create role
+  INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'admin'::public.app_role);
+  
+  -- Create profile
+  INSERT INTO public.profiles (id, full_name, email) VALUES (v_user_id, 'Admin User', 'admin@localhost');
+  
+  RAISE NOTICE 'Admin user created with ID: %', v_user_id;
+END $$;
+EOSQL
+    
+    echo -e "${GREEN}✓${NC} Admin user created"
 fi
 echo ""
 
-echo -e "${BLUE}[2/5]${NC} Checking user confirmation status..."
-USER_CONFIRMED=$(docker exec -i supabase-db psql -U postgres -t -c \
+echo -e "${BLUE}[3/5]${NC} Checking user confirmation status..."
+USER_CONFIRMED=$(docker exec -i supabase-db psql -U postgres -d postgres -t -c \
   "SELECT email_confirmed_at IS NOT NULL FROM auth.users WHERE email='$ADMIN_EMAIL';" | xargs)
 
 if [ "$USER_CONFIRMED" = "t" ]; then
     echo -e "${GREEN}✓${NC} User email is confirmed"
 else
     echo -e "${YELLOW}⚠${NC} User email NOT confirmed - fixing..."
-    docker exec -i supabase-db psql -U postgres -c \
+    docker exec -i supabase-db psql -U postgres -d postgres -c \
       "UPDATE auth.users SET email_confirmed_at=now() WHERE email='$ADMIN_EMAIL';"
     echo -e "${GREEN}✓${NC} Email confirmed"
 fi
 echo ""
 
-echo -e "${BLUE}[3/5]${NC} Testing current password..."
+echo -e "${BLUE}[4/6]${NC} Testing current password..."
 AUTH_RESPONSE=$(curl -s -X POST \
   "http://localhost:8000/auth/v1/token?grant_type=password" \
   -H "apikey: $SUPABASE_ANON_KEY" \
@@ -82,7 +135,7 @@ else
 fi
 echo ""
 
-echo -e "${BLUE}[4/5]${NC} Regenerating password hash..."
+echo -e "${BLUE}[5/6]${NC} Regenerating password hash..."
 # Delete and recreate user with proper bcrypt hash
 docker exec -i supabase-db psql -U postgres << 'EOSQL'
 DO $$
@@ -143,7 +196,7 @@ EOSQL
 echo -e "${GREEN}✓${NC} Password hash regenerated"
 echo ""
 
-echo -e "${BLUE}[5/5]${NC} Testing new password..."
+echo -e "${BLUE}[6/6]${NC} Testing new password..."
 sleep 2  # Give GoTrue a moment to sync
 
 AUTH_RESPONSE=$(curl -s -X POST \
