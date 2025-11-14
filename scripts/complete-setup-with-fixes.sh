@@ -245,9 +245,7 @@ echo "Creating admin user in database: $ADMIN_EMAIL"
 
 # Ensure pgcrypto extension is enabled (required for bcrypt)
 echo "  Enabling pgcrypto extension..."
-docker exec -i supabase-db psql -U postgres -d postgres << 'PGCRYPTO_SQL' 2>&1 | grep -v "already exists" || true
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
-PGCRYPTO_SQL
+docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>&1 | grep -v "already exists" || true
 echo -e "${GREEN}✓${NC} pgcrypto extension enabled"
 
 # Create user directly in database with proper bcrypt hash
