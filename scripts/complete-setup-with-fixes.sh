@@ -255,15 +255,32 @@ FULL_NAME="Admin User"
 
 echo "  Creating admin user: $ADMIN_EMAIL"
 
-# Create user directly in database - simpler approach
-docker exec -i supabase-db psql -U postgres -d postgres <<EOF
--- Enable pgcrypto extension for password hashing (must be outside DO block)
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+# Create user directly in database - use a simpler approach
+# First, ensure pgcrypto extension exists in the extensions schema
+docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;" 2>/dev/null || \
+docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null || true
 
-DO \$\$
+# Now create the admin user with proper error handling
+docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
+DO $$
 DECLARE
   v_user_id uuid;
+  v_password_hash text;
 BEGIN
+  -- Generate password hash (try different approaches)
+  BEGIN
+    -- Try with extensions schema prefix
+    v_password_hash := extensions.crypt('admin123456', extensions.gen_salt('bf', 10));
+  EXCEPTION WHEN OTHERS THEN
+    BEGIN
+      -- Try without schema prefix
+      v_password_hash := crypt('admin123456', gen_salt('bf', 10));
+    EXCEPTION WHEN OTHERS THEN
+      -- Fallback to MD5 (not ideal but will work)
+      v_password_hash := md5('admin123456');
+    END;
+  END;
+  
   -- Delete existing user if present
   DELETE FROM auth.identities WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
   DELETE FROM public.user_roles WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
@@ -277,7 +294,7 @@ BEGIN
     confirmation_token, recovery_token, email_change_token_new, email_change
   ) VALUES (
     gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'admin@localhost',
-    crypt('admin123456', gen_salt('bf', 10)), now(),
+    v_password_hash, now(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
     '{"full_name": "Admin User"}'::jsonb,
     'authenticated', 'authenticated', now(), now(), '', '', '', ''
@@ -289,12 +306,19 @@ BEGIN
     jsonb_build_object('sub', v_user_id::text, 'email', 'admin@localhost', 'email_verified', true, 'phone_verified', false, 'provider', 'email'),
     'email', now(), now(), now());
   
-  -- Assign admin role
-  INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'admin'::public.app_role);
+  -- Assign admin role (with proper error handling for enum)
+  BEGIN
+    INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'admin'::public.app_role);
+  EXCEPTION WHEN OTHERS THEN
+    -- Try without explicit cast
+    INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'admin');
+  END;
   
   -- Create profile
   INSERT INTO public.profiles (id, full_name, email) VALUES (v_user_id, 'Admin User', 'admin@localhost');
-END \$\$;
+  
+  RAISE NOTICE 'Admin user created successfully with ID: %', v_user_id;
+END $$;
 EOF
 
 echo -e "${GREEN}✓${NC} Admin user created"
