@@ -400,35 +400,62 @@ echo "  VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID"
 echo "Stopping existing app container..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted stop app 2>/dev/null || true
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted rm -f app 2>/dev/null || true
+docker rmi order-snap-journal-app 2>/dev/null || true
 
-# Build and start the app container specifically
+# Build the app container first (separate from up)
 echo "Building app container (this may take a few minutes)..."
-if docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app; then
-    echo -e "${GREEN}✓${NC} App container built and started"
-else
-    echo -e "${RED}✗${NC} Failed to build/start app container!"
+echo -e "${YELLOW}Build output:${NC}"
+if ! docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app 2>&1 | tee /tmp/app-build.log; then
+    echo -e "${RED}✗${NC} Failed to build app container!"
     echo ""
-    echo "Try manually with:"
-    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app"
+    echo "Build logs saved to: /tmp/app-build.log"
+    echo ""
+    echo "Try manually:"
+    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app"
     exit 1
 fi
+
+echo -e "${GREEN}✓${NC} App container built successfully"
 echo ""
 
-echo "Waiting for app to initialize (15 seconds)..."
-sleep 15
+# Now start the app container
+echo "Starting app container..."
+if ! docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app 2>&1; then
+    echo -e "${RED}✗${NC} Failed to start app container!"
+    echo ""
+    echo "Try manually:"
+    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app"
+    exit 1
+fi
+
+echo "Waiting for app to initialize (20 seconds)..."
+sleep 20
 echo ""
 
 # Verify app container is actually running
 if docker ps | grep -q "order-snap-journal-app"; then
     echo -e "${GREEN}✓${NC} App container is running"
+    
+    # Also check if Nginx is running inside
+    echo "Checking Nginx status..."
+    if docker exec order-snap-journal-app ps aux | grep -q "[n]ginx"; then
+        echo -e "${GREEN}✓${NC} Nginx is running"
+    else
+        echo -e "${YELLOW}⚠${NC} Nginx might not be running. Check logs:"
+        docker logs --tail 20 order-snap-journal-app
+    fi
 else
-    echo -e "${RED}✗${NC} App container failed to start!"
+    echo -e "${RED}✗${NC} App container failed to start or exited!"
     echo ""
-    echo "Check logs with:"
-    echo "  docker logs order-snap-journal-app"
+    echo -e "${YELLOW}Container status:${NC}"
+    docker ps -a | grep "order-snap-journal-app" || echo "Container not found"
     echo ""
-    echo "Or restart manually:"
-    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d --build app"
+    echo -e "${YELLOW}Container logs:${NC}"
+    docker logs order-snap-journal-app 2>&1 || echo "No logs available"
+    echo ""
+    echo "Rebuild manually:"
+    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted build --no-cache app"
+    echo "  sudo docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d app"
     exit 1
 fi
 echo ""
