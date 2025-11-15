@@ -247,39 +247,51 @@ done
 sleep 5
 echo ""
 
-# Step 9: Create admin user directly in database with proper bcrypt hash
-echo -e "${BLUE}[9/10]${NC} Creating admin user..."
+# Step 9: Ensure pgcrypto extension is available
+echo -e "${BLUE}[9/10]${NC} Configuring pgcrypto extension..."
+
+# CRITICAL: Ensure pgcrypto is available in BOTH extensions and public schemas
+# GoTrue expects it in extensions schema for password verification
+echo "  Setting up pgcrypto in extensions schema..."
+docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "pg_read_file" || true
+-- First ensure extensions schema exists
+CREATE SCHEMA IF NOT EXISTS extensions;
+
+-- Create pgcrypto in extensions schema (where GoTrue expects it)
+DROP EXTENSION IF EXISTS pgcrypto CASCADE;
+CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
+
+-- Grant usage to necessary roles
+GRANT USAGE ON SCHEMA extensions TO postgres, authenticator, anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, authenticator, anon, authenticated, service_role;
+
+-- Also create in public schema for backward compatibility
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+EOF
+
+echo -e "${GREEN}✓${NC} pgcrypto extension configured in extensions schema"
+echo ""
+
+# Step 9b: Create admin user with bcrypt password
+echo -e "${BLUE}[9b/10]${NC} Creating admin user..."
 ADMIN_EMAIL="admin@localhost"
 ADMIN_PASSWORD="admin123456"
-FULL_NAME="Admin User"
 
 echo "  Creating admin user: $ADMIN_EMAIL"
 
-# Create user directly in database - use a simpler approach
-# First, ensure pgcrypto extension exists in the extensions schema
-docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;" 2>/dev/null || \
-docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null || true
-
-# Now create the admin user with proper error handling
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
 DO $$
 DECLARE
   v_user_id uuid;
   v_password_hash text;
 BEGIN
-  -- Generate password hash (try different approaches)
-  BEGIN
-    -- Try with extensions schema prefix
-    v_password_hash := extensions.crypt('admin123456', extensions.gen_salt('bf', 10));
-  EXCEPTION WHEN OTHERS THEN
-    BEGIN
-      -- Try without schema prefix
-      v_password_hash := crypt('admin123456', gen_salt('bf', 10));
-    EXCEPTION WHEN OTHERS THEN
-      -- Fallback to MD5 (not ideal but will work)
-      v_password_hash := md5('admin123456');
-    END;
-  END;
+  -- Generate bcrypt password hash using extensions.crypt (GoTrue compatible)
+  v_password_hash := extensions.crypt('admin123456', extensions.gen_salt('bf', 10));
+  
+  -- Verify hash was generated
+  IF v_password_hash IS NULL OR LENGTH(v_password_hash) < 20 THEN
+    RAISE EXCEPTION 'Failed to generate password hash';
+  END IF;
   
   -- Delete existing user if present
   DELETE FROM auth.identities WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
@@ -287,14 +299,14 @@ BEGIN
   DELETE FROM public.profiles WHERE id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
   DELETE FROM auth.users WHERE email = 'admin@localhost';
   
-  -- Insert new user
+  -- Insert new user with bcrypt hash
   INSERT INTO auth.users (
-    id, instance_id, email, encrypted_password, email_confirmed_at,
+    id, instance_id, email, encrypted_password, email_confirmed_at, confirmed_at,
     raw_app_meta_data, raw_user_meta_data, aud, role, created_at, updated_at,
     confirmation_token, recovery_token, email_change_token_new, email_change
   ) VALUES (
     gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'admin@localhost',
-    v_password_hash, now(),
+    v_password_hash, now(), now(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
     '{"full_name": "Admin User"}'::jsonb,
     'authenticated', 'authenticated', now(), now(), '', '', '', ''
@@ -306,22 +318,18 @@ BEGIN
     jsonb_build_object('sub', v_user_id::text, 'email', 'admin@localhost', 'email_verified', true, 'phone_verified', false, 'provider', 'email'),
     'email', now(), now(), now());
   
-  -- Assign admin role (with proper error handling for enum)
-  BEGIN
-    INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'admin'::public.app_role);
-  EXCEPTION WHEN OTHERS THEN
-    -- Try without explicit cast
-    INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'admin');
-  END;
+  -- Assign admin role
+  INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'admin');
   
   -- Create profile
   INSERT INTO public.profiles (id, full_name, email) VALUES (v_user_id, 'Admin User', 'admin@localhost');
   
   RAISE NOTICE 'Admin user created successfully with ID: %', v_user_id;
+  RAISE NOTICE 'Password hash length: %, Format: bcrypt', LENGTH(v_password_hash);
 END $$;
 EOF
 
-echo -e "${GREEN}✓${NC} Admin user created"
+echo -e "${GREEN}✓${NC} Admin user created with bcrypt password"
 echo ""
 
 # Now build and start app container as part of Step 6c
