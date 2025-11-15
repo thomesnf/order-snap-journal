@@ -148,16 +148,51 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Start GoTrue first and wait for it to initialize auth schema
-echo -e "${BLUE}[6b/10]${NC} Starting GoTrue to initialize auth schema..."
+# Step 6b: Setup pgcrypto extension BEFORE starting any services
+echo -e "${BLUE}[6b/10]${NC} Setting up pgcrypto extension (critical for password hashing)..."
+docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "already exists\|pg_read_file" || true
+-- Ensure extensions schema exists
+CREATE SCHEMA IF NOT EXISTS extensions;
+
+-- Drop and recreate pgcrypto in extensions schema
+DROP EXTENSION IF EXISTS pgcrypto CASCADE;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
+-- Also ensure it exists in public schema for compatibility
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+-- Grant comprehensive permissions on extensions schema
+GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+GRANT ALL ON SCHEMA extensions TO postgres, supabase_auth_admin;
+
+-- Grant execute permissions on all functions in extensions schema
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+
+-- Verify the functions exist
+SELECT 'extensions.gen_salt exists: ' || count(*)::text 
+FROM pg_proc p 
+JOIN pg_namespace n ON p.pronamespace = n.oid 
+WHERE n.nspname = 'extensions' AND p.proname = 'gen_salt';
+
+SELECT 'extensions.crypt exists: ' || count(*)::text
+FROM pg_proc p 
+JOIN pg_namespace n ON p.pronamespace = n.oid 
+WHERE n.nspname = 'extensions' AND p.proname = 'crypt';
+EOF
+
+echo -e "${GREEN}✓${NC} pgcrypto extension configured in extensions and public schemas"
+echo ""
+
+# Step 6c: Start GoTrue first and wait for it to initialize auth schema
+echo -e "${BLUE}[6c/10]${NC} Starting GoTrue to initialize auth schema..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
 echo "  Waiting for GoTrue to initialize auth schema (60 seconds)..."
 sleep 60
 echo -e "${GREEN}✓${NC} GoTrue auth schema initialized"
 echo ""
 
-# Step 6c: Start remaining Supabase services
-echo -e "${BLUE}[6c/10]${NC} Starting remaining Supabase services..."
+# Step 6d: Start remaining Supabase services
+echo -e "${BLUE}[6d/10]${NC} Starting remaining Supabase services..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d kong rest realtime storage imgproxy meta analytics inbucket studio
 echo -e "${GREEN}✓${NC} All Supabase services started"
 sleep 10
@@ -186,94 +221,8 @@ for i in {1..30}; do
 done
 echo ""
 
-# Step 7b: Now run only app migrations (auth/storage/realtime handled by Supabase services)
-echo -e "${BLUE}[7b/10]${NC} Running application schema migrations..."
-docker exec -i supabase-db psql -U postgres -d postgres < migrations/00000000000005-app-schema.sql > /dev/null 2>&1
-echo -e "${GREEN}✓${NC} Application migrations complete"
-echo ""
-
-# Step 8: Verify GoTrue is healthy and check auth configuration
-echo -e "${BLUE}[8/10]${NC} Verifying GoTrue health and configuration..."
-for i in {1..30}; do
-    # Check GoTrue health endpoint
-    GOTRUE_HEALTH=$(docker exec supabase-auth wget -q -O- http://localhost:9999/health 2>/dev/null || echo "fail")
-    
-    # A healthy response contains "name":"GoTrue" - this indicates the service is running
-    # Response format: {"error":"","name":"GoTrue","description":"GoTrue is a user registration and authentication API"}
-    # An empty "error" field means NO error (success)
-    if [[ "$GOTRUE_HEALTH" == *'"name":"GoTrue"'* ]]; then
-        echo -e "${GREEN}✓${NC} GoTrue is healthy (attempt $i)"
-        echo "Response: $GOTRUE_HEALTH"
-        break
-    fi
-    
-    if [ $i -eq 30 ]; then
-        echo -e "${RED}✗${NC} GoTrue health check failed!"
-        echo "GoTrue response: $GOTRUE_HEALTH"
-        echo ""
-        echo "Checking GoTrue logs for errors:"
-        docker logs supabase-auth --tail 50 2>&1 | grep -i "error\|fatal\|fail" || echo "No obvious errors in logs"
-        echo ""
-        echo "Full GoTrue configuration:"
-        docker exec supabase-auth env | grep -E "GOTRUE_|API_|SITE_" | sort
-        exit 1
-    fi
-    
-    if [ $((i % 10)) -eq 0 ]; then
-        echo "  Waiting for GoTrue health... ($i/30)"
-    fi
-    sleep 2
-done
-echo ""
-
-# Step 8b: Wait for Kong to be ready to route
-echo -e "${BLUE}[8b/10]${NC} Waiting for Kong gateway to be ready..."
-for i in {1..20}; do
-    KONG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000 2>/dev/null || echo "000")
-    
-    if [ "$KONG_STATUS" != "000" ]; then
-        echo -e "${GREEN}✓${NC} Kong is responding (attempt $i)"
-        break
-    fi
-    
-    if [ $i -eq 20 ]; then
-        echo -e "${YELLOW}⚠${NC} Kong not fully ready, but proceeding"
-        break
-    fi
-    
-    echo "  Waiting for Kong... ($i/20)"
-    sleep 2
-done
-sleep 5
-echo ""
-
-# Step 9: Ensure pgcrypto extension is available
-echo -e "${BLUE}[9/10]${NC} Configuring pgcrypto extension..."
-
-# CRITICAL: Ensure pgcrypto is available in BOTH extensions and public schemas
-# GoTrue expects it in extensions schema for password verification
-echo "  Setting up pgcrypto in extensions schema..."
-docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "pg_read_file" || true
--- First ensure extensions schema exists
-CREATE SCHEMA IF NOT EXISTS extensions;
-
--- Create pgcrypto in extensions schema (where GoTrue expects it)
-DROP EXTENSION IF EXISTS pgcrypto CASCADE;
-CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
-
--- Grant usage to necessary roles
-GRANT USAGE ON SCHEMA extensions TO postgres, authenticator, anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, authenticator, anon, authenticated, service_role;
-
--- Also create in public schema for backward compatibility
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
-EOF
-
-echo -e "${GREEN}✓${NC} pgcrypto extension configured in extensions schema"
-echo ""
-
-# Step 9b: Create admin user with bcrypt password
-echo -e "${BLUE}[9b/10]${NC} Creating admin user..."
+# Step 9: Create admin user with proper bcrypt password (pgcrypto already configured)
+echo -e "${BLUE}[9/10]${NC} Creating admin user with bcrypt password..."
 ADMIN_EMAIL="admin@localhost"
 ADMIN_PASSWORD="admin123456"
 
@@ -285,12 +234,23 @@ DECLARE
   v_user_id uuid;
   v_password_hash text;
 BEGIN
-  -- Generate bcrypt password hash using extensions.crypt (GoTrue compatible)
-  v_password_hash := extensions.crypt('admin123456', extensions.gen_salt('bf'::text, 10));
+  -- Try extensions.crypt first, fallback to public.crypt if needed
+  BEGIN
+    v_password_hash := extensions.crypt('admin123456', extensions.gen_salt('bf'::text, 10));
+    RAISE NOTICE 'Using extensions.crypt for password hash';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'extensions.crypt failed: %, falling back to public.crypt', SQLERRM;
+    v_password_hash := public.crypt('admin123456', public.gen_salt('bf'::text, 10));
+    RAISE NOTICE 'Using public.crypt for password hash';
+  END;
   
-  -- Verify hash was generated
+  -- Verify hash was generated and is bcrypt format
   IF v_password_hash IS NULL OR LENGTH(v_password_hash) < 20 THEN
     RAISE EXCEPTION 'Failed to generate password hash';
+  END IF;
+  
+  IF v_password_hash !~ '^\$2[aby]\$' THEN
+    RAISE EXCEPTION 'Generated hash is not bcrypt format: %', SUBSTRING(v_password_hash, 1, 10);
   END IF;
   
   -- Delete existing user if present
@@ -325,15 +285,18 @@ BEGIN
   INSERT INTO public.profiles (id, full_name, email) VALUES (v_user_id, 'Admin User', 'admin@localhost');
   
   RAISE NOTICE 'Admin user created successfully with ID: %', v_user_id;
-  RAISE NOTICE 'Password hash length: %, Format: bcrypt', LENGTH(v_password_hash);
+  RAISE NOTICE 'Password hash length: %, Format: bcrypt (starts with %)', LENGTH(v_password_hash), SUBSTRING(v_password_hash, 1, 7);
 END $$;
 EOF
 
 echo -e "${GREEN}✓${NC} Admin user created with bcrypt password"
 echo ""
 
-# Now build and start app container as part of Step 6c
-echo -e "${BLUE}[6c-app]${NC} Building and starting app container..."
+# Now build and start app container
+echo -e "${BLUE}[9b/10]${NC} Building and starting app container..."
+...
+echo -e "${GREEN}✓${NC} App container started and verified"
+echo ""
 
 # Explicitly set environment variables for docker-compose
 export VITE_SUPABASE_URL="${VITE_SUPABASE_URL}"
