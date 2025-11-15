@@ -148,39 +148,31 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Setup pgcrypto extension BEFORE starting any services
-echo -e "${BLUE}[6b/10]${NC} Setting up pgcrypto extension (critical for password hashing)..."
-docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "already exists\|pg_read_file" || true
+# Step 6b: Setup pgcrypto extension BEFORE starting any services (CRITICAL)
+echo -e "${BLUE}[6b/10]${NC} Setting up pgcrypto extension in extensions schema..."
+docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "already exists" || true
 -- Ensure extensions schema exists
 CREATE SCHEMA IF NOT EXISTS extensions;
 
--- Drop and recreate pgcrypto in extensions schema
-DROP EXTENSION IF EXISTS pgcrypto CASCADE;
+-- Install pgcrypto in extensions schema (where GoTrue expects it)
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
--- Also ensure it exists in public schema for compatibility
+-- Also in public for backward compatibility
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
--- Grant comprehensive permissions on extensions schema
+-- Grant all necessary permissions
 GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 GRANT ALL ON SCHEMA extensions TO postgres, supabase_auth_admin;
-
--- Grant execute permissions on all functions in extensions schema
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
--- Verify the functions exist
-SELECT 'extensions.gen_salt exists: ' || count(*)::text 
-FROM pg_proc p 
-JOIN pg_namespace n ON p.pronamespace = n.oid 
-WHERE n.nspname = 'extensions' AND p.proname = 'gen_salt';
-
-SELECT 'extensions.crypt exists: ' || count(*)::text
-FROM pg_proc p 
-JOIN pg_namespace n ON p.pronamespace = n.oid 
-WHERE n.nspname = 'extensions' AND p.proname = 'crypt';
+-- Verify installation
+SELECT 'Installed in extensions schema: ' || count(*)::text 
+FROM pg_extension e 
+JOIN pg_namespace n ON e.extnamespace = n.oid 
+WHERE e.extname = 'pgcrypto' AND n.nspname = 'extensions';
 EOF
 
-echo -e "${GREEN}✓${NC} pgcrypto extension configured in extensions and public schemas"
+echo -e "${GREEN}✓${NC} pgcrypto extension configured"
 echo ""
 
 # Step 6c: Start GoTrue first and wait for it to initialize auth schema
@@ -272,14 +264,14 @@ BEGIN
   DELETE FROM public.profiles WHERE id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
   DELETE FROM auth.users WHERE email = 'admin@localhost';
   
-  -- Insert new user with bcrypt hash
+  -- Insert new user with bcrypt hash (DO NOT SET confirmed_at - it's a generated column)
   INSERT INTO auth.users (
-    id, instance_id, email, encrypted_password, email_confirmed_at, confirmed_at,
+    id, instance_id, email, encrypted_password, email_confirmed_at,
     raw_app_meta_data, raw_user_meta_data, aud, role, created_at, updated_at,
     confirmation_token, recovery_token, email_change_token_new, email_change
   ) VALUES (
     gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'admin@localhost',
-    v_password_hash, now(), now(),
+    v_password_hash, now(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
     '{"full_name": "Admin User"}'::jsonb,
     'authenticated', 'authenticated', now(), now(), '', '', '', ''
