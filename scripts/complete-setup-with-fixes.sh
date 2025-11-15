@@ -178,10 +178,10 @@ GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator
 GRANT ALL ON SCHEMA extensions TO postgres, supabase_auth_admin;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
--- Test the crypt function
+-- Test the crypt function with explicit type casting
 DO $$
 BEGIN
-  PERFORM extensions.crypt('test', extensions.gen_salt('bf'));
+  PERFORM extensions.crypt('test', extensions.gen_salt('bf'::text));
   RAISE NOTICE 'SUCCESS: pgcrypto crypt function works';
 EXCEPTION WHEN OTHERS THEN
   RAISE EXCEPTION 'FAILED: pgcrypto crypt test - %', SQLERRM;
