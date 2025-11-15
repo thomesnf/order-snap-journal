@@ -148,89 +148,77 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Create pgcrypto functions manually (bypass Supabase's extension hooks)
-echo -e "${BLUE}[6b/10]${NC} Setting up pgcrypto functions manually..."
+# Step 6b: Install pgcrypto in public schema, then create wrappers in extensions
+echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto and setting up extensions schema..."
 
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Create extensions schema if it doesn't exist
+-- Install pgcrypto in public schema (this usually works)
+CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA public;
+
+-- Create extensions schema
 CREATE SCHEMA IF NOT EXISTS extensions;
 
--- Grant usage on extensions schema
+-- Grant usage on both schemas
+GRANT USAGE ON SCHEMA public TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
--- Create gen_salt function manually (bypasses Supabase's extension hooks)
--- This is the core function GoTrue needs for password hashing
-CREATE OR REPLACE FUNCTION extensions.gen_salt(text) RETURNS text
-LANGUAGE c AS 'MODULE_PATHNAME', 'pg_gen_salt'
-STRICT IMMUTABLE PARALLEL SAFE;
+-- Create wrapper functions in extensions schema that call public schema functions
+CREATE OR REPLACE FUNCTION extensions.gen_salt(text) 
+RETURNS text AS $$
+  SELECT public.gen_salt($1);
+$$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
 
-CREATE OR REPLACE FUNCTION extensions.gen_salt(text, integer) RETURNS text
-LANGUAGE c AS 'MODULE_PATHNAME', 'pg_gen_salt_rounds'
-STRICT IMMUTABLE PARALLEL SAFE;
+CREATE OR REPLACE FUNCTION extensions.gen_salt(text, integer) 
+RETURNS text AS $$
+  SELECT public.gen_salt($1, $2);
+$$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
 
--- Create crypt function manually
-CREATE OR REPLACE FUNCTION extensions.crypt(text, text) RETURNS text
-LANGUAGE c AS 'MODULE_PATHNAME', 'pg_crypt'
-STRICT IMMUTABLE PARALLEL SAFE;
+CREATE OR REPLACE FUNCTION extensions.crypt(text, text) 
+RETURNS text AS $$
+  SELECT public.crypt($1, $2);
+$$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
 
--- Grant execute on these functions
-GRANT EXECUTE ON FUNCTION extensions.gen_salt(text) TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION extensions.gen_salt(text, integer) TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION extensions.crypt(text, text) TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+-- Grant execute permissions
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
--- Test the functions
+-- Verify the setup works
 DO $$
 DECLARE
   test_salt text;
   test_hash text;
 BEGIN
-  -- Test gen_salt
+  -- Test from extensions schema (what GoTrue will use)
   SELECT extensions.gen_salt('bf') INTO test_salt;
   IF test_salt IS NULL OR LENGTH(test_salt) < 10 THEN
-    RAISE EXCEPTION 'gen_salt failed to generate valid salt';
+    RAISE EXCEPTION 'extensions.gen_salt failed';
   END IF;
   
-  -- Test crypt
   SELECT extensions.crypt('testpassword', test_salt) INTO test_hash;
   IF test_hash IS NULL OR LENGTH(test_hash) < 20 THEN
-    RAISE EXCEPTION 'crypt failed to generate valid hash';
+    RAISE EXCEPTION 'extensions.crypt failed';
   END IF;
   
-  RAISE NOTICE 'SUCCESS: pgcrypto functions created and verified';
-  RAISE NOTICE 'Test salt: %', SUBSTRING(test_salt, 1, 10);
-  RAISE NOTICE 'Test hash length: %', LENGTH(test_hash);
+  -- Verify it's bcrypt format
+  IF test_hash !~ '^\$2[aby]\$' THEN
+    RAISE EXCEPTION 'Hash is not bcrypt format';
+  END IF;
+  
+  RAISE NOTICE 'SUCCESS: pgcrypto installed and wrapper functions verified';
+  RAISE NOTICE 'Salt sample: %', SUBSTRING(test_salt, 1, 10);
+  RAISE NOTICE 'Hash length: % (bcrypt format)', LENGTH(test_hash);
 END $$;
 EOF
 
 if [ $? -eq 0 ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto functions created successfully"
+  echo -e "${GREEN}✓${NC} pgcrypto installed with extension schema wrappers"
 else
-  echo -e "${RED}✗${NC} pgcrypto function creation failed"
-  echo -e "${YELLOW}⚠${NC} Falling back to manual extension creation..."
-  
-  # Fallback: Try to create extension despite potential hook failures
-  docker exec -i supabase-db psql -U postgres -d postgres <<'FALLBACK'
--- Grant superuser temporarily
-ALTER USER postgres WITH SUPERUSER;
-
--- Try to create extension
-DO $$
-BEGIN
-  CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;
-  RAISE NOTICE 'Extension created successfully';
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'Extension creation failed: %, but functions may already exist', SQLERRM;
-END $$;
-
--- Remove superuser
-ALTER USER postgres WITH NOSUPERUSER;
-
--- Grant permissions regardless
-GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-FALLBACK
-  
-  echo -e "${YELLOW}⚠${NC} Attempted fallback installation"
+  echo -e "${RED}✗${NC} pgcrypto setup failed"
+  echo ""
+  echo "Attempting diagnostics..."
+  docker exec supabase-db psql -U postgres -d postgres -c "\dx" || true
+  docker exec supabase-db psql -U postgres -d postgres -c "SELECT proname FROM pg_proc WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public') AND proname LIKE '%crypt%';" || true
+  exit 1
 fi
 echo ""
 
