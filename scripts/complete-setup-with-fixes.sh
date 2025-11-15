@@ -148,27 +148,15 @@ for i in {1..60}; do
 done
 echo ""
 
-# Skip pgcrypto here - will install after GoTrue initializes
-
-# Step 6b: Start GoTrue first and wait for it to initialize auth schema
-echo -e "${BLUE}[6b/10]${NC} Starting GoTrue to initialize auth schema..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
-echo "  Waiting for GoTrue to initialize auth schema (30 seconds)..."
-sleep 30
-echo -e "${GREEN}✓${NC} GoTrue started"
-echo ""
-
-# Step 6c: Install pgcrypto AFTER GoTrue starts
-echo -e "${BLUE}[6c/10]${NC} Installing pgcrypto extension..."
+# Step 6b: Install pgcrypto BEFORE starting GoTrue
+echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto extension..."
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
 -- Ensure extensions schema exists
 CREATE SCHEMA IF NOT EXISTS extensions;
 
--- Force drop and recreate to ensure it's in the right schema
-DROP EXTENSION IF EXISTS pgcrypto CASCADE;
-
 -- Install pgcrypto in extensions schema (where GoTrue expects it)
-CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
+-- Use IF NOT EXISTS to avoid errors if already installed
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- Also in public schema for backward compatibility
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
@@ -178,7 +166,7 @@ GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator
 GRANT ALL ON SCHEMA extensions TO postgres, supabase_auth_admin;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
--- Verify extension was created (simpler test without function call)
+-- Verify extension exists
 DO $$
 DECLARE
   ext_count INTEGER;
@@ -198,11 +186,12 @@ EOF
 echo -e "${GREEN}✓${NC} pgcrypto installed and verified"
 echo ""
 
-# Step 6d: Restart GoTrue to ensure it sees pgcrypto
-echo -e "${BLUE}[6d/10]${NC} Restarting GoTrue to load pgcrypto..."
-docker restart supabase-auth
-sleep 10
-echo -e "${GREEN}✓${NC} GoTrue restarted"
+# Step 6c: Start GoTrue with pgcrypto already available
+echo -e "${BLUE}[6c/10]${NC} Starting GoTrue auth service..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
+echo "  Waiting for GoTrue to initialize auth schema (30 seconds)..."
+sleep 30
+echo -e "${GREEN}✓${NC} GoTrue started"
 echo ""
 
 # Step 6e: Start remaining Supabase services
