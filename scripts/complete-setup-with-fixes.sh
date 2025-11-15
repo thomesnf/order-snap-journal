@@ -148,44 +148,28 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Install pgcrypto BEFORE starting GoTrue
-echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto extension..."
+# Step 6b: Grant permissions and install pgcrypto BEFORE starting GoTrue
+echo -e "${BLUE}[6b/10]${NC} Granting permissions and installing pgcrypto..."
+
+# First grant pg_read_file to postgres user to allow extension installation
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Create extensions schema first
+-- Grant pg_read_file permission to postgres user (needed for Supabase's extension hooks)
+GRANT pg_read_file TO postgres;
+EOF
+
+echo "  Granted pg_read_file permission to postgres user"
+
+# Now install pgcrypto with necessary permissions
+docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
+-- Create extensions schema
 CREATE SCHEMA IF NOT EXISTS extensions;
 
--- Install pgcrypto in public schema (avoids Supabase custom hooks that need file perms)
-CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA public;
+-- Install pgcrypto in extensions schema (where GoTrue expects it)
+CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;
 
--- Create wrapper functions in extensions schema for GoTrue compatibility
-CREATE OR REPLACE FUNCTION extensions.gen_salt(text)
-RETURNS text
-LANGUAGE SQL
-IMMUTABLE
-AS $$
-  SELECT public.gen_salt($1);
-$$;
-
-CREATE OR REPLACE FUNCTION extensions.gen_salt(text, integer)
-RETURNS text
-LANGUAGE SQL
-IMMUTABLE
-AS $$
-  SELECT public.gen_salt($1, $2);
-$$;
-
-CREATE OR REPLACE FUNCTION extensions.crypt(text, text)
-RETURNS text
-LANGUAGE SQL
-IMMUTABLE
-AS $$
-  SELECT public.crypt($1, $2);
-$$;
-
--- Grant permissions
+-- Grant permissions to all roles that need it
 GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
 -- Verify it works
 DO $$
@@ -198,14 +182,14 @@ BEGIN
     RAISE EXCEPTION 'gen_salt returned invalid result';
   END IF;
   
-  RAISE NOTICE 'SUCCESS: pgcrypto installed and extensions.gen_salt works';
+  RAISE NOTICE 'SUCCESS: pgcrypto installed in extensions schema and verified';
 EXCEPTION WHEN OTHERS THEN
-  RAISE EXCEPTION 'pgcrypto setup failed: %', SQLERRM;
+  RAISE EXCEPTION 'pgcrypto verification failed: %', SQLERRM;
 END $$;
 EOF
 
 if [ $? -eq 0 ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto installed with wrapper functions"
+  echo -e "${GREEN}✓${NC} pgcrypto installed successfully in extensions schema"
 else
   echo -e "${RED}✗${NC} pgcrypto installation failed"
   exit 1
