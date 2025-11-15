@@ -286,7 +286,7 @@ DECLARE
   v_password_hash text;
 BEGIN
   -- Generate bcrypt password hash using extensions.crypt (GoTrue compatible)
-  v_password_hash := extensions.crypt('admin123456', extensions.gen_salt('bf', 10));
+  v_password_hash := extensions.crypt('admin123456', extensions.gen_salt('bf'::text, 10));
   
   -- Verify hash was generated
   IF v_password_hash IS NULL OR LENGTH(v_password_hash) < 20 THEN
