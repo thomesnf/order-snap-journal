@@ -148,46 +148,57 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Setup pgcrypto extension BEFORE starting any services (CRITICAL)
-echo -e "${BLUE}[6b/10]${NC} Setting up pgcrypto extension in extensions schema..."
-docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "already exists" || true
+# Skip pgcrypto here - will install after GoTrue initializes
+
+# Step 6b: Start GoTrue first and wait for it to initialize auth schema
+echo -e "${BLUE}[6b/10]${NC} Starting GoTrue to initialize auth schema..."
+docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
+echo "  Waiting for GoTrue to initialize auth schema (30 seconds)..."
+sleep 30
+echo -e "${GREEN}✓${NC} GoTrue started"
+echo ""
+
+# Step 6c: Install pgcrypto AFTER GoTrue starts
+echo -e "${BLUE}[6c/10]${NC} Installing pgcrypto extension..."
+docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
 -- Ensure extensions schema exists
 CREATE SCHEMA IF NOT EXISTS extensions;
 
 -- Force drop and recreate to ensure it's in the right schema
 DROP EXTENSION IF EXISTS pgcrypto CASCADE;
 
--- Install pgcrypto in extensions schema FIRST (where GoTrue expects it)
+-- Install pgcrypto in extensions schema (where GoTrue expects it)
 CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
 
--- Also create in public schema for backward compatibility
+-- Also in public schema for backward compatibility
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
--- Grant all necessary permissions
+-- Grant permissions to all roles
 GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 GRANT ALL ON SCHEMA extensions TO postgres, supabase_auth_admin;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
--- Verify installation
-SELECT 'pgcrypto installed in extensions schema: ' || (count(*) > 0)::text 
-FROM pg_extension e 
-JOIN pg_namespace n ON e.extnamespace = n.oid 
-WHERE e.extname = 'pgcrypto' AND n.nspname = 'extensions';
+-- Test the crypt function
+DO $$
+BEGIN
+  PERFORM extensions.crypt('test', extensions.gen_salt('bf'));
+  RAISE NOTICE 'SUCCESS: pgcrypto crypt function works';
+EXCEPTION WHEN OTHERS THEN
+  RAISE EXCEPTION 'FAILED: pgcrypto crypt test - %', SQLERRM;
+END $$;
 EOF
-
-echo -e "${GREEN}✓${NC} pgcrypto extension configured"
+echo -e "${GREEN}✓${NC} pgcrypto installed and tested"
 echo ""
 
-# Step 6c: Start GoTrue first and wait for it to initialize auth schema
-echo -e "${BLUE}[6c/10]${NC} Starting GoTrue to initialize auth schema..."
-docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
-echo "  Waiting for GoTrue to initialize auth schema (60 seconds)..."
-sleep 60
-echo -e "${GREEN}✓${NC} GoTrue auth schema initialized"
+# Step 6d: Restart GoTrue to ensure it sees pgcrypto
+echo -e "${BLUE}[6d/10]${NC} Restarting GoTrue to load pgcrypto..."
+docker restart supabase-auth
+sleep 10
+echo -e "${GREEN}✓${NC} GoTrue restarted"
 echo ""
 
-# Step 6d: Start remaining Supabase services
-echo -e "${BLUE}[6d/10]${NC} Starting remaining Supabase services..."
+# Step 6e: Start remaining Supabase services
+echo -e "${BLUE}[6e/10]${NC} Starting remaining Supabase services..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d kong rest realtime storage imgproxy meta analytics inbucket studio
 echo -e "${GREEN}✓${NC} All Supabase services started"
 sleep 10
@@ -217,7 +228,7 @@ done
 echo ""
 
 # Step 8: Apply application schema (CRITICAL - must happen after GoTrue, before admin creation)
-echo -e "${BLUE}[8/10]${NC} Applying application schema..."
+echo -e "${BLUE}[9/10]${NC} Applying application schema..."
 if [ -f migrations/00000000000005-app-schema.sql ]; then
     echo "  Running app schema migration..."
     docker exec -i supabase-db psql -U postgres -d postgres < migrations/00000000000005-app-schema.sql 2>&1 | grep -v "already exists" || true
@@ -301,7 +312,7 @@ echo -e "${GREEN}✓${NC} Admin user created with bcrypt password"
 echo ""
 
 # Now build and start app container
-echo -e "${BLUE}[10/10]${NC} Building and starting app container..."
+echo -e "${BLUE}[11/11]${NC} Building and starting app container..."
 
 # Explicitly set environment variables for docker-compose
 export VITE_SUPABASE_URL="${VITE_SUPABASE_URL}"
