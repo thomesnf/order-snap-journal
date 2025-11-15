@@ -148,63 +148,117 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Grant permissions and install pgcrypto BEFORE starting GoTrue
-echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto with superuser privileges..."
+# Step 6b: Create pgcrypto functions manually (bypass Supabase's extension hooks)
+echo -e "${BLUE}[6b/10]${NC} Setting up pgcrypto functions manually..."
 
-# Temporarily make postgres a superuser to bypass Supabase's extension hooks
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Temporarily grant superuser to postgres user
-ALTER USER postgres WITH SUPERUSER;
-EOF
-
-echo "  Granted temporary superuser to postgres user"
-
-# Now install pgcrypto with superuser privileges
-docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Create extensions schema
+-- Create extensions schema if it doesn't exist
 CREATE SCHEMA IF NOT EXISTS extensions;
 
--- Install pgcrypto in extensions schema (where GoTrue expects it)
-CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;
-
--- Grant permissions to all roles that need it
+-- Grant usage on extensions schema
 GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
--- Verify it works
+-- Create gen_salt function manually (bypasses Supabase's extension hooks)
+-- This is the core function GoTrue needs for password hashing
+CREATE OR REPLACE FUNCTION extensions.gen_salt(text) RETURNS text
+LANGUAGE c AS 'MODULE_PATHNAME', 'pg_gen_salt'
+STRICT IMMUTABLE PARALLEL SAFE;
+
+CREATE OR REPLACE FUNCTION extensions.gen_salt(text, integer) RETURNS text
+LANGUAGE c AS 'MODULE_PATHNAME', 'pg_gen_salt_rounds'
+STRICT IMMUTABLE PARALLEL SAFE;
+
+-- Create crypt function manually
+CREATE OR REPLACE FUNCTION extensions.crypt(text, text) RETURNS text
+LANGUAGE c AS 'MODULE_PATHNAME', 'pg_crypt'
+STRICT IMMUTABLE PARALLEL SAFE;
+
+-- Grant execute on these functions
+GRANT EXECUTE ON FUNCTION extensions.gen_salt(text) TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION extensions.gen_salt(text, integer) TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION extensions.crypt(text, text) TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+
+-- Test the functions
 DO $$
 DECLARE
   test_salt text;
+  test_hash text;
 BEGIN
-  SELECT extensions.gen_salt('bf'::text) INTO test_salt;
-  
+  -- Test gen_salt
+  SELECT extensions.gen_salt('bf') INTO test_salt;
   IF test_salt IS NULL OR LENGTH(test_salt) < 10 THEN
-    RAISE EXCEPTION 'gen_salt returned invalid result';
+    RAISE EXCEPTION 'gen_salt failed to generate valid salt';
   END IF;
   
-  RAISE NOTICE 'SUCCESS: pgcrypto installed in extensions schema and verified';
-EXCEPTION WHEN OTHERS THEN
-  RAISE EXCEPTION 'pgcrypto verification failed: %', SQLERRM;
+  -- Test crypt
+  SELECT extensions.crypt('testpassword', test_salt) INTO test_hash;
+  IF test_hash IS NULL OR LENGTH(test_hash) < 20 THEN
+    RAISE EXCEPTION 'crypt failed to generate valid hash';
+  END IF;
+  
+  RAISE NOTICE 'SUCCESS: pgcrypto functions created and verified';
+  RAISE NOTICE 'Test salt: %', SUBSTRING(test_salt, 1, 10);
+  RAISE NOTICE 'Test hash length: %', LENGTH(test_hash);
 END $$;
-
--- Remove superuser from postgres user (security best practice)
-ALTER USER postgres WITH NOSUPERUSER;
 EOF
 
 if [ $? -eq 0 ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto installed successfully in extensions schema"
+  echo -e "${GREEN}✓${NC} pgcrypto functions created successfully"
 else
-  echo -e "${RED}✗${NC} pgcrypto installation failed"
-  exit 1
+  echo -e "${RED}✗${NC} pgcrypto function creation failed"
+  echo -e "${YELLOW}⚠${NC} Falling back to manual extension creation..."
+  
+  # Fallback: Try to create extension despite potential hook failures
+  docker exec -i supabase-db psql -U postgres -d postgres <<'FALLBACK'
+-- Grant superuser temporarily
+ALTER USER postgres WITH SUPERUSER;
+
+-- Try to create extension
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;
+  RAISE NOTICE 'Extension created successfully';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Extension creation failed: %, but functions may already exist', SQLERRM;
+END $$;
+
+-- Remove superuser
+ALTER USER postgres WITH NOSUPERUSER;
+
+-- Grant permissions regardless
+GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+FALLBACK
+  
+  echo -e "${YELLOW}⚠${NC} Attempted fallback installation"
 fi
 echo ""
 
 # Step 6c: Start GoTrue with pgcrypto already available
 echo -e "${BLUE}[6c/10]${NC} Starting GoTrue auth service..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
-echo "  Waiting for GoTrue to initialize auth schema (30 seconds)..."
-sleep 30
-echo -e "${GREEN}✓${NC} GoTrue started"
+
+echo "  Waiting for GoTrue container to start (10 seconds)..."
+sleep 10
+
+# Check if GoTrue container is running
+if docker ps | grep -q supabase-auth; then
+  echo -e "${GREEN}✓${NC} GoTrue container started"
+  
+  # Check GoTrue logs for any errors
+  echo "  Checking GoTrue initialization..."
+  docker logs supabase-auth --tail 20
+  
+  echo "  Waiting for GoTrue to complete auth schema setup (40 seconds)..."
+  sleep 40
+else
+  echo -e "${RED}✗${NC} GoTrue container failed to start"
+  echo "  Logs:"
+  docker logs supabase-auth --tail 50
+  exit 1
+fi
+
+echo -e "${GREEN}✓${NC} GoTrue started and initializing"
 echo ""
 
 # Step 6e: Start remaining Supabase services
@@ -215,24 +269,44 @@ sleep 10
 echo ""
 
 # Step 7: Wait for GoTrue to complete its migrations
-echo -e "${BLUE}[7/10]${NC} Waiting for GoTrue to complete auth schema setup..."
-for i in {1..30}; do
+echo -e "${BLUE}[7/10]${NC} Verifying GoTrue auth schema setup..."
+
+# Give GoTrue more time if needed
+for i in {1..45}; do
     # Check if auth.users table exists (created by GoTrue migrations)
     AUTH_READY=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'users');" 2>/dev/null | xargs)
     
     if [ "$AUTH_READY" = "t" ]; then
-        echo -e "${GREEN}✓${NC} GoTrue migrations complete (attempt $i)"
+        echo -e "${GREEN}✓${NC} GoTrue migrations complete (took $i attempts)"
+        
+        # Verify pgcrypto is accessible from auth schema
+        CRYPTO_CHECK=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT extensions.gen_salt('bf') IS NOT NULL;" 2>/dev/null | xargs)
+        if [ "$CRYPTO_CHECK" = "t" ]; then
+          echo -e "${GREEN}✓${NC} pgcrypto functions verified and accessible"
+        else
+          echo -e "${YELLOW}⚠${NC} pgcrypto check returned: $CRYPTO_CHECK"
+        fi
         break
     fi
     
-    if [ $i -eq 30 ]; then
-        echo -e "${RED}✗${NC} GoTrue migrations failed to complete"
-        echo "Checking GoTrue logs:"
+    if [ $i -eq 45 ]; then
+        echo -e "${RED}✗${NC} GoTrue migrations failed to complete after 90 seconds"
+        echo ""
+        echo "GoTrue logs (last 100 lines):"
         docker logs supabase-auth --tail 100
+        echo ""
+        echo "Checking if auth schema exists at all:"
+        docker exec supabase-db psql -U postgres -d postgres -c "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'auth';"
+        echo ""
+        echo "This might indicate GoTrue couldn't start properly or is missing configuration."
         exit 1
     fi
     
-    echo "  Waiting for auth.users table... ($i/30)"
+    # Show progress every 10 attempts
+    if [ $((i % 10)) -eq 0 ]; then
+      echo "  Still waiting for auth.users table... ($i/45 - $((i*2))s elapsed)"
+    fi
+    
     sleep 2
 done
 echo ""
