@@ -151,13 +151,13 @@ echo ""
 # Step 6b: Grant permissions and install pgcrypto BEFORE starting GoTrue
 echo -e "${BLUE}[6b/10]${NC} Granting permissions and installing pgcrypto..."
 
-# First grant pg_read_file to postgres user to allow extension installation
+# First grant pg_read_server_files to postgres user to allow extension installation
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Grant pg_read_file permission to postgres user (needed for Supabase's extension hooks)
-GRANT pg_read_file TO postgres;
+-- Grant pg_read_server_files permission to postgres user (needed for Supabase's extension hooks)
+GRANT pg_read_server_files TO postgres;
 EOF
 
-echo "  Granted pg_read_file permission to postgres user"
+echo "  Granted pg_read_server_files permission to postgres user"
 
 # Now install pgcrypto with necessary permissions
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
