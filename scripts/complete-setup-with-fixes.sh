@@ -148,81 +148,80 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Install pgcrypto in public schema, then create wrappers in extensions
-echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto and setting up extensions schema..."
+# Step 6b: Install pgcrypto IMMEDIATELY after database is ready, before any Supabase services
+echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto before Supabase services start..."
 
+# Install pgcrypto while postgres still has clean superuser access
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Install pgcrypto in public schema (this usually works)
+-- Install pgcrypto in public schema (standard location)
 CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA public;
 
--- Create extensions schema
+-- Also create extensions schema for GoTrue compatibility
 CREATE SCHEMA IF NOT EXISTS extensions;
 
--- Grant usage on both schemas
-GRANT USAGE ON SCHEMA public TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-
--- Create wrapper functions in extensions schema that call public schema functions
+-- Create wrapper functions in extensions schema
 CREATE OR REPLACE FUNCTION extensions.gen_salt(text) 
 RETURNS text AS $$
   SELECT public.gen_salt($1);
-$$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
+$$ LANGUAGE sql IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION extensions.gen_salt(text, integer) 
 RETURNS text AS $$
   SELECT public.gen_salt($1, $2);
-$$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
+$$ LANGUAGE sql IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION extensions.crypt(text, text) 
 RETURNS text AS $$
   SELECT public.crypt($1, $2);
-$$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
+$$ LANGUAGE sql IMMUTABLE STRICT;
 
--- Grant execute permissions
+-- Grant all necessary permissions
+GRANT USAGE ON SCHEMA public TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
--- Verify the setup works
+-- Test the setup
 DO $$
 DECLARE
   test_salt text;
   test_hash text;
 BEGIN
-  -- Test from extensions schema (what GoTrue will use)
-  SELECT extensions.gen_salt('bf') INTO test_salt;
-  IF test_salt IS NULL OR LENGTH(test_salt) < 10 THEN
-    RAISE EXCEPTION 'extensions.gen_salt failed';
+  -- Test public schema functions
+  test_salt := public.gen_salt('bf');
+  test_hash := public.crypt('test123', test_salt);
+  
+  IF LENGTH(test_hash) < 20 OR test_hash !~ '^\$2[aby]\$' THEN
+    RAISE EXCEPTION 'Public schema test failed';
   END IF;
   
-  SELECT extensions.crypt('testpassword', test_salt) INTO test_hash;
-  IF test_hash IS NULL OR LENGTH(test_hash) < 20 THEN
-    RAISE EXCEPTION 'extensions.crypt failed';
+  -- Test extensions schema wrappers
+  test_salt := extensions.gen_salt('bf');
+  test_hash := extensions.crypt('test123', test_salt);
+  
+  IF LENGTH(test_hash) < 20 OR test_hash !~ '^\$2[aby]\$' THEN
+    RAISE EXCEPTION 'Extensions schema test failed';
   END IF;
   
-  -- Verify it's bcrypt format
-  IF test_hash !~ '^\$2[aby]\$' THEN
-    RAISE EXCEPTION 'Hash is not bcrypt format';
-  END IF;
-  
-  RAISE NOTICE 'SUCCESS: pgcrypto installed and wrapper functions verified';
-  RAISE NOTICE 'Salt sample: %', SUBSTRING(test_salt, 1, 10);
-  RAISE NOTICE 'Hash length: % (bcrypt format)', LENGTH(test_hash);
+  RAISE NOTICE 'SUCCESS: pgcrypto installed and verified in both schemas';
 END $$;
 EOF
 
-if [ $? -eq 0 ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto installed with extension schema wrappers"
-else
-  echo -e "${RED}✗${NC} pgcrypto setup failed"
+if [ $? -ne 0 ]; then
+  echo -e "${RED}✗${NC} pgcrypto installation failed!"
   echo ""
-  echo "Attempting diagnostics..."
+  echo "Checking what extensions are available:"
+  docker exec supabase-db psql -U postgres -d postgres -c "SELECT * FROM pg_available_extensions WHERE name = 'pgcrypto';" || true
+  echo ""
+  echo "Checking current extensions:"
   docker exec supabase-db psql -U postgres -d postgres -c "\dx" || true
-  docker exec supabase-db psql -U postgres -d postgres -c "SELECT proname FROM pg_proc WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public') AND proname LIKE '%crypt%';" || true
   exit 1
 fi
+
+echo -e "${GREEN}✓${NC} pgcrypto installed and verified"
 echo ""
 
-# Step 6c: Start GoTrue with pgcrypto already available
+# Step 6c: NOW start GoTrue with pgcrypto already in place
 echo -e "${BLUE}[6c/10]${NC} Starting GoTrue auth service..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
 
