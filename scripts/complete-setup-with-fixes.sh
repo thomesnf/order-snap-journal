@@ -148,39 +148,21 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Install pgcrypto BEFORE starting GoTrue
+# Step 6b: Install pgcrypto BEFORE starting GoTrue (simplified approach)
 echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto extension..."
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Ensure extensions schema exists
-CREATE SCHEMA IF NOT EXISTS extensions;
+-- Install pgcrypto using default PostgreSQL behavior
+-- This avoids triggering custom Supabase hooks that require file permissions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Install pgcrypto in extensions schema (where GoTrue expects it)
--- Use IF NOT EXISTS to avoid errors if already installed
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-
--- Also in public schema for backward compatibility
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
-
--- Grant permissions to all roles
-GRANT USAGE ON SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT ALL ON SCHEMA extensions TO postgres, supabase_auth_admin;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-
--- Verify extension exists
+-- Verify extension is available
 DO $$
-DECLARE
-  ext_count INTEGER;
 BEGIN
-  SELECT COUNT(*) INTO ext_count
-  FROM pg_extension e
-  JOIN pg_namespace n ON e.extnamespace = n.oid
-  WHERE e.extname = 'pgcrypto' AND n.nspname = 'extensions';
-  
-  IF ext_count = 0 THEN
-    RAISE EXCEPTION 'pgcrypto extension not found in extensions schema';
-  END IF;
-  
-  RAISE NOTICE 'SUCCESS: pgcrypto extension installed in extensions schema';
+  -- Try to use gen_salt to verify pgcrypto works
+  PERFORM gen_salt('bf');
+  RAISE NOTICE 'SUCCESS: pgcrypto extension is installed and functional';
+EXCEPTION WHEN OTHERS THEN
+  RAISE EXCEPTION 'pgcrypto extension test failed: %', SQLERRM;
 END $$;
 EOF
 echo -e "${GREEN}✓${NC} pgcrypto installed and verified"
