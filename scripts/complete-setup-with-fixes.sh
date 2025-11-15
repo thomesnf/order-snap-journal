@@ -149,17 +149,17 @@ done
 echo ""
 
 # Step 6b: Grant permissions and install pgcrypto BEFORE starting GoTrue
-echo -e "${BLUE}[6b/10]${NC} Granting permissions and installing pgcrypto..."
+echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto with superuser privileges..."
 
-# First grant pg_read_server_files to postgres user to allow extension installation
+# Temporarily make postgres a superuser to bypass Supabase's extension hooks
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Grant pg_read_server_files permission to postgres user (needed for Supabase's extension hooks)
-GRANT pg_read_server_files TO postgres;
+-- Temporarily grant superuser to postgres user
+ALTER USER postgres WITH SUPERUSER;
 EOF
 
-echo "  Granted pg_read_server_files permission to postgres user"
+echo "  Granted temporary superuser to postgres user"
 
-# Now install pgcrypto with necessary permissions
+# Now install pgcrypto with superuser privileges
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
 -- Create extensions schema
 CREATE SCHEMA IF NOT EXISTS extensions;
@@ -186,6 +186,9 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE EXCEPTION 'pgcrypto verification failed: %', SQLERRM;
 END $$;
+
+-- Remove superuser from postgres user (security best practice)
+ALTER USER postgres WITH NOSUPERUSER;
 EOF
 
 if [ $? -eq 0 ]; then
