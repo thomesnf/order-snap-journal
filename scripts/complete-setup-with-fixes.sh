@@ -154,10 +154,13 @@ docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "
 -- Ensure extensions schema exists
 CREATE SCHEMA IF NOT EXISTS extensions;
 
--- Install pgcrypto in extensions schema (where GoTrue expects it)
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+-- Force drop and recreate to ensure it's in the right schema
+DROP EXTENSION IF EXISTS pgcrypto CASCADE;
 
--- Also in public for backward compatibility
+-- Install pgcrypto in extensions schema FIRST (where GoTrue expects it)
+CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
+
+-- Also create in public schema for backward compatibility
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 -- Grant all necessary permissions
@@ -166,7 +169,7 @@ GRANT ALL ON SCHEMA extensions TO postgres, supabase_auth_admin;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
 
 -- Verify installation
-SELECT 'Installed in extensions schema: ' || count(*)::text 
+SELECT 'pgcrypto installed in extensions schema: ' || (count(*) > 0)::text 
 FROM pg_extension e 
 JOIN pg_namespace n ON e.extnamespace = n.oid 
 WHERE e.extname = 'pgcrypto' AND n.nspname = 'extensions';
@@ -299,9 +302,6 @@ echo ""
 
 # Now build and start app container
 echo -e "${BLUE}[10/10]${NC} Building and starting app container..."
-...
-echo -e "${GREEN}✓${NC} App container started and verified"
-echo ""
 
 # Explicitly set environment variables for docker-compose
 export VITE_SUPABASE_URL="${VITE_SUPABASE_URL}"
