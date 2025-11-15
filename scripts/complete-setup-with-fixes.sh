@@ -221,6 +221,19 @@ for i in {1..30}; do
 done
 echo ""
 
+# Step 8: Apply application schema (CRITICAL - must happen after GoTrue, before admin creation)
+echo -e "${BLUE}[8/10]${NC} Applying application schema..."
+if [ -f migrations/00000000000005-app-schema.sql ]; then
+    echo "  Running app schema migration..."
+    docker exec -i supabase-db psql -U postgres -d postgres < migrations/00000000000005-app-schema.sql 2>&1 | grep -v "already exists" || true
+    echo -e "${GREEN}✓${NC} Application schema applied"
+else
+    echo -e "${RED}✗${NC} Migration file not found: migrations/00000000000005-app-schema.sql"
+    echo "  This file is required for user_roles and profiles tables"
+    exit 1
+fi
+echo ""
+
 # Step 9: Create admin user with proper bcrypt password (pgcrypto already configured)
 echo -e "${BLUE}[9/10]${NC} Creating admin user with bcrypt password..."
 ADMIN_EMAIL="admin@localhost"
@@ -293,7 +306,7 @@ echo -e "${GREEN}✓${NC} Admin user created with bcrypt password"
 echo ""
 
 # Now build and start app container
-echo -e "${BLUE}[9b/10]${NC} Building and starting app container..."
+echo -e "${BLUE}[10/10]${NC} Building and starting app container..."
 ...
 echo -e "${GREEN}✓${NC} App container started and verified"
 echo ""
