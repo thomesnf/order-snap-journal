@@ -19,16 +19,9 @@ echo ""
 EMAIL="admin@localhost"
 PASSWORD="admin123456"
 
-echo -e "${BLUE}[1/5]${NC} Ensuring pgcrypto extension is accessible..."
+echo -e "${BLUE}[1/5]${NC} Ensuring pgcrypto extension is in public schema..."
 docker exec -i supabase-db psql -U postgres <<'EOF'
--- Ensure pgcrypto extension exists in extensions schema
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-
--- Grant usage on extensions schema to supabase_auth_admin
-GRANT USAGE ON SCHEMA extensions TO supabase_auth_admin;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO supabase_auth_admin;
-
--- Also ensure it's in public schema as fallback
+-- Ensure pgcrypto extension exists in public schema (more accessible)
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 EOF
 echo -e "${GREEN}✓${NC} pgcrypto extension configured"
@@ -49,8 +42,13 @@ DECLARE
   v_user_id uuid;
   v_encrypted_password text;
 BEGIN
-  -- Generate bcrypt hash using extensions.crypt
-  SELECT extensions.crypt('$PASSWORD', extensions.gen_salt('bf', 10)) INTO v_encrypted_password;
+  -- Generate bcrypt hash using public.crypt (more reliable)
+  SELECT public.crypt('$PASSWORD', public.gen_salt('bf', 10)) INTO v_encrypted_password;
+  
+  -- Verify the hash was generated
+  IF v_encrypted_password IS NULL OR LENGTH(v_encrypted_password) < 20 THEN
+    RAISE EXCEPTION 'Failed to generate password hash';
+  END IF;
   
   -- Get or create user
   SELECT id INTO v_user_id FROM auth.users WHERE email = '$EMAIL';
