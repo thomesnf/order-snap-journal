@@ -128,13 +128,16 @@ BEGIN
     
     RAISE NOTICE 'Created new admin user';
   ELSE
-    -- Update existing user password
+    -- Update existing user password (only update password and updated_at)
     UPDATE auth.users 
     SET encrypted_password = v_password_hash,
-        email_confirmed_at = COALESCE(email_confirmed_at, now()),
-        confirmed_at = COALESCE(confirmed_at, now()),
         updated_at = now()
     WHERE id = v_user_id;
+    
+    -- Separately ensure email is confirmed (avoid constraint issues)
+    UPDATE auth.users
+    SET email_confirmed_at = now()
+    WHERE id = v_user_id AND email_confirmed_at IS NULL;
     
     RAISE NOTICE 'Updated existing admin user password';
   END IF;
