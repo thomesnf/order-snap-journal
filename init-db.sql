@@ -130,45 +130,4 @@ GRANT anon TO authenticator;
 GRANT authenticated TO authenticator;
 GRANT service_role TO authenticator;
 
--- Install pgcrypto extension BEFORE Supabase services start
--- This must happen during initial database setup to avoid permission issues
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
-
--- Grant execute permissions on pgcrypto functions to all roles that need them
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO postgres, supabase_admin, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-
--- Create wrapper functions in extensions schema for GoTrue compatibility
-CREATE OR REPLACE FUNCTION extensions.gen_salt(text) 
-RETURNS text 
-LANGUAGE sql 
-IMMUTABLE STRICT 
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT public.gen_salt($1);
-$$;
-
-CREATE OR REPLACE FUNCTION extensions.gen_salt(text, integer) 
-RETURNS text 
-LANGUAGE sql 
-IMMUTABLE STRICT
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT public.gen_salt($1, $2);
-$$;
-
-CREATE OR REPLACE FUNCTION extensions.crypt(text, text) 
-RETURNS text 
-LANGUAGE sql 
-IMMUTABLE STRICT
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT public.crypt($1, $2);
-$$;
-
--- Grant execute on wrapper functions
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_admin, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-
-SELECT 'Database initialization complete - all roles, schemas, permissions, and pgcrypto configured' as status;
+SELECT 'Database initialization complete - all roles, schemas, and permissions configured' as status;

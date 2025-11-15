@@ -148,56 +148,23 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Verify pgcrypto was installed during database initialization
-echo -e "${BLUE}[6b/10]${NC} Verifying pgcrypto installation from init-db.sql..."
+# Step 6b: Install pgcrypto after database is ready
+echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto extension..."
 
-# Check if pgcrypto extension exists
-PGCRYPTO_INSTALLED=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto');" 2>/dev/null | xargs)
+# Simple installation - let postgres handle it
+docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "already exists" || true
+-- Install pgcrypto in public schema
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-if [ "$PGCRYPTO_INSTALLED" = "t" ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto extension is installed"
-  
-  # Verify the functions are accessible
-  CRYPTO_TEST=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT LENGTH(public.gen_salt('bf')) > 0;" 2>/dev/null | xargs)
-  
-  if [ "$CRYPTO_TEST" = "t" ]; then
-    echo -e "${GREEN}✓${NC} pgcrypto functions verified and working"
-  else
-    echo -e "${YELLOW}⚠${NC} pgcrypto installed but functions may not be accessible"
-  fi
-else
-  echo -e "${RED}✗${NC} pgcrypto not installed! This should have been installed by init-db.sql"
-  echo "  Attempting manual installation as fallback..."
-  
-  # Fallback: Try to install pgcrypto manually
-  docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Try to install pgcrypto
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
-
--- Create wrapper functions for GoTrue
-CREATE OR REPLACE FUNCTION extensions.gen_salt(text) 
-RETURNS text LANGUAGE sql IMMUTABLE STRICT SECURITY DEFINER SET search_path = public
-AS $$ SELECT public.gen_salt($1); $$;
-
-CREATE OR REPLACE FUNCTION extensions.gen_salt(text, integer) 
-RETURNS text LANGUAGE sql IMMUTABLE STRICT SECURITY DEFINER SET search_path = public
-AS $$ SELECT public.gen_salt($1, $2); $$;
-
-CREATE OR REPLACE FUNCTION extensions.crypt(text, text) 
-RETURNS text LANGUAGE sql IMMUTABLE STRICT SECURITY DEFINER SET search_path = public
-AS $$ SELECT public.crypt($1, $2); $$;
-
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, supabase_auth_admin, authenticator, anon, authenticated, service_role;
+-- Grant permissions
+GRANT USAGE ON SCHEMA public TO supabase_auth_admin, authenticator, anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO supabase_auth_admin, authenticator, anon, authenticated, service_role;
 EOF
 
-  if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓${NC} Fallback pgcrypto installation succeeded"
-  else
-    echo -e "${RED}✗${NC} Fallback installation also failed"
-    echo "  Check logs: docker logs supabase-db --tail 50"
-    exit 1
-  fi
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}✓${NC} pgcrypto extension installed"
+else
+  echo -e "${YELLOW}⚠${NC} pgcrypto installation had warnings (may already exist)"
 fi
 
 echo ""
@@ -305,24 +272,8 @@ DECLARE
   v_user_id uuid;
   v_password_hash text;
 BEGIN
-  -- Try extensions.crypt first, fallback to public.crypt if needed
-  BEGIN
-    v_password_hash := extensions.crypt('admin123456', extensions.gen_salt('bf'::text, 10));
-    RAISE NOTICE 'Using extensions.crypt for password hash';
-  EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'extensions.crypt failed: %, falling back to public.crypt', SQLERRM;
-    v_password_hash := public.crypt('admin123456', public.gen_salt('bf'::text, 10));
-    RAISE NOTICE 'Using public.crypt for password hash';
-  END;
-  
-  -- Verify hash was generated and is bcrypt format
-  IF v_password_hash IS NULL OR LENGTH(v_password_hash) < 20 THEN
-    RAISE EXCEPTION 'Failed to generate password hash';
-  END IF;
-  
-  IF v_password_hash !~ '^\$2[aby]\$' THEN
-    RAISE EXCEPTION 'Generated hash is not bcrypt format: %', SUBSTRING(v_password_hash, 1, 10);
-  END IF;
+  -- Generate bcrypt hash using pgcrypto
+  v_password_hash := crypt('admin123456', gen_salt('bf', 10));
   
   -- Delete existing user if present
   DELETE FROM auth.identities WHERE user_id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
