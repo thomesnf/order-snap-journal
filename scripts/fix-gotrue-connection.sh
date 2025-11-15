@@ -46,7 +46,7 @@ DECLARE
   v_encrypted_password text;
 BEGIN
   -- Generate bcrypt hash using extensions.crypt (GoTrue expects this)
-  SELECT extensions.crypt('$PASSWORD', extensions.gen_salt('bf', 10)) INTO v_encrypted_password;
+  SELECT extensions.crypt('$PASSWORD', extensions.gen_salt('bf'::text, 10)) INTO v_encrypted_password;
   
   -- Verify the hash was generated
   IF v_encrypted_password IS NULL OR LENGTH(v_encrypted_password) < 20 THEN

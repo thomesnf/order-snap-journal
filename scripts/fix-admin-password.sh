@@ -47,7 +47,7 @@ DECLARE
   v_password_hash text;
 BEGIN
   -- Generate bcrypt hash using extensions.crypt (GoTrue expects this)
-  v_password_hash := extensions.crypt('$PASSWORD', extensions.gen_salt('bf', 10));
+  v_password_hash := extensions.crypt('$PASSWORD', extensions.gen_salt('bf'::text, 10));
   
   -- Verify we have a bcrypt hash (should start with \$2)
   IF v_password_hash !~ '^\\\$2[aby]\\\$' THEN
