@@ -19,23 +19,15 @@ echo ""
 EMAIL="admin@localhost"
 PASSWORD="admin123456"
 
-echo -e "${BLUE}[1/5]${NC} Ensuring pgcrypto extension is in public schema..."
-docker exec -i supabase-db psql -U postgres <<'EOF'
+echo -e "${BLUE}[1/4]${NC} Ensuring pgcrypto extension is in public schema..."
+docker exec -i supabase-db psql -U postgres <<'EOF' 2>&1 | grep -v "pg_read_file" || true
 -- Ensure pgcrypto extension exists in public schema (more accessible)
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 EOF
 echo -e "${GREEN}✓${NC} pgcrypto extension configured"
 echo ""
 
-echo -e "${BLUE}[2/5]${NC} Updating PostgreSQL to allow GoTrue connections..."
-docker exec -i supabase-db psql -U postgres -c "ALTER SYSTEM SET listen_addresses = '*';"
-docker restart supabase-db
-echo "Waiting for database to restart..."
-sleep 5
-echo -e "${GREEN}✓${NC} Database restarted"
-echo ""
-
-echo -e "${BLUE}[3/5]${NC} Recreating admin user with GoTrue-compatible hash..."
+echo -e "${BLUE}[2/4]${NC} Recreating admin user with GoTrue-compatible hash..."
 docker exec -i supabase-db psql -U postgres <<EOF
 DO \$\$
 DECLARE
@@ -159,13 +151,17 @@ BEGIN
     ON CONFLICT DO NOTHING;
     
   ELSE
-    -- Update existing user
+    -- Update existing user password only (avoid generated columns)
     UPDATE auth.users
     SET encrypted_password = v_encrypted_password,
-        updated_at = now(),
-        email_confirmed_at = COALESCE(email_confirmed_at, now()),
-        confirmed_at = COALESCE(confirmed_at, now())
+        updated_at = now()
     WHERE id = v_user_id;
+    
+    -- Separately ensure email is confirmed (using DEFAULT for generated column)
+    UPDATE auth.users
+    SET email_confirmed_at = COALESCE(email_confirmed_at, now()),
+        confirmed_at = DEFAULT
+    WHERE id = v_user_id AND (email_confirmed_at IS NULL OR confirmed_at IS NULL);
   END IF;
   
   RAISE NOTICE 'User created/updated successfully with ID: %', v_user_id;
@@ -174,14 +170,14 @@ EOF
 echo -e "${GREEN}✓${NC} Admin user configured"
 echo ""
 
-echo -e "${BLUE}[4/5]${NC} Restarting GoTrue service..."
+echo -e "${BLUE}[3/4]${NC} Restarting GoTrue service..."
 docker restart supabase-auth
 echo "Waiting for GoTrue to start..."
 sleep 5
 echo -e "${GREEN}✓${NC} GoTrue restarted"
 echo ""
 
-echo -e "${BLUE}[5/5]${NC} Verifying setup..."
+echo -e "${BLUE}[4/4]${NC} Verifying setup..."
 docker exec -i supabase-db psql -U postgres -c "SELECT email, LENGTH(encrypted_password) as pwd_len, SUBSTRING(encrypted_password, 1, 10) as pwd_prefix, email_confirmed_at IS NOT NULL as confirmed FROM auth.users WHERE email='$EMAIL';"
 echo ""
 
