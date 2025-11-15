@@ -19,9 +19,20 @@ echo ""
 EMAIL="admin@localhost"
 PASSWORD="admin123456"
 
-echo -e "${BLUE}[1/4]${NC} Ensuring pgcrypto extension is in public schema..."
+echo -e "${BLUE}[1/4]${NC} Ensuring pgcrypto extension is in extensions schema..."
 docker exec -i supabase-db psql -U postgres <<'EOF' 2>&1 | grep -v "pg_read_file" || true
--- Ensure pgcrypto extension exists in public schema (more accessible)
+-- First ensure extensions schema exists
+CREATE SCHEMA IF NOT EXISTS extensions;
+
+-- Create pgcrypto in extensions schema (where GoTrue expects it)
+DROP EXTENSION IF EXISTS pgcrypto CASCADE;
+CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
+
+-- Grant usage to necessary roles
+GRANT USAGE ON SCHEMA extensions TO postgres, authenticator, anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, authenticator, anon, authenticated, service_role;
+
+-- Also create in public schema for backward compatibility
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 EOF
 echo -e "${GREEN}✓${NC} pgcrypto extension configured"
@@ -34,8 +45,8 @@ DECLARE
   v_user_id uuid;
   v_encrypted_password text;
 BEGIN
-  -- Generate bcrypt hash using public.crypt (more reliable)
-  SELECT public.crypt('$PASSWORD', public.gen_salt('bf', 10)) INTO v_encrypted_password;
+  -- Generate bcrypt hash using extensions.crypt (GoTrue expects this)
+  SELECT extensions.crypt('$PASSWORD', extensions.gen_salt('bf', 10)) INTO v_encrypted_password;
   
   -- Verify the hash was generated
   IF v_encrypted_password IS NULL OR LENGTH(v_encrypted_password) < 20 THEN

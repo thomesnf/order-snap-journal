@@ -19,30 +19,24 @@ echo ""
 EMAIL="admin@localhost"
 PASSWORD="admin123456"
 
-echo -e "${BLUE}[1/3]${NC} Ensuring pgcrypto extension is available..."
-docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
--- Try to create extension in multiple locations
-DO $$
-BEGIN
-  -- Try extensions schema first
-  BEGIN
-    CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-    RAISE NOTICE 'pgcrypto available in extensions schema';
-  EXCEPTION WHEN OTHERS THEN
-    -- Try public schema
-    BEGIN
-      CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
-      RAISE NOTICE 'pgcrypto available in public schema';
-    EXCEPTION WHEN OTHERS THEN
-      -- Try without schema specification
-      CREATE EXTENSION IF NOT EXISTS pgcrypto;
-      RAISE NOTICE 'pgcrypto available in default schema';
-    END;
-  END;
-END $$;
+echo -e "${BLUE}[1/3]${NC} Ensuring pgcrypto extension is in extensions schema..."
+docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "pg_read_file" || true
+-- First ensure extensions schema exists
+CREATE SCHEMA IF NOT EXISTS extensions;
+
+-- Create pgcrypto in extensions schema (where GoTrue expects it)
+DROP EXTENSION IF EXISTS pgcrypto CASCADE;
+CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
+
+-- Grant usage to necessary roles
+GRANT USAGE ON SCHEMA extensions TO postgres, authenticator, anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, authenticator, anon, authenticated, service_role;
+
+-- Also create in public schema for backward compatibility
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 EOF
 
-echo -e "${GREEN}✓${NC} pgcrypto extension ready"
+echo -e "${GREEN}✓${NC} pgcrypto extension configured in extensions schema"
 echo ""
 
 echo -e "${BLUE}[2/3]${NC} Regenerating admin user with bcrypt password..."
@@ -51,27 +45,9 @@ DO \$\$
 DECLARE
   v_user_id uuid;
   v_password_hash text;
-  v_crypt_func text;
 BEGIN
-  -- Determine which crypt function is available
-  BEGIN
-    -- Test extensions schema
-    v_password_hash := extensions.crypt('$PASSWORD', extensions.gen_salt('bf', 10));
-    v_crypt_func := 'extensions.crypt';
-    RAISE NOTICE 'Using extensions.crypt()';
-  EXCEPTION WHEN OTHERS THEN
-    BEGIN
-      -- Test public schema
-      v_password_hash := public.crypt('$PASSWORD', public.gen_salt('bf', 10));
-      v_crypt_func := 'public.crypt';
-      RAISE NOTICE 'Using public.crypt()';
-    EXCEPTION WHEN OTHERS THEN
-      -- Test no schema prefix
-      v_password_hash := crypt('$PASSWORD', gen_salt('bf', 10));
-      v_crypt_func := 'crypt';
-      RAISE NOTICE 'Using crypt()';
-    END;
-  END;
+  -- Generate bcrypt hash using extensions.crypt (GoTrue expects this)
+  v_password_hash := extensions.crypt('$PASSWORD', extensions.gen_salt('bf', 10));
   
   -- Verify we have a bcrypt hash (should start with \$2)
   IF v_password_hash !~ '^\\\$2[aby]\\\$' THEN
