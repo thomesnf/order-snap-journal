@@ -152,37 +152,33 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6a: Install pgcrypto IMMEDIATELY after database is ready (BEFORE any services start)
-echo -e "${BLUE}[6a/10]${NC} Installing pgcrypto extension..."
+# pgcrypto is now installed during database initialization in init-db-runtime.sql
+# No need to install it here - just verify it's available
+echo -e "${BLUE}[6a/10]${NC} Verifying pgcrypto extension..."
 
-# Install pgcrypto using direct SQL (bypassing custom extension scripts)
-if docker exec supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA public;" 2>&1 | grep -q "already exists\|CREATE EXTENSION"; then
-  echo -e "${GREEN}✓${NC} pgcrypto extension installed"
-else
-  echo -e "${RED}✗${NC} Failed to install pgcrypto"
-  echo "  Trying alternative installation method..."
+# Wait a moment for initialization to complete
+sleep 2
+
+# Verify pgcrypto is installed
+PGCRYPTO_EXISTS=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto');" 2>/dev/null | xargs)
+
+if [ "$PGCRYPTO_EXISTS" = "t" ]; then
+  echo -e "${GREEN}✓${NC} pgcrypto extension is installed"
   
-  # Try installing in extensions schema as fallback
-  docker exec supabase-db psql -U postgres -d postgres -c "CREATE SCHEMA IF NOT EXISTS extensions;"
-  docker exec supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;"
+  # Test that gen_salt function works
+  GEN_SALT_TEST=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT gen_salt('bf');" 2>&1)
   
-  # Verify it's accessible
-  if docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT gen_salt('bf');" 2>&1 | grep -q '^\s*\$2'; then
-    echo -e "${GREEN}✓${NC} pgcrypto installed in extensions schema"
+  if echo "$GEN_SALT_TEST" | grep -q '^\s*\$2'; then
+    echo -e "${GREEN}✓${NC} pgcrypto functions verified and working"
   else
-    echo -e "${RED}✗${NC} pgcrypto installation failed completely"
+    echo -e "${RED}✗${NC} pgcrypto installed but functions not working"
+    echo "  Output: $GEN_SALT_TEST"
     exit 1
   fi
-fi
-
-# Test that gen_salt function works
-GEN_SALT_TEST=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT gen_salt('bf');" 2>&1)
-
-if echo "$GEN_SALT_TEST" | grep -q '^\s*\$2'; then
-  echo -e "${GREEN}✓${NC} pgcrypto functions verified and working"
 else
-  echo -e "${RED}✗${NC} pgcrypto gen_salt function failed"
-  echo "  Output: $GEN_SALT_TEST"
+  echo -e "${RED}✗${NC} pgcrypto extension not found!"
+  echo "  This should have been installed during database initialization"
+  echo "  Check init-db-runtime.sql for pgcrypto installation"
   exit 1
 fi
 echo ""

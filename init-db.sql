@@ -79,6 +79,12 @@ CREATE SCHEMA IF NOT EXISTS storage;
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE SCHEMA IF NOT EXISTS realtime;
 
+-- Install pgcrypto extension immediately (required for password hashing)
+-- This MUST happen during initialization when postgres has full superuser permissions
+CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;
+
+RAISE NOTICE 'pgcrypto extension installed successfully';
+
 -- Grant full access to schemas for admin roles
 GRANT ALL ON SCHEMA auth TO postgres, supabase_admin, supabase_auth_admin;
 GRANT ALL ON SCHEMA storage TO postgres, supabase_admin, supabase_storage_admin;
