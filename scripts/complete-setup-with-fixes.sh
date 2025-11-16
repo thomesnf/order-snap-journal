@@ -148,37 +148,51 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Install pgcrypto BEFORE starting GoTrue (GoTrue doesn't install it, it only uses it)
-echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto extension..."
-echo "  GoTrue requires pgcrypto to be already installed in the database"
+# Step 6b: Check/install pgcrypto extension (avoiding permission issues)
+echo -e "${BLUE}[6b/10]${NC} Setting up pgcrypto for password hashing..."
 
-# Install pgcrypto directly in the database
-docker exec -i supabase-db psql -U postgres -d postgres <<'SQL'
--- Install pgcrypto extension
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+# First check if pgcrypto functions are already available
+CRYPTO_AVAILABLE=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT COUNT(*) FROM pg_proc WHERE proname = 'gen_salt';" 2>/dev/null | xargs)
 
--- Verify installation
-SELECT extname, extversion FROM pg_extension WHERE extname = 'pgcrypto';
-SQL
-
-# Verify pgcrypto is installed and working
-CRYPTO_CHECK=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto');" 2>/dev/null | xargs)
-
-if [ "$CRYPTO_CHECK" = "t" ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto extension installed successfully"
-  
-  # Test that pgcrypto functions work
-  HASH_TEST=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT crypt('test', gen_salt('bf'));" 2>/dev/null)
-  if [ $? -eq 0 ] && [ -n "$HASH_TEST" ]; then
-    echo -e "${GREEN}✓${NC} pgcrypto functions verified and working"
-  else
-    echo -e "${RED}✗${NC} pgcrypto installed but functions don't work!"
-    exit 1
-  fi
+if [ "$CRYPTO_AVAILABLE" -gt 0 ]; then
+  echo -e "${GREEN}✓${NC} pgcrypto functions already available"
 else
-  echo -e "${RED}✗${NC} Failed to install pgcrypto!"
-  echo "  Available extensions:"
-  docker exec supabase-db psql -U postgres -d postgres -c "SELECT extname FROM pg_extension;"
+  echo "  pgcrypto not found, attempting installation..."
+  
+  # Try multiple installation methods
+  # Method 1: Try standard CREATE EXTENSION
+  docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null && \
+    echo -e "${GREEN}✓${NC} Installed pgcrypto via CREATE EXTENSION" || {
+    
+    # Method 2: Try installing in public schema explicitly
+    echo "  Method 1 failed, trying public schema..."
+    docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;" 2>/dev/null && \
+      echo -e "${GREEN}✓${NC} Installed pgcrypto in public schema" || {
+      
+      # Method 3: Load from file if available
+      echo "  Method 2 failed, trying direct SQL load..."
+      docker exec -i supabase-db psql -U postgres -d postgres -f /usr/share/postgresql/15/extension/pgcrypto--1.3.sql 2>/dev/null && \
+        echo -e "${GREEN}✓${NC} Loaded pgcrypto from SQL file" || {
+        
+        echo -e "${YELLOW}⚠${NC} All installation methods failed, checking if functions are still available..."
+      }
+    }
+  }
+fi
+
+# Final verification - check if functions work
+echo "  Verifying pgcrypto functions..."
+HASH_TEST=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT crypt('test', gen_salt('bf'));" 2>/dev/null)
+
+if [ $? -eq 0 ] && [ -n "$HASH_TEST" ]; then
+  echo -e "${GREEN}✓${NC} pgcrypto functions are working"
+else
+  echo -e "${RED}✗${NC} pgcrypto functions are not available!"
+  echo "  Checking what extensions are installed:"
+  docker exec supabase-db psql -U postgres -d postgres -c "SELECT extname, extversion FROM pg_extension ORDER BY extname;"
+  echo ""
+  echo "  Checking available crypto functions:"
+  docker exec supabase-db psql -U postgres -d postgres -c "SELECT proname FROM pg_proc WHERE proname LIKE '%crypt%' OR proname LIKE '%salt%';"
   exit 1
 fi
 echo ""
