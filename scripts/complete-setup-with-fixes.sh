@@ -148,75 +148,8 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Check/install pgcrypto extension (avoiding permission issues)
-echo -e "${BLUE}[6b/10]${NC} Setting up pgcrypto for password hashing..."
-
-# First check if pgcrypto functions are already available
-CRYPTO_AVAILABLE=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT COUNT(*) FROM pg_proc WHERE proname = 'gen_salt';" 2>/dev/null | xargs)
-
-if [ "$CRYPTO_AVAILABLE" -gt 0 ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto functions already available"
-else
-  echo "  pgcrypto not found, attempting installation..."
-  
-  # Try multiple installation methods
-  # Method 1: Try standard CREATE EXTENSION
-  docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null && \
-    echo -e "${GREEN}✓${NC} Installed pgcrypto via CREATE EXTENSION" || {
-    
-    # Method 2: Try installing in public schema explicitly
-    echo "  Method 1 failed, trying public schema..."
-    docker exec -i supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;" 2>/dev/null && \
-      echo -e "${GREEN}✓${NC} Installed pgcrypto in public schema" || {
-      
-      # Method 3: Load from file if available
-      echo "  Method 2 failed, trying direct SQL load..."
-      docker exec -i supabase-db psql -U postgres -d postgres -f /usr/share/postgresql/15/extension/pgcrypto--1.3.sql 2>/dev/null && \
-        echo -e "${GREEN}✓${NC} Loaded pgcrypto from SQL file" || {
-        
-        echo -e "${YELLOW}⚠${NC} All installation methods failed, checking if functions are still available..."
-      }
-    }
-  }
-fi
-
-# Final verification - check if functions work
-echo "  Verifying pgcrypto functions..."
-
-# Use timeout to prevent hanging
-HASH_TEST=$(timeout 10 docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT crypt('test', gen_salt('bf'));" 2>&1)
-TEST_EXIT_CODE=$?
-
-if [ $TEST_EXIT_CODE -eq 124 ]; then
-  echo -e "${RED}✗${NC} Verification timed out after 10 seconds"
-  echo "  This suggests a database connectivity issue"
-  exit 1
-elif [ $TEST_EXIT_CODE -eq 0 ] && [ -n "$HASH_TEST" ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto functions are working"
-  echo "  Sample hash generated successfully"
-else
-  echo -e "${YELLOW}⚠${NC} Verification returned unexpected result"
-  echo "  Exit code: $TEST_EXIT_CODE"
-  echo "  Output: $HASH_TEST"
-  
-  # Try a simpler test
-  echo "  Trying simpler function test..."
-  SIMPLE_TEST=$(timeout 5 docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT COUNT(*) FROM pg_proc WHERE proname = 'gen_salt';" 2>&1)
-  
-  if [ $? -eq 0 ] && [ "$SIMPLE_TEST" -gt 0 ]; then
-    echo -e "${GREEN}✓${NC} pgcrypto functions are loaded (count: $SIMPLE_TEST)"
-    echo "  Continuing despite hash test failure..."
-  else
-    echo -e "${RED}✗${NC} pgcrypto functions are not available!"
-    echo "  Checking what extensions are installed:"
-    docker exec supabase-db psql -U postgres -d postgres -c "SELECT extname, extversion FROM pg_extension ORDER BY extname;"
-    exit 1
-  fi
-fi
-echo ""
-
-# Step 6c: Now start GoTrue (it can use pgcrypto that we just installed)
-echo -e "${BLUE}[6c/10]${NC} Starting GoTrue auth service..."
+# Step 6b: Start GoTrue FIRST to let it initialize the auth schema
+echo -e "${BLUE}[6b/10]${NC} Starting GoTrue auth service..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
 
 echo "  Waiting for GoTrue container to start (10 seconds)..."
@@ -225,9 +158,6 @@ sleep 10
 # Check if GoTrue container is running
 if docker ps | grep -q supabase-auth; then
   echo -e "${GREEN}✓${NC} GoTrue container started"
-  
-  echo "  Waiting for GoTrue to complete auth schema setup (30 seconds)..."
-  sleep 30
 else
   echo -e "${RED}✗${NC} GoTrue container failed to start"
   echo "  Logs:"
@@ -235,7 +165,58 @@ else
   exit 1
 fi
 
-echo -e "${GREEN}✓${NC} GoTrue started successfully"
+# Wait for auth schema to be created by GoTrue
+echo "  Waiting for auth schema to be initialized by GoTrue..."
+for i in {1..20}; do
+  AUTH_SCHEMA_EXISTS=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS(SELECT 1 FROM information_schema.schemata WHERE schema_name = 'auth');" 2>/dev/null | xargs)
+  
+  if [ "$AUTH_SCHEMA_EXISTS" = "t" ]; then
+    echo -e "${GREEN}✓${NC} Auth schema created"
+    break
+  fi
+  
+  if [ $i -eq 20 ]; then
+    echo -e "${RED}✗${NC} Auth schema not created after 60 seconds"
+    echo "  GoTrue logs:"
+    docker logs supabase-auth --tail 30
+    exit 1
+  fi
+  
+  sleep 3
+done
+echo ""
+
+# Step 6c: NOW check pgcrypto (should be installed by Supabase init scripts)
+echo -e "${BLUE}[6c/10]${NC} Verifying pgcrypto extension..."
+
+# Supabase should have installed pgcrypto during initialization
+PGCRYPTO_EXISTS=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto');" 2>/dev/null | xargs)
+
+if [ "$PGCRYPTO_EXISTS" != "t" ]; then
+  echo -e "${YELLOW}⚠${NC} pgcrypto not found, installing now..."
+  docker exec supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>&1
+  
+  # Verify it was installed
+  PGCRYPTO_EXISTS=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto');" 2>/dev/null | xargs)
+  
+  if [ "$PGCRYPTO_EXISTS" != "t" ]; then
+    echo -e "${RED}✗${NC} Failed to install pgcrypto"
+    exit 1
+  fi
+fi
+
+echo -e "${GREEN}✓${NC} pgcrypto extension is installed"
+
+# Test that gen_salt function works
+GEN_SALT_TEST=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT gen_salt('bf');" 2>&1)
+
+if echo "$GEN_SALT_TEST" | grep -q '^\s*\$2'; then
+  echo -e "${GREEN}✓${NC} pgcrypto functions are working"
+else
+  echo -e "${RED}✗${NC} pgcrypto gen_salt function failed"
+  echo "  Output: $GEN_SALT_TEST"
+  exit 1
+fi
 echo ""
 
 # Step 6d: Start remaining Supabase services
