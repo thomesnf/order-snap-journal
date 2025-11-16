@@ -82,7 +82,11 @@ if [ -f scripts/fix-jwt-tokens.sh ]; then
     source .env.self-hosted
     set +a
     
-    echo -e "${GREEN}✓${NC} JWT tokens fixed and environment reloaded"
+    # CRITICAL: Re-sync .env with .env.self-hosted to ensure identical VITE_* variables
+    echo "  Synchronizing .env with .env.self-hosted..."
+    cp .env.self-hosted .env
+    
+    echo -e "${GREEN}✓${NC} JWT tokens fixed and both .env files synchronized"
 else
     echo -e "${YELLOW}⚠${NC} JWT fix script not found, skipping"
 fi
