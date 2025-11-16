@@ -148,29 +148,8 @@ for i in {1..60}; do
 done
 echo ""
 
-# Step 6b: Install pgcrypto after database is ready
-echo -e "${BLUE}[6b/10]${NC} Installing pgcrypto extension..."
-
-# Simple installation - let postgres handle it
-docker exec -i supabase-db psql -U postgres -d postgres <<'EOF' 2>&1 | grep -v "already exists" || true
--- Install pgcrypto in public schema
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
--- Grant permissions
-GRANT USAGE ON SCHEMA public TO supabase_auth_admin, authenticator, anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO supabase_auth_admin, authenticator, anon, authenticated, service_role;
-EOF
-
-if [ $? -eq 0 ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto extension installed"
-else
-  echo -e "${YELLOW}⚠${NC} pgcrypto installation had warnings (may already exist)"
-fi
-
-echo ""
-
-# Step 6c: NOW start GoTrue with pgcrypto already in place
-echo -e "${BLUE}[6c/10]${NC} Starting GoTrue auth service..."
+# Step 6b: Start GoTrue FIRST - it will install pgcrypto
+echo -e "${BLUE}[6b/10]${NC} Starting GoTrue auth service (this installs pgcrypto)..."
 docker-compose -f docker-compose.self-hosted.yml --env-file .env.self-hosted up -d auth
 
 echo "  Waiting for GoTrue container to start (10 seconds)..."
@@ -203,43 +182,48 @@ echo -e "${GREEN}✓${NC} All Supabase services started"
 sleep 10
 echo ""
 
-# Step 7: Wait for GoTrue to complete its migrations
-echo -e "${BLUE}[7/10]${NC} Verifying GoTrue auth schema setup..."
+# Step 7: Wait for GoTrue to complete its migrations AND install pgcrypto
+echo -e "${BLUE}[7/10]${NC} Waiting for GoTrue to install pgcrypto and setup auth schema..."
 
 # Give GoTrue more time if needed
-for i in {1..45}; do
+for i in {1..60}; do
     # Check if auth.users table exists (created by GoTrue migrations)
     AUTH_READY=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'users');" 2>/dev/null | xargs)
     
-    if [ "$AUTH_READY" = "t" ]; then
-        echo -e "${GREEN}✓${NC} GoTrue migrations complete (took $i attempts)"
+    # Check if pgcrypto is installed
+    CRYPTO_READY=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto');" 2>/dev/null | xargs)
+    
+    if [ "$AUTH_READY" = "t" ] && [ "$CRYPTO_READY" = "t" ]; then
+        echo -e "${GREEN}✓${NC} GoTrue migrations complete and pgcrypto installed (took $i attempts)"
         
-        # Verify pgcrypto is accessible from auth schema
-        CRYPTO_CHECK=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT extensions.gen_salt('bf') IS NOT NULL;" 2>/dev/null | xargs)
-        if [ "$CRYPTO_CHECK" = "t" ]; then
-          echo -e "${GREEN}✓${NC} pgcrypto functions verified and accessible"
+        # Verify we can actually use pgcrypto functions
+        HASH_TEST=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT crypt('test', gen_salt('bf'));" 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "$HASH_TEST" ]; then
+          echo -e "${GREEN}✓${NC} pgcrypto functions verified and working"
         else
-          echo -e "${YELLOW}⚠${NC} pgcrypto check returned: $CRYPTO_CHECK"
+          echo -e "${YELLOW}⚠${NC} pgcrypto installed but function test failed"
         fi
         break
     fi
     
-    if [ $i -eq 45 ]; then
-        echo -e "${RED}✗${NC} GoTrue migrations failed to complete after 90 seconds"
+    if [ $i -eq 60 ]; then
+        echo -e "${RED}✗${NC} GoTrue/pgcrypto setup failed after 120 seconds"
+        echo ""
+        echo "Status:"
+        echo "  Auth schema ready: $AUTH_READY"
+        echo "  pgcrypto installed: $CRYPTO_READY"
         echo ""
         echo "GoTrue logs (last 100 lines):"
         docker logs supabase-auth --tail 100
         echo ""
-        echo "Checking if auth schema exists at all:"
-        docker exec supabase-db psql -U postgres -d postgres -c "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'auth';"
-        echo ""
-        echo "This might indicate GoTrue couldn't start properly or is missing configuration."
+        echo "Database extensions:"
+        docker exec supabase-db psql -U postgres -d postgres -c "SELECT extname, extversion FROM pg_extension;"
         exit 1
     fi
     
     # Show progress every 10 attempts
     if [ $((i % 10)) -eq 0 ]; then
-      echo "  Still waiting for auth.users table... ($i/45 - $((i*2))s elapsed)"
+      echo "  Waiting for GoTrue and pgcrypto... ($i/60 - $((i*2))s elapsed) [Auth: $AUTH_READY, Crypto: $CRYPTO_READY]"
     fi
     
     sleep 2
@@ -259,12 +243,23 @@ else
 fi
 echo ""
 
-# Step 9: Create admin user with proper bcrypt password (pgcrypto already configured)
+# Step 9: Create admin user NOW that pgcrypto is guaranteed to be installed
 echo -e "${BLUE}[9/10]${NC} Creating admin user with bcrypt password..."
 ADMIN_EMAIL="admin@localhost"
 ADMIN_PASSWORD="admin123456"
 
 echo "  Creating admin user: $ADMIN_EMAIL"
+echo "  Verifying pgcrypto is available..."
+
+# Final verification that pgcrypto works
+if ! docker exec supabase-db psql -U postgres -d postgres -c "SELECT crypt('test', gen_salt('bf'));" > /dev/null 2>&1; then
+    echo -e "${RED}✗${NC} pgcrypto functions not available!"
+    echo "  Available extensions:"
+    docker exec supabase-db psql -U postgres -d postgres -c "SELECT extname FROM pg_extension;"
+    exit 1
+fi
+
+echo "  pgcrypto verified, creating user..."
 
 docker exec -i supabase-db psql -U postgres -d postgres <<'EOF'
 DO $$
@@ -281,7 +276,7 @@ BEGIN
   DELETE FROM public.profiles WHERE id IN (SELECT id FROM auth.users WHERE email = 'admin@localhost');
   DELETE FROM auth.users WHERE email = 'admin@localhost';
   
-  -- Insert new user with bcrypt hash (DO NOT SET confirmed_at - it's a generated column)
+  -- Insert new user with bcrypt hash
   INSERT INTO auth.users (
     id, instance_id, email, encrypted_password, email_confirmed_at,
     raw_app_meta_data, raw_user_meta_data, aud, role, created_at, updated_at,
@@ -311,7 +306,14 @@ BEGIN
 END $$;
 EOF
 
-echo -e "${GREEN}✓${NC} Admin user created with bcrypt password"
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓${NC} Admin user created successfully"
+else
+    echo -e "${RED}✗${NC} Failed to create admin user!"
+    echo "  Checking what went wrong..."
+    docker exec supabase-db psql -U postgres -d postgres -c "SELECT extname FROM pg_extension WHERE extname = 'pgcrypto';"
+    exit 1
+fi
 echo ""
 
 # Now build and start app container
