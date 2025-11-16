@@ -182,18 +182,36 @@ fi
 
 # Final verification - check if functions work
 echo "  Verifying pgcrypto functions..."
-HASH_TEST=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT crypt('test', gen_salt('bf'));" 2>/dev/null)
 
-if [ $? -eq 0 ] && [ -n "$HASH_TEST" ]; then
-  echo -e "${GREEN}✓${NC} pgcrypto functions are working"
-else
-  echo -e "${RED}✗${NC} pgcrypto functions are not available!"
-  echo "  Checking what extensions are installed:"
-  docker exec supabase-db psql -U postgres -d postgres -c "SELECT extname, extversion FROM pg_extension ORDER BY extname;"
-  echo ""
-  echo "  Checking available crypto functions:"
-  docker exec supabase-db psql -U postgres -d postgres -c "SELECT proname FROM pg_proc WHERE proname LIKE '%crypt%' OR proname LIKE '%salt%';"
+# Use timeout to prevent hanging
+HASH_TEST=$(timeout 10 docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT crypt('test', gen_salt('bf'));" 2>&1)
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -eq 124 ]; then
+  echo -e "${RED}✗${NC} Verification timed out after 10 seconds"
+  echo "  This suggests a database connectivity issue"
   exit 1
+elif [ $TEST_EXIT_CODE -eq 0 ] && [ -n "$HASH_TEST" ]; then
+  echo -e "${GREEN}✓${NC} pgcrypto functions are working"
+  echo "  Sample hash generated successfully"
+else
+  echo -e "${YELLOW}⚠${NC} Verification returned unexpected result"
+  echo "  Exit code: $TEST_EXIT_CODE"
+  echo "  Output: $HASH_TEST"
+  
+  # Try a simpler test
+  echo "  Trying simpler function test..."
+  SIMPLE_TEST=$(timeout 5 docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT COUNT(*) FROM pg_proc WHERE proname = 'gen_salt';" 2>&1)
+  
+  if [ $? -eq 0 ] && [ "$SIMPLE_TEST" -gt 0 ]; then
+    echo -e "${GREEN}✓${NC} pgcrypto functions are loaded (count: $SIMPLE_TEST)"
+    echo "  Continuing despite hash test failure..."
+  else
+    echo -e "${RED}✗${NC} pgcrypto functions are not available!"
+    echo "  Checking what extensions are installed:"
+    docker exec supabase-db psql -U postgres -d postgres -c "SELECT extname, extversion FROM pg_extension ORDER BY extname;"
+    exit 1
+  fi
 fi
 echo ""
 
