@@ -587,6 +587,10 @@ export type Database = {
       }
       restore_order: { Args: { order_id: string }; Returns: undefined }
       soft_delete_order: { Args: { order_id: string }; Returns: undefined }
+      user_has_time_entries_for_order: {
+        Args: { _order_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"
