@@ -17,7 +17,7 @@ interface OrderStagesProps {
 
 export const OrderStages = ({ orderId, isAdmin }: OrderStagesProps) => {
   const { t } = useLanguage();
-  const { stages, createStage, updateStage, deleteStage, refetch } = useOrderStages(orderId);
+  const { stages, createStage, updateStage, deleteStage } = useOrderStages(orderId);
   const [showDialog, setShowDialog] = useState(false);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [stageName, setStageName] = useState('');
@@ -33,7 +33,6 @@ export const OrderStages = ({ orderId, isAdmin }: OrderStagesProps) => {
       await createStage(stageName, stageDescription);
     }
 
-    await refetch();
     setShowDialog(false);
     setStageName('');
     setStageDescription('');
@@ -50,7 +49,6 @@ export const OrderStages = ({ orderId, isAdmin }: OrderStagesProps) => {
   const handleDelete = async () => {
     if (!stageToDelete) return;
     await deleteStage(stageToDelete);
-    await refetch();
     setStageToDelete(null);
   };
 
