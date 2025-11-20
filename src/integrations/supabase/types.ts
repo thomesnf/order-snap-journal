@@ -488,6 +488,7 @@ export type Database = {
           notes: string | null
           order_id: string
           stage_id: string | null
+          technician_id: string
           technician_name: string
           updated_at: string
           user_id: string
@@ -500,6 +501,7 @@ export type Database = {
           notes?: string | null
           order_id: string
           stage_id?: string | null
+          technician_id: string
           technician_name: string
           updated_at?: string
           user_id: string
@@ -512,6 +514,7 @@ export type Database = {
           notes?: string | null
           order_id?: string
           stage_id?: string | null
+          technician_id?: string
           technician_name?: string
           updated_at?: string
           user_id?: string
@@ -530,6 +533,13 @@ export type Database = {
             columns: ["stage_id"]
             isOneToOne: false
             referencedRelation: "order_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
