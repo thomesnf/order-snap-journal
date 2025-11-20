@@ -115,7 +115,8 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
       .from('time_entries')
       .insert({
         order_id: orderId,
-        user_id: selectedUserId,
+        user_id: user.id,
+        technician_id: selectedUserId,
         technician_name: technicianName,
         work_date: format(selectedDate, 'yyyy-MM-dd'),
         hours_worked: hours,

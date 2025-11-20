@@ -229,6 +229,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
         .insert({
           order_id: newEntry.orderId,
           user_id: user.id,
+          technician_id: newEntry.technicianId,
           technician_name: technician.full_name || 'Unknown',
           hours_worked: hours,
           work_date: newEntry.workDate,
