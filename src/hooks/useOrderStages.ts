@@ -76,6 +76,9 @@ export const useOrderStages = (orderId: string) => {
 
       if (error) throw error;
 
+      // Immediately refetch to update UI
+      await fetchStages();
+
       toast({
         title: 'Success',
         description: 'Stage created successfully'
@@ -98,6 +101,9 @@ export const useOrderStages = (orderId: string) => {
 
       if (error) throw error;
 
+      // Immediately refetch to update UI
+      await fetchStages();
+
       toast({
         title: 'Success',
         description: 'Stage updated successfully'
@@ -119,6 +125,9 @@ export const useOrderStages = (orderId: string) => {
         .eq('id', stageId);
 
       if (error) throw error;
+
+      // Immediately refetch to update UI
+      await fetchStages();
 
       toast({
         title: 'Success',
