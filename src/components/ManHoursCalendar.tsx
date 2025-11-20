@@ -120,7 +120,7 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     
     setLoading(true);
     try {
-      // Fetch all time entries - all authenticated users can view all entries
+      // Fetch time entries - RLS ensures users only see their own entries (where technician_id = user.id)
       const { data: entriesData, error: entriesError } = await supabase
         .from('time_entries')
         .select('*')
