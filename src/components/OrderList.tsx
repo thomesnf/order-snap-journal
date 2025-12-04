@@ -2,21 +2,34 @@ import { useState, useEffect } from 'react';
 import { Order } from '@/hooks/useOrdersDB';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OrderCard } from './OrderCard';
-import { Input } from '@/components/ui/input';
+import { OrderListRow } from './OrderListRow';
+import { OrderNavbar } from './OrderNavbar';
+import { OrderFilters } from './OrderFilters';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Filter, Plus, Settings, Shield, LogOut, FileBarChart, Calendar, MoreVertical } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Filter, Plus } from 'lucide-react';
 import { ManHoursCalendar } from './ManHoursCalendar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface OrderListProps {
   orders: Order[];
@@ -51,10 +64,24 @@ export const OrderList = ({
     const saved = localStorage.getItem('orderListStatusFilter');
     return (saved as Order['status'] | 'all') || 'in-progress';
   });
+  const [priorityFilter, setPriorityFilter] = useState<Order['priority'] | 'all'>('all');
+  const [sortBy, setSortBy] = useState<'updated' | 'created' | 'due_date' | 'title'>('updated');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
+    const saved = localStorage.getItem('orderListViewMode');
+    return (saved as 'card' | 'list') || 'card';
+  });
   const [fullName, setFullName] = useState<string>('');
   const [showManHoursCalendar, setShowManHoursCalendar] = useState(false);
-  const { signOut, user } = useAuth();
-  const navigate = useNavigate();
+  
+  // Dialog states for list view
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [users, setUsers] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -63,7 +90,7 @@ export const OrderList = ({
           .from('profiles')
           .select('full_name')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         
         if (data?.full_name) {
           setFullName(data.full_name);
@@ -78,15 +105,69 @@ export const OrderList = ({
     localStorage.setItem('orderListStatusFilter', statusFilter);
   }, [statusFilter]);
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer?.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    localStorage.setItem('orderListViewMode', viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchUsers();
+    }
+  }, [isAdmin]);
+
+  const fetchUsers = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .order('full_name');
     
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    if (data) {
+      setUsers(data);
+    }
+  };
+
+  const fetchCurrentAssignments = async (orderId: string) => {
+    const { data } = await supabase
+      .from('order_assignments')
+      .select('user_id')
+      .eq('order_id', orderId);
     
-    return matchesSearch && matchesStatus;
-  });
+    if (data) {
+      setSelectedUserIds(data.map(a => a.user_id));
+    }
+  };
+
+  const filteredOrders = orders
+    .filter(order => {
+      const matchesSearch = order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           order.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           order.customer?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
+      
+      return matchesSearch && matchesStatus && matchesPriority;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'updated':
+          comparison = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+          break;
+        case 'created':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'due_date':
+          const aDate = a.due_date ? new Date(a.due_date).getTime() : 0;
+          const bDate = b.due_date ? new Date(b.due_date).getTime() : 0;
+          comparison = aDate - bDate;
+          break;
+        case 'title':
+          comparison = a.title.localeCompare(b.title);
+          break;
+      }
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
 
   const statusCounts = {
     all: orders.length,
@@ -98,105 +179,73 @@ export const OrderList = ({
     cancelled: orders.filter(o => o.status === 'cancelled').length
   };
 
+  const handleOpenAssignDialog = (order: Order) => {
+    setSelectedOrder(order);
+    fetchCurrentAssignments(order.id);
+    setShowAssignDialog(true);
+  };
+
+  const handleOpenDeleteDialog = (order: Order) => {
+    setSelectedOrder(order);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDelete = async () => {
+    if (selectedOrder && onDeleteOrder) {
+      await onDeleteOrder(selectedOrder.id);
+      setShowDeleteDialog(false);
+      setSelectedOrder(null);
+    }
+  };
+
+  const handleChangeAssignments = async () => {
+    if (selectedOrder && onChangeAssignments) {
+      await onChangeAssignments(selectedOrder.id, selectedUserIds);
+      setShowAssignDialog(false);
+      setSelectedOrder(null);
+      toast.success(t('assignmentsUpdated'));
+    }
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border/50 p-4 z-10">
-        <div className="flex items-center justify-between mb-4">
-          {companyLogoUrl ? (
-            <img 
-              src={companyLogoUrl} 
-              alt="Company Logo" 
-              className="h-10 object-contain"
-            />
-          ) : (
-            <h1 className="text-2xl font-bold text-foreground">{t('orders')}</h1>
-          )}
-          <div className="flex-1 flex justify-center">
-            <p className="text-sm font-medium text-foreground">{fullName || user?.email}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => setShowManHoursCalendar(true)}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {t('calendar')}
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <DropdownMenuItem onClick={() => navigate('/reports')}>
-                    <FileBarChart className="h-4 w-4 mr-2" />
-                    {t('reports')}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={onShowSettings}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  {t('settings')}
-                </DropdownMenuItem>
-                {isAdmin && onShowAdmin && (
-                  <DropdownMenuItem onClick={onShowAdmin}>
-                    <Shield className="h-4 w-4 mr-2" />
-                    {t('admin')}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  {t('logout')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {isAdmin && (
-              <Button onClick={onCreateOrder} size="sm" className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90">
-                <Plus className="h-4 w-4 mr-2" />
-                {t('newOrder')}
-              </Button>
-            )}
-          </div>
-        </div>
-        
-        {/* Search */}
-        <div className="relative mb-4 flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={t('searchOrders')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-card border-border/50"
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowManHoursCalendar(true)}
-            className="shrink-0"
-          >
-            <Calendar className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        {/* Status Filter */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {(['all', 'pending', 'in-progress', 'completed', 'invoiced', 'paid', 'cancelled'] as const).map((status) => (
-            <Badge
-              key={status}
-              variant={statusFilter === status ? "default" : "outline"}
-              className={`cursor-pointer whitespace-nowrap ${
-                statusFilter === status 
-                ? 'bg-primary text-primary-foreground' 
-                : 'hover:bg-muted'
-              }`}
-              onClick={() => setStatusFilter(status)}
-            >
-              {status === 'all' ? t('all') : t(status === 'in-progress' ? 'inProgress' : status)} ({statusCounts[status]})
-            </Badge>
-          ))}
-        </div>
+      {/* Navbar */}
+      <OrderNavbar
+        companyLogoUrl={companyLogoUrl}
+        fullName={fullName}
+        isAdmin={isAdmin}
+        onCreateOrder={onCreateOrder}
+        onShowSettings={onShowSettings}
+        onShowAdmin={onShowAdmin}
+        onShowCalendar={() => setShowManHoursCalendar(true)}
+      />
+      
+      {/* Filters */}
+      <div className="px-4 py-3 border-b border-border/30 bg-background/50">
+        <OrderFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          priorityFilter={priorityFilter}
+          setPriorityFilter={setPriorityFilter}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          statusCounts={statusCounts}
+          onShowCalendar={() => setShowManHoursCalendar(true)}
+        />
       </div>
       
       {/* Orders List */}
@@ -211,15 +260,15 @@ export const OrderList = ({
                 : t('getStarted')
               }
             </p>
-            {!searchTerm && statusFilter === 'all' && (
+            {!searchTerm && statusFilter === 'all' && isAdmin && (
               <Button onClick={onCreateOrder} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
                 {t('createFirstOrder')}
               </Button>
             )}
           </div>
-        ) : (
-          <div className="space-y-4">
+        ) : viewMode === 'card' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredOrders.map((order) => (
               <OrderCard
                 key={order.id}
@@ -233,6 +282,21 @@ export const OrderList = ({
               />
             ))}
           </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredOrders.map((order) => (
+              <OrderListRow
+                key={order.id}
+                order={order}
+                onViewDetails={onViewDetails}
+                onUpdateStatus={onUpdateStatus}
+                isAdmin={isAdmin}
+                onDuplicateOrder={onDuplicateOrder}
+                onOpenAssignDialog={handleOpenAssignDialog}
+                onOpenDeleteDialog={handleOpenDeleteDialog}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -240,6 +304,63 @@ export const OrderList = ({
         open={showManHoursCalendar} 
         onOpenChange={setShowManHoursCalendar}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteOrder')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('deleteOrderConfirm')} "{selectedOrder?.title}"? {t('cannotBeUndone')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Manage Assignments Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('manageAssignments')}</DialogTitle>
+            <DialogDescription>
+              {t('selectUsersForOrder')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3">
+              {users.map((u) => (
+                <div key={u.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted">
+                  <Checkbox
+                    id={`user-${u.id}`}
+                    checked={selectedUserIds.includes(u.id)}
+                    onCheckedChange={() => toggleUserSelection(u.id)}
+                  />
+                  <label
+                    htmlFor={`user-${u.id}`}
+                    className="flex-1 text-sm font-medium leading-none cursor-pointer"
+                  >
+                    {u.full_name || 'User'}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleChangeAssignments}>
+              {t('updateAssignments')} ({selectedUserIds.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

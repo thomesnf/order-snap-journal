@@ -190,7 +190,19 @@ const translations: Translations = {
     'exportTimeEntriesDesc': 'Export {count} time entries ({hours} hours)',
     'monthlySalaryReport': 'Monthly Salary Report',
     'monthlySalaryDesc': 'Technician hours & earnings ({hours} hours total)',
-    'exportSalaryReport': 'Export Salary Report'
+    'exportSalaryReport': 'Export Salary Report',
+    
+    // New filter options
+    'sortBy': 'Sort By',
+    'clearAll': 'Clear All',
+    'lastUpdated': 'Last Updated',
+    'dateCreated': 'Date Created',
+    'title': 'Title',
+    'newest': 'Newest First',
+    'oldest': 'Oldest First',
+    'assignmentsUpdated': 'Assignments updated',
+    'selectUsersForOrder': 'Select users who should have access to this order.',
+    'updateAssignments': 'Update Assignments'
   },
   sv: {
     // Navigation
@@ -374,7 +386,19 @@ const translations: Translations = {
     'exportTimeEntriesDesc': 'Exportera {count} tidsinlägg ({hours} timmar)',
     'monthlySalaryReport': 'Månadslönerapport',
     'monthlySalaryDesc': 'Teknikertimmar & intäkter ({hours} timmar totalt)',
-    'exportSalaryReport': 'Exportera Lönerapport'
+    'exportSalaryReport': 'Exportera Lönerapport',
+    
+    // New filter options
+    'sortBy': 'Sortera Efter',
+    'clearAll': 'Rensa Alla',
+    'lastUpdated': 'Senast Uppdaterad',
+    'dateCreated': 'Skapad Datum',
+    'title': 'Titel',
+    'newest': 'Nyast Först',
+    'oldest': 'Äldst Först',
+    'assignmentsUpdated': 'Uppdrag uppdaterade',
+    'selectUsersForOrder': 'Välj användare som ska ha tillgång till denna beställning.',
+    'updateAssignments': 'Uppdatera Uppdrag'
   }
 };
 
