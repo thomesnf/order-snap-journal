@@ -4,7 +4,7 @@ import { Order } from '@/hooks/useOrdersDB';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2, RefreshCw, Copy } from 'lucide-react';
+import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2, RefreshCw, Copy, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
@@ -293,6 +293,13 @@ export const OrderCard = ({
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span>{t('due')} {formatDate(order.due_date, dateFormat)}</span>
+            </div>
+          )}
+
+          {order.total_hours !== undefined && order.total_hours > 0 && (
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>{order.total_hours.toFixed(1)} {t('hours')}</span>
             </div>
           )}
         </div>
