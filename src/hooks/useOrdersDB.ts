@@ -31,6 +31,7 @@ export interface Order {
   updated_at: string;
   user_id: string;
   time_entries?: TimeEntry[];
+  total_hours?: number;
 }
 
 export interface SummaryEntry {
@@ -92,12 +93,22 @@ export const useOrdersDB = () => {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('*, time_entries(hours_worked)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setOrders(data || []);
+      
+      // Calculate total hours for each order
+      const ordersWithHours = (data || []).map(order => {
+        const timeEntries = order.time_entries as { hours_worked: number }[] | null;
+        const total_hours = timeEntries?.reduce((sum, entry) => sum + Number(entry.hours_worked), 0) || 0;
+        // Remove time_entries from response to keep it clean
+        const { time_entries, ...orderData } = order;
+        return { ...orderData, total_hours };
+      });
+      
+      setOrders(ordersWithHours);
     } catch (error: any) {
       if (import.meta.env.DEV) {
         console.error('Error fetching orders:', error);

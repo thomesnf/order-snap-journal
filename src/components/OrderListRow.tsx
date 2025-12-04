@@ -2,7 +2,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Order } from '@/hooks/useOrdersDB';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2, RefreshCw, Copy, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2, RefreshCw, Copy, ChevronRight, Clock } from 'lucide-react';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -109,6 +109,12 @@ export const OrderListRow = ({
             <span className="flex items-center gap-1 shrink-0">
               <Calendar className="h-3 w-3" />
               {formatDate(order.due_date, dateFormat)}
+            </span>
+          )}
+          {order.total_hours !== undefined && order.total_hours > 0 && (
+            <span className="flex items-center gap-1 shrink-0 font-medium text-primary">
+              <Clock className="h-3 w-3" />
+              {order.total_hours.toFixed(1)}h
             </span>
           )}
         </div>

@@ -202,7 +202,8 @@ const translations: Translations = {
     'oldest': 'Oldest First',
     'assignmentsUpdated': 'Assignments updated',
     'selectUsersForOrder': 'Select users who should have access to this order.',
-    'updateAssignments': 'Update Assignments'
+    'updateAssignments': 'Update Assignments',
+    'hours': 'hours'
   },
   sv: {
     // Navigation
@@ -398,7 +399,8 @@ const translations: Translations = {
     'oldest': 'Äldst Först',
     'assignmentsUpdated': 'Uppdrag uppdaterade',
     'selectUsersForOrder': 'Välj användare som ska ha tillgång till denna beställning.',
-    'updateAssignments': 'Uppdatera Uppdrag'
+    'updateAssignments': 'Uppdatera Uppdrag',
+    'hours': 'timmar'
   }
 };
 
