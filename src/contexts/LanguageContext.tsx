@@ -203,7 +203,36 @@ const translations: Translations = {
     'assignmentsUpdated': 'Assignments updated',
     'selectUsersForOrder': 'Select users who should have access to this order.',
     'updateAssignments': 'Update Assignments',
-    'hours': 'hours'
+    'hours': 'hours',
+    // Templates
+    'orderTemplates': 'Order Templates',
+    'createTemplate': 'Create Template',
+    'editTemplate': 'Edit Template',
+    'noTemplates': 'No templates created yet',
+    'templateDescription': 'Templates help automate order creation with prefilled information',
+    'templateName': 'Template Name',
+    'defaultTitle': 'Default Title',
+    'defaultDescription': 'Default Description',
+    'defaultPriority': 'Default Priority',
+    'defaultStatus': 'Default Status',
+    'defaultSummary': 'Default Summary',
+    'defaultStages': 'Default Stages',
+    'noStagesAdded': 'No stages added',
+    'stageName': 'Stage name',
+    'stageDescription': 'Stage description (optional)',
+    'addStage': 'Add Stage',
+    'deleteTemplateWarning': 'This will permanently delete this template.',
+    'useTemplate': 'Use Template',
+    'selectTemplate': 'Select a template...',
+    'noTemplate': 'No template (blank order)',
+    'templateWillPrefill': 'This template will prefill',
+    'stages': 'stages',
+    // Drag drop
+    'dragDropFiles': 'Drag & drop files here',
+    'dropFilesHere': 'Drop files here!',
+    'orClickToSelect': 'or click to select files',
+    'uploading': 'Uploading',
+    'allowedFileTypes': 'Allowed file types'
   },
   sv: {
     // Navigation
@@ -400,7 +429,36 @@ const translations: Translations = {
     'assignmentsUpdated': 'Uppdrag uppdaterade',
     'selectUsersForOrder': 'Välj användare som ska ha tillgång till denna beställning.',
     'updateAssignments': 'Uppdatera Uppdrag',
-    'hours': 'timmar'
+    'hours': 'timmar',
+    // Templates
+    'orderTemplates': 'Beställningsmallar',
+    'createTemplate': 'Skapa Mall',
+    'editTemplate': 'Redigera Mall',
+    'noTemplates': 'Inga mallar skapade ännu',
+    'templateDescription': 'Mallar hjälper till att automatisera beställningar med förifylld information',
+    'templateName': 'Mallnamn',
+    'defaultTitle': 'Standardtitel',
+    'defaultDescription': 'Standardbeskrivning',
+    'defaultPriority': 'Standardprioritet',
+    'defaultStatus': 'Standardstatus',
+    'defaultSummary': 'Standardsammanfattning',
+    'defaultStages': 'Standardsteg',
+    'noStagesAdded': 'Inga steg tillagda',
+    'stageName': 'Stegnamn',
+    'stageDescription': 'Stegbeskrivning (valfritt)',
+    'addStage': 'Lägg till Steg',
+    'deleteTemplateWarning': 'Detta kommer permanent ta bort denna mall.',
+    'useTemplate': 'Använd Mall',
+    'selectTemplate': 'Välj en mall...',
+    'noTemplate': 'Ingen mall (tom beställning)',
+    'templateWillPrefill': 'Denna mall kommer förifyllt',
+    'stages': 'steg',
+    // Drag drop
+    'dragDropFiles': 'Dra & släpp filer här',
+    'dropFilesHere': 'Släpp filer här!',
+    'orClickToSelect': 'eller klicka för att välja filer',
+    'uploading': 'Laddar upp',
+    'allowedFileTypes': 'Tillåtna filtyper'
   }
 };
 
