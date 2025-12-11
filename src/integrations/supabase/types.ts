@@ -180,6 +180,55 @@ export type Database = {
           },
         ]
       }
+      order_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          default_description: string | null
+          default_priority: Database["public"]["Enums"]["order_priority"] | null
+          default_stages: Json | null
+          default_status: Database["public"]["Enums"]["order_status"] | null
+          default_summary: string | null
+          default_title: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          default_description?: string | null
+          default_priority?:
+            | Database["public"]["Enums"]["order_priority"]
+            | null
+          default_stages?: Json | null
+          default_status?: Database["public"]["Enums"]["order_status"] | null
+          default_summary?: string | null
+          default_title?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          default_description?: string | null
+          default_priority?:
+            | Database["public"]["Enums"]["order_priority"]
+            | null
+          default_stages?: Json | null
+          default_status?: Database["public"]["Enums"]["order_status"] | null
+          default_summary?: string | null
+          default_title?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           created_at: string

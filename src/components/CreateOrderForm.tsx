@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Order } from '@/hooks/useOrdersDB';
+import { useOrderTemplates, OrderTemplate } from '@/hooks/useOrderTemplates';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, MapPin, User, Calendar } from 'lucide-react';
+import { ArrowLeft, Save, MapPin, User, Calendar, ClipboardList } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { z } from 'zod';
 
@@ -22,12 +23,14 @@ const orderSchema = z.object({
 
 interface CreateOrderFormProps {
   onBack: () => void;
-  onCreateOrder: (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => void;
+  onCreateOrder: (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>, template?: OrderTemplate) => void;
   initialData?: Partial<Order>;
 }
 
 export const CreateOrderForm = ({ onBack, onCreateOrder, initialData }: CreateOrderFormProps) => {
   const { t } = useLanguage();
+  const { templates, loading: templatesLoading } = useOrderTemplates();
+  const [selectedTemplate, setSelectedTemplate] = useState<OrderTemplate | null>(null);
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     description: initialData?.description || '',
@@ -40,6 +43,25 @@ export const CreateOrderForm = ({ onBack, onCreateOrder, initialData }: CreateOr
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleTemplateChange = (templateId: string) => {
+    if (templateId === 'none') {
+      setSelectedTemplate(null);
+      return;
+    }
+    
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      setSelectedTemplate(template);
+      setFormData(prev => ({
+        ...prev,
+        title: template.default_title || prev.title,
+        description: template.default_description || prev.description,
+        priority: template.default_priority || prev.priority,
+        status: template.default_status || prev.status,
+      }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +92,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder, initialData }: CreateOr
       const orderData = {
         title: validationResult.data.title,
         description: validationResult.data.description,
-        summary: null,
+        summary: selectedTemplate?.default_summary || null,
         status: formData.status,
         priority: formData.priority,
         customer: validationResult.data.customer || null,
@@ -79,7 +101,7 @@ export const CreateOrderForm = ({ onBack, onCreateOrder, initialData }: CreateOr
         due_date: formData.dueDate || null
       };
       
-      onCreateOrder(orderData);
+      onCreateOrder(orderData, selectedTemplate || undefined);
       
       toast({
         title: t('orderCreated'),
@@ -114,6 +136,56 @@ export const CreateOrderForm = ({ onBack, onCreateOrder, initialData }: CreateOr
       {/* Form */}
       <div className="flex-1 overflow-y-auto p-4">
         <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
+          {/* Template Selection */}
+          {templates.length > 0 && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ClipboardList className="h-5 w-5" />
+                  {t('useTemplate')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Select
+                  value={selectedTemplate?.id || 'none'}
+                  onValueChange={handleTemplateChange}
+                  disabled={templatesLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('selectTemplate')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t('noTemplate')}</SelectItem>
+                    {templates.map(template => (
+                      <SelectItem key={template.id} value={template.id}>
+                        <div className="flex flex-col items-start">
+                          <span>{template.name}</span>
+                          {template.description && (
+                            <span className="text-xs text-muted-foreground">{template.description}</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedTemplate && (
+                  <div className="mt-3 p-3 bg-background/50 rounded-lg text-sm">
+                    <p className="text-muted-foreground">
+                      {t('templateWillPrefill')}:
+                    </p>
+                    <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                      {selectedTemplate.default_stages && selectedTemplate.default_stages.length > 0 && (
+                        <li>• {selectedTemplate.default_stages.length} {t('stages')}</li>
+                      )}
+                      {selectedTemplate.default_summary && <li>• {t('summary')}</li>}
+                      {selectedTemplate.default_description && <li>• {t('description')}</li>}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>{t('orderDetails')}</CardTitle>

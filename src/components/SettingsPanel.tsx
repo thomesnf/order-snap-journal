@@ -10,6 +10,7 @@ import { ArrowLeft, Settings, Moon, Sun, Languages, Upload, Image as ImageIcon, 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { ThemePreview } from '@/components/ThemePreview';
+import { OrderTemplateManager } from '@/components/OrderTemplateManager';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import JSZip from 'jszip';
@@ -1057,6 +1058,11 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Order Templates - Admin Only */}
+        {isAdmin && (
+          <OrderTemplateManager />
         )}
 
         {/* Backup Settings - Admin Only */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Upload, FileText, Download, Trash2 } from 'lucide-react';
+import { Upload, FileText, Download, Trash2, CloudUpload } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { OrderStages } from './OrderStages';
 
@@ -18,29 +18,24 @@ interface OrderBasisFile {
   last_accessed_at: string;
   metadata: any;
 }
+
 interface OrderBasisFilesProps {
   orderId: string;
   isAdmin: boolean;
 }
-export const OrderBasisFiles = ({
-  orderId,
-  isAdmin
-}: OrderBasisFilesProps) => {
-  const {
-    t
-  } = useLanguage();
-  const {
-    toast
-  } = useToast();
+
+export const OrderBasisFiles = ({ orderId, isAdmin }: OrderBasisFilesProps) => {
+  const { t } = useLanguage();
+  const { toast } = useToast();
   const [files, setFiles] = useState<OrderBasisFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // File validation constants
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-  const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'application/octet-stream' // For .sor files
-  ];
   const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'sor'];
+
   const validateFile = (file: File): string | null => {
     const fileExt = file.name.split('.').pop()?.toLowerCase();
     if (!fileExt || !ALLOWED_EXTENSIONS.includes(fileExt)) {
@@ -51,19 +46,15 @@ export const OrderBasisFiles = ({
     }
     return null;
   };
+
   useEffect(() => {
     fetchFiles();
   }, [orderId]);
+
   const fetchFiles = async () => {
     try {
-      const {
-        data,
-        error
-      } = await supabase.storage.from('order-basis').list(orderId, {
-        sortBy: {
-          column: 'created_at',
-          order: 'desc'
-        }
+      const { data, error } = await supabase.storage.from('order-basis').list(orderId, {
+        sortBy: { column: 'created_at', order: 'desc' }
       });
       if (error) throw error;
       setFiles(data || []);
@@ -75,41 +66,40 @@ export const OrderBasisFiles = ({
       });
     }
   };
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+
+  const uploadFiles = async (filesToUpload: FileList | File[]) => {
+    const filesArray = Array.from(filesToUpload);
+    if (filesArray.length === 0) return;
 
     // Validate all files before uploading
     const invalidFiles: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const validationError = validateFile(files[i]);
+    for (const file of filesArray) {
+      const validationError = validateFile(file);
       if (validationError) {
-        invalidFiles.push(`${files[i].name}: ${validationError}`);
+        invalidFiles.push(`${file.name}: ${validationError}`);
       }
     }
+
     if (invalidFiles.length > 0) {
       toast({
         title: t('error'),
         description: invalidFiles.join('\n'),
         variant: 'destructive'
       });
-      event.target.value = '';
       return;
     }
+
     setUploading(true);
     try {
-      // Upload all files
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < filesArray.length; i++) {
+        const file = filesArray[i];
         const filePath = `${orderId}/${Date.now()}_${i}_${file.name}`;
-        const {
-          error
-        } = await supabase.storage.from('order-basis').upload(filePath, file);
+        const { error } = await supabase.storage.from('order-basis').upload(filePath, file);
         if (error) throw error;
       }
       toast({
         title: t('success'),
-        description: `${files.length} file${files.length > 1 ? 's' : ''} uploaded successfully`
+        description: `${filesArray.length} file${filesArray.length > 1 ? 's' : ''} uploaded successfully`
       });
       fetchFiles();
     } catch (error: any) {
@@ -120,15 +110,51 @@ export const OrderBasisFiles = ({
       });
     } finally {
       setUploading(false);
-      event.target.value = '';
     }
   };
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      await uploadFiles(files);
+    }
+    event.target.value = '';
+  };
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragging to false if we're leaving the drop zone entirely
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles.length > 0) {
+      await uploadFiles(droppedFiles);
+    }
+  }, [orderId]);
+
   const handleDownload = async (name: string) => {
     try {
-      const {
-        data,
-        error
-      } = await supabase.storage.from('order-basis').download(`${orderId}/${name}`);
+      const { data, error } = await supabase.storage.from('order-basis').download(`${orderId}/${name}`);
       if (error) throw error;
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
@@ -144,12 +170,11 @@ export const OrderBasisFiles = ({
       });
     }
   };
+
   const handleDelete = async () => {
     if (!fileToDelete) return;
     try {
-      const {
-        error
-      } = await supabase.storage.from('order-basis').remove([`${orderId}/${fileToDelete}`]);
+      const { error } = await supabase.storage.from('order-basis').remove([`${orderId}/${fileToDelete}`]);
       if (error) throw error;
       toast({
         title: t('success'),
@@ -166,9 +191,11 @@ export const OrderBasisFiles = ({
       setFileToDelete(null);
     }
   };
-  return <>
+
+  return (
+    <>
       <OrderStages orderId={orderId} isAdmin={isAdmin} />
-      
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -177,21 +204,66 @@ export const OrderBasisFiles = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="file-upload">{t('uploadFiles')}</Label>
-            <div className="flex gap-2">
-              <Input id="file-upload" type="file" onChange={handleUpload} disabled={uploading} multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.sor" />
-              <Button disabled={uploading} size="sm" variant="outline">
-                <Upload className="h-4 w-4" />
-              </Button>
+          {/* Drag and Drop Zone */}
+          <div
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className={`
+              relative border-2 border-dashed rounded-lg p-6 transition-all duration-200
+              ${isDragging 
+                ? 'border-primary bg-primary/5 scale-[1.02]' 
+                : 'border-border hover:border-muted-foreground/50'
+              }
+              ${uploading ? 'opacity-50 pointer-events-none' : ''}
+            `}
+          >
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className={`p-3 rounded-full transition-colors ${isDragging ? 'bg-primary/10' : 'bg-muted'}`}>
+                <CloudUpload className={`h-8 w-8 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+              </div>
+              <div>
+                <p className="font-medium">
+                  {isDragging ? t('dropFilesHere') : t('dragDropFiles')}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t('orClickToSelect')}
+                </p>
+              </div>
+              <Input
+                id="file-upload"
+                type="file"
+                onChange={handleUpload}
+                disabled={uploading}
+                multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.sor"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
             </div>
-            
+            {uploading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+                  <span className="text-sm">{t('uploading')}...</span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {files.length > 0 ? <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {t('allowedFileTypes')}: PDF, Word, Excel, Images, SOR (Max 10MB)
+          </p>
+
+          {files.length > 0 ? (
+            <div className="space-y-2">
               <Label>{t('uploadedFiles')}</Label>
               <div className="space-y-2">
-                {files.map(file => <div key={file.name} className="flex items-center justify-between p-3 border rounded-lg">
+                {files.map(file => (
+                  <div
+                    key={file.name}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <FileText className="h-4 w-4 flex-shrink-0" />
                       <span className="text-sm truncate">{file.name}</span>
@@ -204,11 +276,15 @@ export const OrderBasisFiles = ({
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>)}
+                  </div>
+                ))}
               </div>
-            </div> : <p className="text-muted-foreground text-sm text-center py-4">
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm text-center py-4">
               {t('noFilesUploaded')}
-            </p>}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -228,5 +304,6 @@ export const OrderBasisFiles = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>;
+    </>
+  );
 };
