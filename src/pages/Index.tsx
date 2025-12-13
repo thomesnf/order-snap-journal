@@ -74,10 +74,27 @@ const Index = () => {
     try {
       const newOrder = await addOrder(orderData);
       
-      // If template has summary entries, create them for the new order
-      if (template?.default_summary_entries && template.default_summary_entries.length > 0 && newOrder) {
-        for (const entry of template.default_summary_entries) {
-          await addSummaryEntry(newOrder.id, entry.content);
+      if (newOrder && template) {
+        // If template has stages, create them for the new order
+        if (template.default_stages && template.default_stages.length > 0) {
+          for (let i = 0; i < template.default_stages.length; i++) {
+            const stage = template.default_stages[i];
+            await supabase
+              .from('order_stages')
+              .insert({
+                order_id: newOrder.id,
+                name: stage.name,
+                description: stage.description || null,
+                order_position: i
+              });
+          }
+        }
+        
+        // If template has summary entries, create them for the new order
+        if (template.default_summary_entries && template.default_summary_entries.length > 0) {
+          for (const entry of template.default_summary_entries) {
+            await addSummaryEntry(newOrder.id, entry.content);
+          }
         }
       }
       
