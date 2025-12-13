@@ -8,7 +8,7 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import AdminPanel from '@/components/AdminPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
+import { OrderTemplate } from '@/hooks/useOrderTemplates';
 type View = 'list' | 'details' | 'create' | 'settings' | 'admin';
 
 const Index = () => {
@@ -70,9 +70,17 @@ const Index = () => {
     setCurrentView('create');
   };
 
-  const handleOrderCreated = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+  const handleOrderCreated = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'user_id'>, template?: OrderTemplate) => {
     try {
-      await addOrder(orderData);
+      const newOrder = await addOrder(orderData);
+      
+      // If template has summary entries, create them for the new order
+      if (template?.default_summary_entries && template.default_summary_entries.length > 0 && newOrder) {
+        for (const entry of template.default_summary_entries) {
+          await addSummaryEntry(newOrder.id, entry.content);
+        }
+      }
+      
       setDuplicateOrderData(null);
       setCurrentView('list');
       setSelectedOrder(null);

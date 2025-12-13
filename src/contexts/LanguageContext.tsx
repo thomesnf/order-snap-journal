@@ -227,6 +227,11 @@ const translations: Translations = {
     'noTemplate': 'No template (blank order)',
     'templateWillPrefill': 'This template will prefill',
     'stages': 'stages',
+    'defaultSummaryEntries': 'Default Summary Entries',
+    'noSummaryEntriesAdded': 'No summary entries added',
+    'summaryEntryContent': 'Summary entry content',
+    'addSummaryEntry': 'Add Summary Entry',
+    'summaryEntries': 'summary entries',
     // Drag drop
     'dragDropFiles': 'Drag & drop files here',
     'dropFilesHere': 'Drop files here!',
@@ -453,6 +458,11 @@ const translations: Translations = {
     'noTemplate': 'Ingen mall (tom beställning)',
     'templateWillPrefill': 'Denna mall kommer förifyllt',
     'stages': 'steg',
+    'defaultSummaryEntries': 'Standardsammanfattningsposter',
+    'noSummaryEntriesAdded': 'Inga sammanfattningsposter tillagda',
+    'summaryEntryContent': 'Sammanfattningspostinnehåll',
+    'addSummaryEntry': 'Lägg till Sammanfattningspost',
+    'summaryEntries': 'sammanfattningsposter',
     // Drag drop
     'dragDropFiles': 'Dra & släpp filer här',
     'dropFilesHere': 'Släpp filer här!',
