@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useOrderTemplates, OrderTemplate, OrderTemplateStage, CreateTemplateData } from '@/hooks/useOrderTemplates';
+import { useOrderTemplates, OrderTemplate, OrderTemplateStage, OrderTemplateSummaryEntry, CreateTemplateData } from '@/hooks/useOrderTemplates';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, ClipboardList, X, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, ClipboardList, X, GripVertical, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export const OrderTemplateManager = () => {
@@ -29,11 +29,13 @@ export const OrderTemplateManager = () => {
     default_priority: 'medium',
     default_status: 'pending',
     default_stages: [],
-    default_summary: ''
+    default_summary: '',
+    default_summary_entries: []
   });
 
   const [newStageName, setNewStageName] = useState('');
   const [newStageDescription, setNewStageDescription] = useState('');
+  const [newSummaryEntryContent, setNewSummaryEntryContent] = useState('');
 
   const resetForm = () => {
     setFormData({
@@ -44,11 +46,13 @@ export const OrderTemplateManager = () => {
       default_priority: 'medium',
       default_status: 'pending',
       default_stages: [],
-      default_summary: ''
+      default_summary: '',
+      default_summary_entries: []
     });
     setEditingTemplate(null);
     setNewStageName('');
     setNewStageDescription('');
+    setNewSummaryEntryContent('');
   };
 
   const openCreateDialog = () => {
@@ -66,7 +70,8 @@ export const OrderTemplateManager = () => {
       default_priority: template.default_priority,
       default_status: template.default_status,
       default_stages: template.default_stages || [],
-      default_summary: template.default_summary || ''
+      default_summary: template.default_summary || '',
+      default_summary_entries: template.default_summary_entries || []
     });
     setDialogOpen(true);
   };
@@ -129,6 +134,25 @@ export const OrderTemplateManager = () => {
     }));
   };
 
+  const addSummaryEntry = () => {
+    if (!newSummaryEntryContent.trim()) return;
+    setFormData(prev => ({
+      ...prev,
+      default_summary_entries: [
+        ...(prev.default_summary_entries || []),
+        { content: newSummaryEntryContent }
+      ]
+    }));
+    setNewSummaryEntryContent('');
+  };
+
+  const removeSummaryEntry = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      default_summary_entries: prev.default_summary_entries?.filter((_, i) => i !== index) || []
+    }));
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -164,6 +188,8 @@ export const OrderTemplateManager = () => {
                   )}
                   <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
                     <span>{template.default_stages?.length || 0} stages</span>
+                    <span>•</span>
+                    <span>{template.default_summary_entries?.length || 0} summary entries</span>
                     <span>•</span>
                     <span className="capitalize">{template.default_priority} priority</span>
                   </div>
@@ -343,6 +369,51 @@ export const OrderTemplateManager = () => {
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     {t('addStage')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Summary Entries */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                {t('defaultSummaryEntries')}
+              </Label>
+              <div className="border rounded-lg p-3 space-y-2">
+                {formData.default_summary_entries && formData.default_summary_entries.length > 0 ? (
+                  formData.default_summary_entries.map((entry, index) => (
+                    <div key={index} className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                      <GripVertical className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <p className="flex-1 text-sm">{entry.content}</p>
+                      <Button size="sm" variant="ghost" onClick={() => removeSummaryEntry(index)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    {t('noSummaryEntriesAdded')}
+                  </p>
+                )}
+
+                {/* Add Summary Entry */}
+                <div className="pt-2 border-t space-y-2">
+                  <Textarea
+                    value={newSummaryEntryContent}
+                    onChange={e => setNewSummaryEntryContent(e.target.value)}
+                    placeholder={t('summaryEntryContent')}
+                    rows={2}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={addSummaryEntry}
+                    disabled={!newSummaryEntryContent.trim()}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('addSummaryEntry')}
                   </Button>
                 </div>
               </div>

@@ -189,6 +189,7 @@ export type Database = {
           default_stages: Json | null
           default_status: Database["public"]["Enums"]["order_status"] | null
           default_summary: string | null
+          default_summary_entries: Json | null
           default_title: string | null
           description: string | null
           id: string
@@ -205,6 +206,7 @@ export type Database = {
           default_stages?: Json | null
           default_status?: Database["public"]["Enums"]["order_status"] | null
           default_summary?: string | null
+          default_summary_entries?: Json | null
           default_title?: string | null
           description?: string | null
           id?: string
@@ -221,6 +223,7 @@ export type Database = {
           default_stages?: Json | null
           default_status?: Database["public"]["Enums"]["order_status"] | null
           default_summary?: string | null
+          default_summary_entries?: Json | null
           default_title?: string | null
           description?: string | null
           id?: string

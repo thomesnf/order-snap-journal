@@ -8,6 +8,10 @@ export interface OrderTemplateStage {
   description?: string;
 }
 
+export interface OrderTemplateSummaryEntry {
+  content: string;
+}
+
 export interface OrderTemplate {
   id: string;
   name: string;
@@ -18,6 +22,7 @@ export interface OrderTemplate {
   default_status: 'pending' | 'in-progress' | 'completed' | 'cancelled' | 'invoiced' | 'paid';
   default_stages: OrderTemplateStage[];
   default_summary: string | null;
+  default_summary_entries: OrderTemplateSummaryEntry[];
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -32,6 +37,7 @@ export interface CreateTemplateData {
   default_status?: 'pending' | 'in-progress' | 'completed' | 'cancelled' | 'invoiced' | 'paid';
   default_stages?: OrderTemplateStage[];
   default_summary?: string;
+  default_summary_entries?: OrderTemplateSummaryEntry[];
 }
 
 export const useOrderTemplates = () => {
@@ -49,7 +55,7 @@ export const useOrderTemplates = () => {
 
       if (error) throw error;
       
-      // Parse stages JSON and cast types properly
+      // Parse stages and summary entries JSON and cast types properly
       const parsedTemplates: OrderTemplate[] = (data || []).map(template => {
         const stages = template.default_stages;
         let parsedStages: OrderTemplateStage[] = [];
@@ -58,6 +64,15 @@ export const useOrderTemplates = () => {
           parsedStages = stages.map((s: any) => ({
             name: s?.name || '',
             description: s?.description
+          }));
+        }
+
+        const summaryEntries = (template as any).default_summary_entries;
+        let parsedSummaryEntries: OrderTemplateSummaryEntry[] = [];
+        
+        if (Array.isArray(summaryEntries)) {
+          parsedSummaryEntries = summaryEntries.map((e: any) => ({
+            content: e?.content || ''
           }));
         }
         
@@ -71,6 +86,7 @@ export const useOrderTemplates = () => {
           default_status: template.default_status as OrderTemplate['default_status'],
           default_stages: parsedStages,
           default_summary: template.default_summary,
+          default_summary_entries: parsedSummaryEntries,
           created_at: template.created_at,
           updated_at: template.updated_at,
           created_by: template.created_by
@@ -105,6 +121,7 @@ export const useOrderTemplates = () => {
           default_status: data.default_status || 'pending',
           default_stages: (data.default_stages || []) as unknown as Json,
           default_summary: data.default_summary || null,
+          default_summary_entries: (data.default_summary_entries || []) as unknown as Json,
           created_by: user.user?.id || null
         })
         .select()
@@ -136,6 +153,7 @@ export const useOrderTemplates = () => {
       if (data.default_status !== undefined) updateData.default_status = data.default_status;
       if (data.default_stages !== undefined) updateData.default_stages = data.default_stages as unknown as Json;
       if (data.default_summary !== undefined) updateData.default_summary = data.default_summary;
+      if (data.default_summary_entries !== undefined) updateData.default_summary_entries = data.default_summary_entries as unknown as Json;
 
       const { error } = await supabase
         .from('order_templates')

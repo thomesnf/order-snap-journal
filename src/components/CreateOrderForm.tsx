@@ -177,6 +177,9 @@ export const CreateOrderForm = ({ onBack, onCreateOrder, initialData }: CreateOr
                       {selectedTemplate.default_stages && selectedTemplate.default_stages.length > 0 && (
                         <li>• {selectedTemplate.default_stages.length} {t('stages')}</li>
                       )}
+                      {selectedTemplate.default_summary_entries && selectedTemplate.default_summary_entries.length > 0 && (
+                        <li>• {selectedTemplate.default_summary_entries.length} {t('summaryEntries')}</li>
+                      )}
                       {selectedTemplate.default_summary && <li>• {t('summary')}</li>}
                       {selectedTemplate.default_description && <li>• {t('description')}</li>}
                     </ul>
