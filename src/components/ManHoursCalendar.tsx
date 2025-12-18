@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUsers } from '@/hooks/useUsers';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -482,12 +482,16 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
 
           <div className="space-y-2">
             <Label htmlFor="workDate">{t('workDate')} *</Label>
-            <Input
-              id="workDate"
-              type="date"
-              value={newEntry.workDate}
-              onChange={(e) => setNewEntry({ ...newEntry, workDate: e.target.value })}
-            />
+            <div className="relative">
+              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-foreground/70" />
+              <Input
+                id="workDate"
+                type="date"
+                className="pl-10"
+                value={newEntry.workDate}
+                onChange={(e) => setNewEntry({ ...newEntry, workDate: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
