@@ -204,18 +204,24 @@ export const useOrdersDB = () => {
     }
   };
 
-  const addJournalEntry = async (orderId: string, content: string) => {
+  const addJournalEntry = async (orderId: string, content: string, created_at?: Date) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const insertData: any = {
+        order_id: orderId,
+        content,
+        user_id: user.id
+      };
+      
+      if (created_at) {
+        insertData.created_at = created_at.toISOString();
+      }
+
       const { error } = await supabase
         .from('journal_entries')
-        .insert([{
-          order_id: orderId,
-          content,
-          user_id: user.id
-        }]);
+        .insert([insertData]);
 
       if (error) throw error;
       

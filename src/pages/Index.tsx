@@ -134,8 +134,8 @@ const Index = () => {
     }
   };
 
-  const handleAddJournalEntry = async (orderId: string, content: string) => {
-    await addJournalEntry(orderId, content);
+  const handleAddJournalEntry = async (orderId: string, content: string, created_at?: Date) => {
+    await addJournalEntry(orderId, content, created_at);
     // Refetch the order to update the UI with the new journal entry
     const updatedOrder = await getOrderWithDetails(orderId);
     if (updatedOrder) {
