@@ -32,7 +32,7 @@ interface OrderDetailsProps {
   onAddSummaryEntry: (orderId: string, content: string) => Promise<void>;
   onUpdateSummaryEntry: (entryId: string, content: string) => Promise<void>;
   onDeleteSummaryEntry: (entryId: string) => Promise<void>;
-  onAddJournalEntry: (orderId: string, content: string) => Promise<void>;
+  onAddJournalEntry: (orderId: string, content: string, created_at?: Date) => Promise<void>;
   onUpdateJournalEntry: (entryId: string, content: string, created_at?: Date) => Promise<void>;
   onDeleteJournalEntry: (entryId: string) => Promise<void>;
   onDeletePhoto: (photoId: string) => Promise<void>;
@@ -61,6 +61,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const [editedSummaryContent, setEditedSummaryContent] = useState('');
   const [deleteSummaryId, setDeleteSummaryId] = useState<string | null>(null);
   const [newEntry, setNewEntry] = useState('');
+  const [newEntryDate, setNewEntryDate] = useState<Date | undefined>(undefined);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState('');
@@ -237,8 +238,9 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const handleAddEntry = async () => {
     if (!newEntry.trim()) return;
     
-    await onAddJournalEntry(order.id, newEntry);
+    await onAddJournalEntry(order.id, newEntry, newEntryDate);
     setNewEntry('');
+    setNewEntryDate(undefined);
     fetchJournalEntries();
   };
 
@@ -622,10 +624,35 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
               onChange={(e) => setNewEntry(e.target.value)}
               className="min-h-[100px]"
             />
-            <Button onClick={handleAddEntry} disabled={!newEntry.trim()}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('addEntry')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-[200px] justify-start text-left font-normal',
+                      !newEntryDate && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {newEntryDate ? formatDate(newEntryDate, dateFormat) : <span>{t('entryDate') || 'Entry date'}</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={newEntryDate}
+                    onSelect={setNewEntryDate}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button onClick={handleAddEntry} disabled={!newEntry.trim()}>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('addEntry')}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-4">
