@@ -482,21 +482,13 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
 
           <div className="space-y-2">
             <Label htmlFor="workDate">{t('workDate')} *</Label>
-            <div className="relative">
-              <label 
-                htmlFor="workDate"
-                className="absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer z-10"
-              >
-                <CalendarIcon className="h-4 w-4 text-muted-foreground dark:text-foreground/70" />
-              </label>
-              <Input
-                id="workDate"
-                type="date"
-                className="pl-10"
-                value={newEntry.workDate}
-                onChange={(e) => setNewEntry({ ...newEntry, workDate: e.target.value })}
-              />
-            </div>
+            <Input
+              id="workDate"
+              type="date"
+              className="[&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+              value={newEntry.workDate}
+              onChange={(e) => setNewEntry({ ...newEntry, workDate: e.target.value })}
+            />
           </div>
 
           <div className="space-y-2">
