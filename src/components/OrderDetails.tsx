@@ -61,7 +61,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const [editedSummaryContent, setEditedSummaryContent] = useState('');
   const [deleteSummaryId, setDeleteSummaryId] = useState<string | null>(null);
   const [newEntry, setNewEntry] = useState('');
-  const [newEntryDate, setNewEntryDate] = useState<Date | undefined>(undefined);
+  const [newEntryDate, setNewEntryDate] = useState<Date | undefined>(new Date());
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState('');
@@ -73,6 +73,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
   const [editingCaptionPhotoId, setEditingCaptionPhotoId] = useState<string | null>(null);
   const [captionText, setCaptionText] = useState('');
+  const [timeEntries, setTimeEntries] = useState<Array<{ work_date: string }>>([]);
   interface PDFFieldConfig {
     field: string;
     label: string;
@@ -102,6 +103,7 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     if (order) {
       fetchSummaryEntries();
       fetchJournalEntries();
+      fetchTimeEntries();
       // Fetch photos whenever order changes (e.g., after photo deletion)
       if (journalEntries.length > 0) {
         fetchAllPhotos();
@@ -183,6 +185,19 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
     }
   };
 
+  const fetchTimeEntries = async () => {
+    const { data } = await supabase
+      .from('time_entries')
+      .select('work_date')
+      .eq('order_id', order.id);
+    
+    setTimeEntries(data || []);
+  };
+
+  // Get dates with time entries but no journal entries
+  const timeEntryDates = new Set(timeEntries.map(e => e.work_date));
+  const journalEntryDates = new Set(journalEntries.map(e => format(new Date(e.created_at), 'yyyy-MM-dd')));
+  const datesWithoutJournal = Array.from(timeEntryDates).filter(date => !journalEntryDates.has(date));
   const fetchAllPhotos = async () => {
     if (!journalEntries.length) return;
     
@@ -654,6 +669,28 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
               </Button>
             </div>
           </div>
+
+          {/* Warning for time entries without journal entries */}
+          {datesWithoutJournal.length > 0 && (
+            <div className="p-3 bg-warning/10 border border-warning/30 rounded-lg">
+              <p className="text-sm text-warning font-medium mb-2">
+                Missing journal entries for dates with time entries:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {datesWithoutJournal.map(date => (
+                  <Button
+                    key={date}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-warning/50 hover:bg-warning/20"
+                    onClick={() => setNewEntryDate(new Date(date + 'T12:00:00'))}
+                  >
+                    {formatDate(date, dateFormat)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-4">
             {journalEntries.map((entry) => (
