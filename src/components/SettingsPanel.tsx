@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { ThemePreview } from '@/components/ThemePreview';
 import { OrderTemplateManager } from '@/components/OrderTemplateManager';
+import { FileCollectionManager } from '@/components/FileCollectionManager';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import JSZip from 'jszip';
@@ -1063,6 +1064,11 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         {/* Order Templates - Admin Only */}
         {isAdmin && (
           <OrderTemplateManager />
+        )}
+
+        {/* File Deliveries - Admin Only */}
+        {isAdmin && (
+          <FileCollectionManager />
         )}
 
         {/* Backup Settings - Admin Only */}

@@ -13,6 +13,7 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Reports = lazy(() => import("./pages/Reports"));
 const SharedOrder = lazy(() => import("./pages/SharedOrder"));
+const SharedFileCollection = lazy(() => import("./pages/SharedFileCollection"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const AppRoutes = () => (
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/shared/:token" element={<SharedOrder />} />
+        <Route path="/files/:token" element={<SharedFileCollection />} />
         <Route
           path="/"
           element={
