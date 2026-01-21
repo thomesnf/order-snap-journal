@@ -74,6 +74,28 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
     }
   }, [open]);
 
+  // Auto-select default stage when order is selected
+  useEffect(() => {
+    if (newEntry.orderId && stages.length > 0) {
+      const orderStages = stages.filter(s => s.order_id === newEntry.orderId);
+      if (orderStages.length > 0 && !newEntry.stageId) {
+        // Priority: 1) "Installation" stage, 2) Last used stage, 3) First stage
+        const installationStage = orderStages.find(s => s.name.toLowerCase() === 'installation');
+        if (installationStage) {
+          setNewEntry(prev => ({ ...prev, stageId: installationStage.id }));
+        } else {
+          // Find last used stage for this order from time entries
+          const recentEntry = timeEntries.find(e => e.order_id === newEntry.orderId && e.stage_id);
+          if (recentEntry?.stage_id && orderStages.some(s => s.id === recentEntry.stage_id)) {
+            setNewEntry(prev => ({ ...prev, stageId: recentEntry.stage_id! }));
+          } else {
+            setNewEntry(prev => ({ ...prev, stageId: orderStages[0].id }));
+          }
+        }
+      }
+    }
+  }, [newEntry.orderId, stages, timeEntries]);
+
   const fetchOrders = async () => {
     try {
       const { data, error } = await supabase
@@ -197,10 +219,11 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
   };
 
   const handleAddTimeEntry = async () => {
-    if (!newEntry.orderId || !newEntry.technicianId || !newEntry.hours) {
+    const orderStages = stages.filter(s => s.order_id === newEntry.orderId);
+    if (!newEntry.orderId || !newEntry.technicianId || !newEntry.hours || (orderStages.length > 0 && !newEntry.stageId)) {
       toast({
         title: t('error'),
-        description: t('fillRequired'),
+        description: 'Please fill in all required fields including stage.',
         variant: 'destructive',
       });
       return;
@@ -449,10 +472,10 @@ export const ManHoursCalendar = ({ open, onOpenChange }: ManHoursCalendarProps) 
 
           {newEntry.orderId && stages.filter(s => s.order_id === newEntry.orderId).length > 0 && (
             <div className="space-y-2">
-              <Label htmlFor="stage">{t('stage')} ({t('optional')})</Label>
+              <Label htmlFor="stage">{t('stage')} *</Label>
               <Select value={newEntry.stageId} onValueChange={(value) => setNewEntry({ ...newEntry, stageId: value })}>
                 <SelectTrigger id="stage">
-                  <SelectValue placeholder="No Stage" />
+                  <SelectValue placeholder={t('selectStage') || 'Select a stage'} />
                 </SelectTrigger>
                 <SelectContent>
                   {stages

@@ -53,6 +53,27 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
     fetchDateFormat();
   }, [orderId]);
 
+  // Set default stage when stages are loaded or when opening the add form
+  useEffect(() => {
+    if (stages.length > 0 && !selectedStageId && isAddingEntry) {
+      // Priority: 1) "Installation" stage, 2) Last used stage from recent entries, 3) First stage
+      const installationStage = stages.find(s => s.name.toLowerCase() === 'installation');
+      if (installationStage) {
+        setSelectedStageId(installationStage.id);
+      } else if (timeEntries.length > 0) {
+        // Find the most recent entry with a stage
+        const recentWithStage = timeEntries.find(e => e.stage_id);
+        if (recentWithStage?.stage_id && stages.some(s => s.id === recentWithStage.stage_id)) {
+          setSelectedStageId(recentWithStage.stage_id);
+        } else {
+          setSelectedStageId(stages[0].id);
+        }
+      } else {
+        setSelectedStageId(stages[0].id);
+      }
+    }
+  }, [stages, isAddingEntry, timeEntries]);
+
   const fetchDateFormat = async () => {
     const { data } = await supabase
       .from('settings')
@@ -89,10 +110,10 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
   };
 
   const handleAddEntry = async () => {
-    if (!selectedDate || !selectedUserId || !hoursWorked || !user) {
+    if (!selectedDate || !selectedUserId || !hoursWorked || !user || !selectedStageId) {
       toast({
         title: 'Missing Information',
-        description: 'Please select a technician, date, and hours worked.',
+        description: 'Please select a technician, stage, date, and hours worked.',
         variant: 'destructive',
       });
       return;
@@ -121,7 +142,7 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
         work_date: format(selectedDate, 'yyyy-MM-dd'),
         hours_worked: hours,
         notes: notes.trim() || null,
-        stage_id: selectedStageId && selectedStageId !== '' ? selectedStageId : null,
+        stage_id: selectedStageId,
       });
 
     if (error) {
@@ -249,23 +270,24 @@ export const TimeCalendar = ({ orderId }: TimeCalendarProps) => {
                     </SelectContent>
                   </Select>
                 </div>
-                {stages.length > 0 && (
-                  <div className="space-y-2">
-                    <Label htmlFor="stage">Stage (Optional)</Label>
-                    <Select value={selectedStageId} onValueChange={setSelectedStageId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="No Stage" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stages.map((stage) => (
-                          <SelectItem key={stage.id} value={stage.id}>
-                            {stage.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="stage">Stage *</Label>
+                  <Select value={selectedStageId} onValueChange={setSelectedStageId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.id}>
+                          {stage.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {stages.length === 0 && (
+                    <p className="text-xs text-destructive">No stages available. Please add stages to this order first.</p>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="hours">Hours Worked</Label>
                   <Input
