@@ -212,12 +212,23 @@ export const exportJournalEntryToPDF = async (
             color: #666;
             margin-top: 5px;
           }
+          /* Ensure text is selectable in PDF */
+          * {
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
+            user-select: text !important;
+          }
           @media print {
             body {
               padding: 0;
             }
             .photo-item {
               page-break-inside: avoid;
+            }
+            * {
+              -webkit-user-select: text !important;
+              user-select: text !important;
             }
           }
         </style>
@@ -674,6 +685,13 @@ export const exportMultipleEntriesToPDF = async (
             border-top: 1px solid #e5e7eb;
             margin: 20px 0;
           }
+          /* Ensure text is selectable in PDF */
+          * {
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
+            user-select: text !important;
+          }
           @media print {
             body {
               padding: 0;
@@ -686,6 +704,10 @@ export const exportMultipleEntriesToPDF = async (
               break-after: page !important;
               display: block !important;
               height: 0 !important;
+            }
+            * {
+              -webkit-user-select: text !important;
+              user-select: text !important;
             }
           }
         </style>
