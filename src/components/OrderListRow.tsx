@@ -2,6 +2,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Order } from '@/hooks/useOrdersDB';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar, MapPin, User, MoreVertical, UserCog, Trash2, RefreshCw, Copy, ChevronRight, Clock } from 'lucide-react';
 import { formatDate, DateFormatType } from '@/utils/dateFormat';
 import { useState, useEffect } from 'react';
@@ -25,6 +26,9 @@ interface OrderListRowProps {
   onDuplicateOrder?: (order: Order) => void;
   onOpenAssignDialog?: (order: Order) => void;
   onOpenDeleteDialog?: (order: Order) => void;
+  isSelected?: boolean;
+  onSelectChange?: (orderId: string, selected: boolean) => void;
+  showCheckbox?: boolean;
 }
 
 const statusColors = {
@@ -49,7 +53,10 @@ export const OrderListRow = ({
   isAdmin = false,
   onDuplicateOrder,
   onOpenAssignDialog,
-  onOpenDeleteDialog
+  onOpenDeleteDialog,
+  isSelected = false,
+  onSelectChange,
+  showCheckbox = false
 }: OrderListRowProps) => {
   const { t } = useLanguage();
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
@@ -71,9 +78,19 @@ export const OrderListRow = ({
 
   return (
     <div 
-      className="flex items-center gap-3 p-3 bg-card border border-border/50 rounded-lg hover:bg-muted/50 hover:shadow-sm transition-all cursor-pointer group"
+      className={`flex items-center gap-3 p-3 bg-card border border-border/50 rounded-lg hover:bg-muted/50 hover:shadow-sm transition-all cursor-pointer group ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}
       onClick={() => onViewDetails(order)}
     >
+      {/* Checkbox */}
+      {showCheckbox && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => onSelectChange?.(order.id, !!checked)}
+          />
+        </div>
+      )}
+      
       {/* Status indicator */}
       <div className={`w-1.5 h-12 rounded-full ${
         order.status === 'pending' ? 'bg-warning' :

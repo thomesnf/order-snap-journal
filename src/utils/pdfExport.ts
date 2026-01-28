@@ -220,8 +220,12 @@ export const exportJournalEntryToPDF = async (
             user-select: text !important;
           }
           @media print {
+            @page {
+              margin: ${settings.pageMargin}mm;
+            }
             body {
               padding: 0;
+              margin: 0;
             }
             .photo-item {
               page-break-inside: avoid;
@@ -693,8 +697,12 @@ export const exportMultipleEntriesToPDF = async (
             user-select: text !important;
           }
           @media print {
+            @page {
+              margin: ${settings.pageMargin}mm;
+            }
             body {
               padding: 0;
+              margin: 0;
             }
             .photo-item {
               page-break-inside: avoid;
