@@ -47,6 +47,9 @@ interface OrderCardProps {
   onDeleteOrder?: (orderId: string) => void;
   onChangeAssignments?: (orderId: string, userIds: string[]) => void;
   onDuplicateOrder?: (order: Order) => void;
+  isSelected?: boolean;
+  onSelectChange?: (orderId: string, selected: boolean) => void;
+  showCheckbox?: boolean;
 }
 
 const statusColors = {
@@ -71,7 +74,10 @@ export const OrderCard = ({
   isAdmin = false,
   onDeleteOrder,
   onChangeAssignments,
-  onDuplicateOrder
+  onDuplicateOrder,
+  isSelected = false,
+  onSelectChange,
+  showCheckbox = false
 }: OrderCardProps) => {
   const { t } = useLanguage();
   const [dateFormat, setDateFormat] = useState<DateFormatType>('MM/DD/YYYY');
@@ -163,10 +169,21 @@ export const OrderCard = ({
   };
 
   return (
-    <Card className="bg-card shadow-card border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer" 
+    <Card className={`bg-card shadow-card border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer ${isSelected ? 'ring-2 ring-primary' : ''}`} 
           onClick={() => onViewDetails(order)}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
+          {showCheckbox && (
+            <div 
+              className="mr-3 mt-1" 
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelectChange?.(order.id, !!checked)}
+              />
+            </div>
+          )}
           <div className="flex-1">
             <h3 className="font-semibold text-foreground leading-tight mb-2">{order.title}</h3>
             <p className="text-sm text-muted-foreground line-clamp-2">{order.description}</p>

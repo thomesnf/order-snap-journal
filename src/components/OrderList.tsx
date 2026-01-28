@@ -5,13 +5,15 @@ import { OrderCard } from './OrderCard';
 import { OrderListRow } from './OrderListRow';
 import { OrderNavbar } from './OrderNavbar';
 import { OrderFilters } from './OrderFilters';
+import { BulkActionsBar } from './BulkActionsBar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Filter, Plus } from 'lucide-react';
+import { Filter, Plus, CheckSquare, Square } from 'lucide-react';
 import { ManHoursCalendar } from './ManHoursCalendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { exportMultipleEntriesToPDF } from '@/utils/pdfExport';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,6 +75,11 @@ export const OrderList = ({
   });
   const [fullName, setFullName] = useState<string>('');
   const [showManHoursCalendar, setShowManHoursCalendar] = useState(false);
+  
+  // Bulk selection state
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [showBulkAssignDialog, setShowBulkAssignDialog] = useState(false);
   
   // Dialog states for list view
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -215,6 +222,120 @@ export const OrderList = ({
     );
   };
 
+  // Bulk selection handlers
+  const handleSelectOrder = (orderId: string, selected: boolean) => {
+    setSelectedOrderIds(prev => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(orderId);
+      } else {
+        next.delete(orderId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedOrderIds(new Set(filteredOrders.map(o => o.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedOrderIds(new Set());
+  };
+
+  const handleBulkExportJournals = async () => {
+    const selectedOrders = orders.filter(o => selectedOrderIds.has(o.id));
+    
+    // Fetch all journal entries for selected orders
+    const { data: journalEntries } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .in('order_id', Array.from(selectedOrderIds))
+      .order('created_at', { ascending: false });
+    
+    if (!journalEntries || journalEntries.length === 0) {
+      toast.error('No journal entries found for selected orders');
+      return;
+    }
+
+    // Get settings for PDF
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('company_logo_url, date_format')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+
+    // Group entries by order
+    const entriesByOrder = journalEntries.reduce((acc, entry) => {
+      if (!acc[entry.order_id]) {
+        acc[entry.order_id] = [];
+      }
+      acc[entry.order_id].push(entry);
+      return acc;
+    }, {} as Record<string, typeof journalEntries>);
+
+    // Export each order's journals separately
+    for (const order of selectedOrders) {
+      const orderEntries = entriesByOrder[order.id];
+      if (orderEntries && orderEntries.length > 0) {
+        await exportMultipleEntriesToPDF(
+          orderEntries,
+          order.title,
+          order,
+          (localStorage.getItem('language') as 'en' | 'sv') || 'en',
+          settings?.company_logo_url || undefined,
+          undefined,
+          undefined,
+          (settings?.date_format as 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD') || 'MM/DD/YYYY'
+        );
+      }
+    }
+    
+    toast.success(`Exported journals for ${selectedOrders.length} orders`);
+  };
+
+  const handleBulkAssign = () => {
+    setSelectedUserIds([]);
+    setShowBulkAssignDialog(true);
+  };
+
+  const handleBulkAssignConfirm = async () => {
+    if (!onChangeAssignments) return;
+    
+    for (const orderId of selectedOrderIds) {
+      await onChangeAssignments(orderId, selectedUserIds);
+    }
+    
+    toast.success(t('bulkAssignSuccess').replace('{count}', String(selectedOrderIds.size)));
+    setShowBulkAssignDialog(false);
+    setSelectedOrderIds(new Set());
+  };
+
+  const handleBulkStatusChange = async (status: Order['status']) => {
+    for (const orderId of selectedOrderIds) {
+      await onUpdateStatus(orderId, status);
+    }
+    
+    toast.success(t('bulkStatusSuccess').replace('{count}', String(selectedOrderIds.size)).replace('{status}', t(status === 'in-progress' ? 'inProgress' : status)));
+    setSelectedOrderIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    setShowBulkDeleteDialog(true);
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (!onDeleteOrder) return;
+    
+    for (const orderId of selectedOrderIds) {
+      await onDeleteOrder(orderId);
+    }
+    
+    toast.success(t('bulkDeleteSuccess').replace('{count}', String(selectedOrderIds.size)));
+    setShowBulkDeleteDialog(false);
+    setSelectedOrderIds(new Set());
+  };
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Navbar */}
@@ -249,7 +370,25 @@ export const OrderList = ({
       </div>
       
       {/* Orders List */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-20">
+        {filteredOrders.length > 0 && (
+          <div className="flex items-center gap-3 mb-4">
+            <Checkbox
+              checked={selectedOrderIds.size === filteredOrders.length && filteredOrders.length > 0}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  handleSelectAll();
+                } else {
+                  handleDeselectAll();
+                }
+              }}
+            />
+            <span className="text-sm text-muted-foreground">
+              {t('selectAll')} ({filteredOrders.length})
+            </span>
+          </div>
+        )}
+        
         {filteredOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Filter className="h-12 w-12 text-muted-foreground mb-4" />
@@ -279,6 +418,9 @@ export const OrderList = ({
                 onDeleteOrder={onDeleteOrder}
                 onChangeAssignments={onChangeAssignments}
                 onDuplicateOrder={onDuplicateOrder}
+                showCheckbox={true}
+                isSelected={selectedOrderIds.has(order.id)}
+                onSelectChange={handleSelectOrder}
               />
             ))}
           </div>
@@ -294,11 +436,28 @@ export const OrderList = ({
                 onDuplicateOrder={onDuplicateOrder}
                 onOpenAssignDialog={handleOpenAssignDialog}
                 onOpenDeleteDialog={handleOpenDeleteDialog}
+                showCheckbox={true}
+                isSelected={selectedOrderIds.has(order.id)}
+                onSelectChange={handleSelectOrder}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        selectedCount={selectedOrderIds.size}
+        totalCount={filteredOrders.length}
+        allSelected={selectedOrderIds.size === filteredOrders.length && filteredOrders.length > 0}
+        onSelectAll={handleSelectAll}
+        onDeselectAll={handleDeselectAll}
+        onExportJournals={handleBulkExportJournals}
+        onAssignTechnician={handleBulkAssign}
+        onChangeStatus={handleBulkStatusChange}
+        onDelete={handleBulkDelete}
+        isAdmin={isAdmin}
+      />
 
       <ManHoursCalendar 
         open={showManHoursCalendar} 
@@ -356,6 +515,63 @@ export const OrderList = ({
               {t('cancel')}
             </Button>
             <Button onClick={handleChangeAssignments}>
+              {t('updateAssignments')} ({selectedUserIds.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteOrder')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('bulkDeleteConfirm').replace('{count}', String(selectedOrderIds.size))} {t('cannotBeUndone')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              {t('delete')} ({selectedOrderIds.size})
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Assign Dialog */}
+      <Dialog open={showBulkAssignDialog} onOpenChange={setShowBulkAssignDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('assignTechnician')}</DialogTitle>
+            <DialogDescription>
+              {t('selectUsersForOrder')} ({selectedOrderIds.size} {t('orders')})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3">
+              {users.map((u) => (
+                <div key={u.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted">
+                  <Checkbox
+                    id={`bulk-user-${u.id}`}
+                    checked={selectedUserIds.includes(u.id)}
+                    onCheckedChange={() => toggleUserSelection(u.id)}
+                  />
+                  <label
+                    htmlFor={`bulk-user-${u.id}`}
+                    className="flex-1 text-sm font-medium leading-none cursor-pointer"
+                  >
+                    {u.full_name || 'User'}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkAssignDialog(false)}>
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleBulkAssignConfirm}>
               {t('updateAssignments')} ({selectedUserIds.length})
             </Button>
           </DialogFooter>

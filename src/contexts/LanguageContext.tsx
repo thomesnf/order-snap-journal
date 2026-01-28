@@ -238,7 +238,18 @@ const translations: Translations = {
     'dropFilesHere': 'Drop files here!',
     'orClickToSelect': 'or click to select files',
     'uploading': 'Uploading',
-    'allowedFileTypes': 'Allowed file types'
+    'allowedFileTypes': 'Allowed file types',
+    // Bulk actions
+    'selected': 'selected',
+    'exportJournals': 'Export Journals',
+    'assignTechnician': 'Assign Technician',
+    'changeStatus': 'Change Status',
+    'clearSelection': 'Clear',
+    'selectAll': 'Select All',
+    'bulkDeleteConfirm': 'Are you sure you want to delete {count} orders?',
+    'bulkDeleteSuccess': '{count} orders deleted successfully',
+    'bulkStatusSuccess': '{count} orders updated to {status}',
+    'bulkAssignSuccess': 'Technician assigned to {count} orders'
   },
   sv: {
     // Navigation
@@ -470,7 +481,18 @@ const translations: Translations = {
     'dropFilesHere': 'Släpp filer här!',
     'orClickToSelect': 'eller klicka för att välja filer',
     'uploading': 'Laddar upp',
-    'allowedFileTypes': 'Tillåtna filtyper'
+    'allowedFileTypes': 'Tillåtna filtyper',
+    // Bulk actions
+    'selected': 'valda',
+    'exportJournals': 'Exportera Journaler',
+    'assignTechnician': 'Tilldela Tekniker',
+    'changeStatus': 'Ändra Status',
+    'clearSelection': 'Rensa',
+    'selectAll': 'Markera Alla',
+    'bulkDeleteConfirm': 'Är du säker på att du vill ta bort {count} beställningar?',
+    'bulkDeleteSuccess': '{count} beställningar borttagna',
+    'bulkStatusSuccess': '{count} beställningar uppdaterade till {status}',
+    'bulkAssignSuccess': 'Tekniker tilldelad till {count} beställningar'
   }
 };
 
