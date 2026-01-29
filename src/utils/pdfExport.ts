@@ -1,5 +1,6 @@
 import { JournalEntry, Order, Photo, SummaryEntry } from '@/hooks/useOrdersDB';
 import { formatDate, DateFormatType } from './dateFormat';
+import jsPDF from 'jspdf';
 
 interface PDFTranslations {
   orderDetails: string;
@@ -752,4 +753,453 @@ export const exportMultipleEntriesToPDF = async (
 
   printWindow.document.write(html);
   printWindow.document.close();
+};
+
+// Helper function to generate HTML for PDF blob (shared logic)
+const generatePDFHTML = (
+  entries: JournalEntry[], 
+  orderTitle: string, 
+  order: Order, 
+  language: 'en' | 'sv' = 'en', 
+  logoUrl?: string, 
+  entryPhotos?: Record<string, Photo[]>, 
+  summaryEntries?: SummaryEntry[], 
+  dateFormat: DateFormatType = 'MM/DD/YYYY',
+  layoutSettings?: PDFLayoutSettings
+): string => {
+  const t = translations[language];
+  
+  const settings = {
+    primaryColor: layoutSettings?.primaryColor || '#2563eb',
+    fontFamily: layoutSettings?.fontFamily || 'Arial, sans-serif',
+    showLogo: layoutSettings?.showLogo !== false,
+    logoMaxHeight: layoutSettings?.logoMaxHeight || 80,
+    pageMargin: layoutSettings?.pageMargin || 20,
+  };
+  
+  // Calculate total man hours from time_entries
+  const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
+  const uniqueTechnicians = new Set(order.time_entries?.map(e => e.technician_name) || []);
+  const technicianCount = uniqueTechnicians.size;
+
+  // Group hours by day
+  const hoursByDay = order.time_entries?.reduce((acc, entry) => {
+    const date = formatDate(entry.work_date, dateFormat);
+    acc[date] = (acc[date] || 0) + Number(entry.hours_worked || 0);
+    return acc;
+  }, {} as Record<string, number>) || {};
+
+  // Group time entries by stage
+  const entriesByStage: Record<string, any[]> = {};
+  const noStageEntries: any[] = [];
+  
+  order.time_entries?.forEach(entry => {
+    if (entry.stage_name) {
+      if (!entriesByStage[entry.stage_name]) {
+        entriesByStage[entry.stage_name] = [];
+      }
+      entriesByStage[entry.stage_name].push(entry);
+    } else {
+      noStageEntries.push(entry);
+    }
+  });
+
+  const logoHTML = (logoUrl && settings.showLogo) ? `<div style="text-align: left; margin-top: 15px; margin-bottom: 20px;"><img src="${logoUrl}" alt="Company Logo" style="max-height: ${settings.logoMaxHeight}px; max-width: 200px;" /></div>` : '';
+
+  const fieldConfig = layoutSettings?.fieldConfig || [
+    { field: 'title', label: 'Title', visible: true, order: 1 },
+    { field: 'logo', label: 'Logo', visible: true, order: 2 },
+    { field: 'status', label: t.status, visible: true, order: 3 },
+    { field: 'priority', label: t.priority, visible: true, order: 4 },
+    { field: 'customer', label: t.customer, visible: true, order: 5 },
+    { field: 'customer_ref', label: t.customerRef, visible: true, order: 6 },
+    { field: 'location', label: t.location, visible: true, order: 7 },
+    { field: 'due_date', label: t.dueDate, visible: true, order: 8 },
+    { field: 'description', label: t.description, visible: true, order: 9 },
+    { field: 'summary', label: t.summary, visible: true, order: 10 },
+    { field: 'summary_entries', label: t.summaryEntries, visible: true, order: 11 },
+    { field: 'man_hours', label: t.totalManHours, visible: true, order: 12 },
+    { field: 'hours_by_day', label: t.hoursByDay, visible: true, order: 13 },
+    { field: 'journal_entries', label: t.journalEntries, visible: true, order: 14 },
+  ];
+
+  const isFieldVisible = (fieldName: string) => {
+    const config = fieldConfig.find(f => f.field === fieldName);
+    return config ? config.visible : true;
+  };
+
+  const titleFontSize = layoutSettings?.titleFontSize || 24;
+
+  // Build order details fields
+  const orderDetailsFields = [
+    { field: 'status', label: t.status, value: order.status ? t[order.status as keyof PDFTranslations] || order.status : null },
+    { field: 'priority', label: t.priority, value: order.priority ? t[order.priority as keyof PDFTranslations] || order.priority : null },
+    { field: 'customer', label: t.customer, value: order.customer },
+    { field: 'customer_ref', label: t.customerRef, value: order.customer_ref },
+    { field: 'location', label: t.location, value: order.location },
+    { field: 'due_date', label: t.dueDate, value: order.due_date ? formatDate(order.due_date, dateFormat) : null },
+  ];
+
+  const visibleDetailsFields = orderDetailsFields.filter(f => isFieldVisible(f.field) && f.value);
+
+  const orderDetailsHTML = visibleDetailsFields.length > 0 ? `
+    <div class="order-details">
+      <h2>${t.orderDetails}</h2>
+      <div class="detail-grid">
+        ${visibleDetailsFields.map(f => `<div class="field-item"><strong>${f.label}:</strong> ${f.value}</div>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const descriptionHTML = order.description && isFieldVisible('description') ? `
+    <div class="field-section"><strong>${t.description}:</strong> ${order.description}</div>
+  ` : '';
+
+  const manHoursHTML = isFieldVisible('man_hours') ? `
+    <div class="man-hours">
+      <strong>${t.totalManHours}:</strong> ${totalHours.toFixed(2)} ${t.hours} (${technicianCount} technician${technicianCount !== 1 ? 's' : ''})
+      ${Object.keys(entriesByStage).length > 0 || noStageEntries.length > 0 ? `
+        <div class="hours-by-stage">
+          ${Object.entries(entriesByStage).map(([stageName, entries]) => {
+            const stageHours = entries.reduce((sum: number, e: any) => sum + Number(e.hours_worked || 0), 0);
+            const stageTechs = new Set(entries.map((e: any) => e.technician_name)).size;
+            return `<div class="stage-item">• ${stageName}: ${stageHours.toFixed(2)} ${t.hours} (${stageTechs} tech${stageTechs !== 1 ? 's' : ''})</div>`;
+          }).join('')}
+          ${noStageEntries.length > 0 ? (() => {
+            const noStageHours = noStageEntries.reduce((sum, e) => sum + Number(e.hours_worked || 0), 0);
+            const noStageTechs = new Set(noStageEntries.map(e => e.technician_name)).size;
+            return `<div class="stage-item">• No Stage: ${noStageHours.toFixed(2)} ${t.hours} (${noStageTechs} tech${noStageTechs !== 1 ? 's' : ''})</div>`;
+          })() : ''}
+        </div>
+      ` : ''}
+    </div>
+  ` : '';
+
+  const hoursByDayHTML_Section = isFieldVisible('hours_by_day') && Object.keys(hoursByDay).length > 0 ? `
+    <div class="hours-by-day-section">
+      <strong>${t.hoursByDay}:</strong>
+      <div class="hours-by-day">
+        ${Object.entries(hoursByDay)
+          .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
+          .map(([date, hours]) => `<div>${date}: ${hours.toFixed(2)} ${t.hours}</div>`)
+          .join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const summaryHTML = order.summary && isFieldVisible('summary') ? `
+    <div class="order-summary"><h2>${t.summary}</h2><p>${order.summary.replace(/\n/g, '<br>')}</p></div>
+  ` : '';
+
+  const summaryEntriesHTML = summaryEntries && summaryEntries.length > 0 && isFieldVisible('summary_entries') ? `
+    <div class="summary-entries-section">
+      <h2>${t.summaryEntries}</h2>
+      ${summaryEntries.map(entry => `<div class="summary-entry"><div class="entry-content">${entry.content.replace(/\n/g, '<br>')}</div></div>`).join('')}
+    </div>
+  ` : '';
+
+  const entriesHTML = entries.map(entry => {
+    const date = formatDate(entry.created_at, dateFormat);
+    const photos = entryPhotos?.[entry.id] || [];
+    const photosHTML = photos.length > 0 ? `
+      <div class="entry-photos">
+        ${photos.map(photo => `
+          <div class="photo-item">
+            <img src="${photo.url}" alt="${photo.caption || 'Journal photo'}" />
+            ${photo.caption ? `<p class="photo-caption">${photo.caption}</p>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+    
+    return `
+      <div class="entry">
+        <div class="entry-header"><strong>${date}</strong></div>
+        <div class="entry-content">${entry.content.replace(/\n/g, '<br>')}</div>
+        ${photosHTML}
+      </div>
+    `;
+  }).join('');
+
+  // Build content sections
+  const contentSections: Record<string, string> = {
+    title: isFieldVisible('title') ? `<h1>${orderTitle} - ${t.allJournalEntries}</h1>` : '',
+    logo: (logoUrl && settings.showLogo && isFieldVisible('logo')) ? logoHTML : '',
+    description: descriptionHTML,
+    summary: summaryHTML,
+    summary_entries: summaryEntriesHTML,
+    man_hours: manHoursHTML,
+    hours_by_day: hoursByDayHTML_Section,
+    journal_entries: isFieldVisible('journal_entries') ? `<div class="journal-entries-section"><h2>${t.journalEntries}</h2>${entriesHTML}</div>` : '',
+  };
+
+  let bodyContent = '';
+  let orderDetailsAdded = false;
+  
+  for (const fieldConfigItem of fieldConfig) {
+    if (fieldConfigItem.type === 'page_break' && fieldConfigItem.visible) {
+      bodyContent += '<div class="page-break"></div>';
+    } else if (fieldConfigItem.type === 'line_break' && fieldConfigItem.visible) {
+      bodyContent += '<div class="line-break"></div>';
+    } else if (fieldConfigItem.type === 'horizontal_line' && fieldConfigItem.visible) {
+      bodyContent += '<hr class="horizontal-line" />';
+    } else if (fieldConfigItem.field === 'title' && isFieldVisible('title')) {
+      bodyContent += contentSections.title;
+    } else if (fieldConfigItem.field === 'logo' && isFieldVisible('logo')) {
+      bodyContent += contentSections.logo;
+    } else if (fieldConfigItem.field === 'description') {
+      bodyContent += contentSections.description;
+    } else if (fieldConfigItem.field === 'summary') {
+      bodyContent += contentSections.summary;
+    } else if (fieldConfigItem.field === 'summary_entries') {
+      bodyContent += contentSections.summary_entries;
+    } else if (fieldConfigItem.field === 'man_hours') {
+      bodyContent += contentSections.man_hours;
+    } else if (fieldConfigItem.field === 'hours_by_day') {
+      bodyContent += contentSections.hours_by_day;
+    } else if (fieldConfigItem.field === 'journal_entries') {
+      bodyContent += contentSections.journal_entries;
+    } else if (['status', 'priority', 'customer', 'customer_ref', 'location', 'due_date'].includes(fieldConfigItem.field)) {
+      if (!orderDetailsAdded && orderDetailsHTML) {
+        bodyContent += orderDetailsHTML;
+        orderDetailsAdded = true;
+      }
+    }
+  }
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${t.journalEntries} - ${orderTitle}</title>
+        <style>
+          body {
+            font-family: ${settings.fontFamily};
+            padding: ${settings.pageMargin}mm;
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          h1 {
+            color: ${settings.primaryColor};
+            border-bottom: 2px solid ${settings.primaryColor};
+            padding-bottom: 10px;
+            font-size: ${titleFontSize}px;
+            margin-top: 0;
+          }
+          h2 {
+            color: #333;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-size: 16px;
+          }
+          .order-details {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+          }
+          .order-details h2 { margin-top: 0; margin-bottom: 10px; }
+          .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+          .field-item { padding: 5px 0; }
+          .order-summary {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f0f9ff;
+            border-left: 4px solid ${settings.primaryColor};
+            border-radius: 4px;
+          }
+          .order-summary p { margin: 8px 0 0 0; line-height: 1.5; }
+          .hours-by-stage { margin-top: 8px; padding-left: 12px; font-size: 11px; color: #666; }
+          .stage-item { padding: 2px 0; }
+          .man-hours {
+            margin-top: 12px;
+            padding: 8px;
+            background: #fff;
+            border-left: 4px solid ${settings.primaryColor};
+            font-size: 13px;
+          }
+          .hours-by-day-section {
+            margin-top: 12px;
+            padding: 8px;
+            background: #f9fafb;
+            border-radius: 4px;
+          }
+          .hours-by-day {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #666;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px 12px;
+          }
+          .field-section {
+            margin: 8px 0;
+            padding: 8px;
+            background: #f9fafb;
+            border-radius: 4px;
+          }
+          .summary-entries-section { margin: 15px 0; }
+          .summary-entry {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f0f9ff;
+            border-left: 4px solid ${settings.primaryColor};
+            border-radius: 4px;
+          }
+          .journal-entries-section { margin-top: 20px; }
+          .entry {
+            margin: 20px 0;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+          }
+          .entry-header { color: #666; font-size: 11px; margin-bottom: 8px; }
+          .entry-content { line-height: 1.5; }
+          .entry-photos {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+          }
+          .photo-item { page-break-inside: avoid; }
+          .photo-item img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+          }
+          .photo-caption { font-size: 10px; color: #666; margin-top: 4px; }
+          .page-break { page-break-after: always !important; break-after: page !important; }
+          .line-break { display: block; height: 15px; }
+          .horizontal-line { border: none; border-top: 1px solid #e5e7eb; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        ${bodyContent || `
+          <h1>${orderTitle} - ${t.allJournalEntries}</h1>
+          ${logoHTML}
+          ${orderDetailsHTML}
+          ${descriptionHTML}
+          ${manHoursHTML}
+          ${hoursByDayHTML_Section}
+          ${summaryHTML}
+          ${summaryEntriesHTML}
+          <div class="journal-entries-section">
+            <h2>${t.journalEntries}</h2>
+            ${entriesHTML}
+          </div>
+        `}
+      </body>
+    </html>
+  `;
+};
+
+// Generate PDF blob for ZIP bundling (uses jsPDF)
+export const generatePDFBlob = async (
+  entries: JournalEntry[], 
+  orderTitle: string, 
+  order: Order, 
+  language: 'en' | 'sv' = 'en', 
+  logoUrl?: string, 
+  entryPhotos?: Record<string, Photo[]>, 
+  summaryEntries?: SummaryEntry[], 
+  dateFormat: DateFormatType = 'MM/DD/YYYY',
+  layoutSettings?: PDFLayoutSettings
+): Promise<Blob> => {
+  const htmlContent = generatePDFHTML(
+    entries, orderTitle, order, language, logoUrl, 
+    entryPhotos, summaryEntries, dateFormat, layoutSettings
+  );
+
+  // Create an iframe for rendering HTML
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'absolute';
+  iframe.style.left = '-9999px';
+  iframe.style.width = '800px';
+  iframe.style.height = '1200px';
+  document.body.appendChild(iframe);
+
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) {
+    document.body.removeChild(iframe);
+    throw new Error('Could not access iframe document');
+  }
+
+  iframeDoc.open();
+  iframeDoc.write(htmlContent);
+  iframeDoc.close();
+
+  // Wait for images to load
+  await new Promise<void>((resolve) => {
+    const images = iframeDoc.images;
+    if (images.length === 0) {
+      resolve();
+      return;
+    }
+    
+    let loaded = 0;
+    const checkDone = () => {
+      loaded++;
+      if (loaded >= images.length) resolve();
+    };
+    
+    Array.from(images).forEach(img => {
+      if (img.complete) {
+        checkDone();
+      } else {
+        img.onload = checkDone;
+        img.onerror = checkDone;
+      }
+    });
+    
+    // Timeout fallback
+    setTimeout(resolve, 5000);
+  });
+
+  const settings = {
+    pageMargin: layoutSettings?.pageMargin || 20,
+  };
+
+  // Use jsPDF to generate PDF from HTML
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = 210; // A4 width in mm
+  const pageHeight = 297; // A4 height in mm
+  const contentWidth = pageWidth - (settings.pageMargin * 2);
+  const contentHeight = pageHeight - (settings.pageMargin * 2);
+
+  // Get the body content
+  const body = iframeDoc.body;
+  
+  // Use html2canvas-like approach with jsPDF's html method
+  await new Promise<void>((resolve, reject) => {
+    pdf.html(body, {
+      callback: () => resolve(),
+      x: settings.pageMargin,
+      y: settings.pageMargin,
+      width: contentWidth,
+      windowWidth: 800,
+      html2canvas: {
+        scale: 0.264, // Convert px to mm (roughly 96dpi to mm)
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      },
+    });
+  });
+
+  document.body.removeChild(iframe);
+  
+  return pdf.output('blob');
 };

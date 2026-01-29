@@ -13,7 +13,8 @@ import { Filter, Plus, CheckSquare, Square } from 'lucide-react';
 import { ManHoursCalendar } from './ManHoursCalendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { exportMultipleEntriesToPDF } from '@/utils/pdfExport';
+import { generatePDFBlob } from '@/utils/pdfExport';
+import JSZip from 'jszip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -246,52 +247,103 @@ export const OrderList = ({
   const handleBulkExportJournals = async () => {
     const selectedOrders = orders.filter(o => selectedOrderIds.has(o.id));
     
-    // Fetch all journal entries for selected orders
-    const { data: journalEntries } = await supabase
-      .from('journal_entries')
-      .select('*')
-      .in('order_id', Array.from(selectedOrderIds))
-      .order('created_at', { ascending: false });
-    
-    if (!journalEntries || journalEntries.length === 0) {
-      toast.error('No journal entries found for selected orders');
+    if (selectedOrders.length === 0) {
+      toast.error('No orders selected');
       return;
     }
 
-    // Get settings for PDF
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('company_logo_url, date_format')
-      .eq('id', '00000000-0000-0000-0000-000000000001')
-      .single();
-
-    // Group entries by order
-    const entriesByOrder = journalEntries.reduce((acc, entry) => {
-      if (!acc[entry.order_id]) {
-        acc[entry.order_id] = [];
-      }
-      acc[entry.order_id].push(entry);
-      return acc;
-    }, {} as Record<string, typeof journalEntries>);
-
-    // Export each order's journals separately
-    for (const order of selectedOrders) {
-      const orderEntries = entriesByOrder[order.id];
-      if (orderEntries && orderEntries.length > 0) {
-        await exportMultipleEntriesToPDF(
-          orderEntries,
-          order.title,
-          order,
-          (localStorage.getItem('language') as 'en' | 'sv') || 'en',
-          settings?.company_logo_url || undefined,
-          undefined,
-          undefined,
-          (settings?.date_format as 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD') || 'MM/DD/YYYY'
-        );
-      }
-    }
+    const loadingToast = toast.loading(`Generating PDFs for ${selectedOrders.length} orders...`);
     
-    toast.success(`Exported journals for ${selectedOrders.length} orders`);
+    try {
+      // Fetch all journal entries for selected orders
+      const { data: journalEntries } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .in('order_id', Array.from(selectedOrderIds))
+        .order('created_at', { ascending: false });
+      
+      if (!journalEntries || journalEntries.length === 0) {
+        toast.dismiss(loadingToast);
+        toast.error('No journal entries found for selected orders');
+        return;
+      }
+
+      // Get complete settings for PDF including layout options
+      const { data: settings } = await supabase
+        .from('settings')
+        .select('company_logo_url, date_format, pdf_page_margin, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_title_font_size, pdf_field_config')
+        .eq('id', '00000000-0000-0000-0000-000000000001')
+        .single();
+
+      const layoutSettings = {
+        primaryColor: settings?.pdf_primary_color || '#2563eb',
+        fontFamily: settings?.pdf_font_family || 'Arial, sans-serif',
+        showLogo: settings?.pdf_show_logo !== false,
+        logoMaxHeight: settings?.pdf_logo_max_height || 80,
+        pageMargin: settings?.pdf_page_margin || 20,
+        titleFontSize: settings?.pdf_title_font_size || 24,
+        fieldConfig: settings?.pdf_field_config as any,
+      };
+
+      // Group entries by order
+      const entriesByOrder = journalEntries.reduce((acc, entry) => {
+        if (!acc[entry.order_id]) {
+          acc[entry.order_id] = [];
+        }
+        acc[entry.order_id].push(entry);
+        return acc;
+      }, {} as Record<string, typeof journalEntries>);
+
+      // Create ZIP file
+      const zip = new JSZip();
+      const language = (localStorage.getItem('language') as 'en' | 'sv') || 'en';
+      const dateFormat = (settings?.date_format as 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD') || 'MM/DD/YYYY';
+
+      // Generate PDF for each order
+      for (const order of selectedOrders) {
+        const orderEntries = entriesByOrder[order.id];
+        if (orderEntries && orderEntries.length > 0) {
+          try {
+            const pdfBlob = await generatePDFBlob(
+              orderEntries,
+              order.title,
+              order,
+              language,
+              settings?.company_logo_url || undefined,
+              undefined,
+              undefined,
+              dateFormat,
+              layoutSettings
+            );
+            
+            // Sanitize filename
+            const safeTitle = order.title.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+            zip.file(`${safeTitle}-journal.pdf`, pdfBlob);
+          } catch (err) {
+            console.error(`Failed to generate PDF for order ${order.title}:`, err);
+          }
+        }
+      }
+
+      // Generate and download ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const timestamp = new Date().toISOString().split('T')[0];
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `journal-exports-${timestamp}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.dismiss(loadingToast);
+      toast.success(`Exported journals for ${selectedOrders.length} orders`);
+    } catch (error) {
+      console.error('Bulk export failed:', error);
+      toast.dismiss(loadingToast);
+      toast.error('Failed to export journals');
+    }
   };
 
   const handleBulkAssign = () => {
