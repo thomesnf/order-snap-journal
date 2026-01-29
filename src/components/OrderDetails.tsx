@@ -15,7 +15,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { EditOrderDialog } from './EditOrderDialog';
-import { exportJournalEntryToPDF, exportMultipleEntriesToPDF } from '@/utils/pdfExport';
+import { exportJournalEntryToPDF, generatePDFBlob } from '@/utils/pdfExport';
 import { OrderBasisFiles } from './OrderBasisFiles';
 import { TimeCalendar } from './TimeCalendar';
 import { capturePhoto } from '@/utils/camera';
@@ -483,7 +483,37 @@ export const OrderDetails = ({ order, onBack, onUpdate, onAddSummaryEntry, onUpd
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportMultipleEntriesToPDF(journalEntries, order.title, order, language, companyLogoUrl, entryPhotos, summaryEntries, dateFormat, pdfSettings)}
+              onClick={async () => {
+                try {
+                  const pdfBlob = await generatePDFBlob(
+                    journalEntries,
+                    order.title,
+                    order,
+                    language,
+                    companyLogoUrl,
+                    entryPhotos,
+                    summaryEntries,
+                    dateFormat,
+                    pdfSettings
+                  );
+                  const url = URL.createObjectURL(pdfBlob);
+                  const link = document.createElement('a');
+                  const safeTitle = order.title.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+                  link.href = url;
+                  link.download = `${safeTitle}-journal.pdf`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  console.error('PDF export failed:', err);
+                  toast({
+                    title: t('error'),
+                    description: 'Failed to generate PDF',
+                    variant: 'destructive',
+                  });
+                }
+              }}
               disabled={journalEntries.length === 0}
             >
               <FileDown className="h-4 w-4 mr-2" />
