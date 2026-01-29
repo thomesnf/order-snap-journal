@@ -268,6 +268,23 @@ export const OrderList = ({
         return;
       }
 
+      // Fetch summary entries for selected orders (needed for PDF)
+      const { data: summaryEntries } = await supabase
+        .from('summary_entries')
+        .select('*')
+        .in('order_id', Array.from(selectedOrderIds))
+        .order('created_at', { ascending: false });
+
+      // Fetch photos for all fetched journal entries
+      const journalEntryIds = journalEntries.map((e) => e.id);
+      const { data: photos } = journalEntryIds.length
+        ? await supabase
+            .from('photos')
+            .select('*')
+            .in('journal_entry_id', journalEntryIds)
+            .order('created_at', { ascending: true })
+        : { data: [] as any[] };
+
       // Get complete settings for PDF including layout options
       const { data: settings } = await supabase
         .from('settings')
@@ -294,6 +311,25 @@ export const OrderList = ({
         return acc;
       }, {} as Record<string, typeof journalEntries>);
 
+      // Group summary entries by order
+      const summaryByOrder = (summaryEntries || []).reduce((acc, entry) => {
+        if (!acc[entry.order_id]) {
+          acc[entry.order_id] = [];
+        }
+        acc[entry.order_id].push(entry);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      // Group photos by journal entry id
+      const photosByJournalEntryId = (photos || []).reduce((acc, photo) => {
+        if (!photo.journal_entry_id) return acc;
+        if (!acc[photo.journal_entry_id]) {
+          acc[photo.journal_entry_id] = [];
+        }
+        acc[photo.journal_entry_id].push(photo);
+        return acc;
+      }, {} as Record<string, any[]>);
+
       // Create ZIP file
       const zip = new JSZip();
       const language = (localStorage.getItem('language') as 'en' | 'sv') || 'en';
@@ -310,8 +346,8 @@ export const OrderList = ({
               order,
               language,
               settings?.company_logo_url || undefined,
-              undefined,
-              undefined,
+              photosByJournalEntryId,
+              summaryByOrder[order.id] || undefined,
               dateFormat,
               layoutSettings
             );
