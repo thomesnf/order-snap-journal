@@ -1,6 +1,7 @@
 import { JournalEntry, Order, Photo, SummaryEntry } from '@/hooks/useOrdersDB';
 import { formatDate, DateFormatType } from './dateFormat';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface PDFTranslations {
   orderDetails: string;
@@ -1101,7 +1102,7 @@ const generatePDFHTML = (
   `;
 };
 
-// Generate PDF blob for ZIP bundling (uses jsPDF)
+// Generate PDF blob for ZIP bundling (uses jsPDF with proper text rendering)
 export const generatePDFBlob = async (
   entries: JournalEntry[], 
   orderTitle: string, 
@@ -1113,93 +1114,201 @@ export const generatePDFBlob = async (
   dateFormat: DateFormatType = 'MM/DD/YYYY',
   layoutSettings?: PDFLayoutSettings
 ): Promise<Blob> => {
-  const htmlContent = generatePDFHTML(
-    entries, orderTitle, order, language, logoUrl, 
-    entryPhotos, summaryEntries, dateFormat, layoutSettings
-  );
-
-  // Create an iframe for rendering HTML
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'absolute';
-  iframe.style.left = '-9999px';
-  iframe.style.width = '800px';
-  iframe.style.height = '1200px';
-  document.body.appendChild(iframe);
-
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!iframeDoc) {
-    document.body.removeChild(iframe);
-    throw new Error('Could not access iframe document');
-  }
-
-  iframeDoc.open();
-  iframeDoc.write(htmlContent);
-  iframeDoc.close();
-
-  // Wait for images to load
-  await new Promise<void>((resolve) => {
-    const images = iframeDoc.images;
-    if (images.length === 0) {
-      resolve();
-      return;
-    }
-    
-    let loaded = 0;
-    const checkDone = () => {
-      loaded++;
-      if (loaded >= images.length) resolve();
-    };
-    
-    Array.from(images).forEach(img => {
-      if (img.complete) {
-        checkDone();
-      } else {
-        img.onload = checkDone;
-        img.onerror = checkDone;
-      }
-    });
-    
-    // Timeout fallback
-    setTimeout(resolve, 5000);
-  });
-
+  const t = translations[language];
+  
   const settings = {
+    primaryColor: layoutSettings?.primaryColor || '#2563eb',
+    fontFamily: layoutSettings?.fontFamily || 'helvetica',
     pageMargin: layoutSettings?.pageMargin || 20,
+    titleFontSize: layoutSettings?.titleFontSize || 18,
   };
 
-  // Use jsPDF to generate PDF from HTML
+  // Create PDF document
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
 
-  const pageWidth = 210; // A4 width in mm
-  const pageHeight = 297; // A4 height in mm
-  const contentWidth = pageWidth - (settings.pageMargin * 2);
-  const contentHeight = pageHeight - (settings.pageMargin * 2);
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = settings.pageMargin;
+  const contentWidth = pageWidth - (margin * 2);
+  let yPosition = margin;
 
-  // Get the body content
-  const body = iframeDoc.body;
+  // Helper to check and add new page if needed
+  const checkNewPage = (requiredHeight: number = 20) => {
+    if (yPosition + requiredHeight > pageHeight - margin) {
+      pdf.addPage();
+      yPosition = margin;
+    }
+  };
+
+  // Helper to add wrapped text
+  const addWrappedText = (text: string, fontSize: number, isBold: boolean = false, color: number[] = [0, 0, 0]) => {
+    pdf.setFontSize(fontSize);
+    pdf.setFont(settings.fontFamily, isBold ? 'bold' : 'normal');
+    pdf.setTextColor(color[0], color[1], color[2]);
+    
+    const lines = pdf.splitTextToSize(text, contentWidth);
+    const lineHeight = fontSize * 0.4;
+    
+    for (const line of lines) {
+      checkNewPage(lineHeight + 2);
+      pdf.text(line, margin, yPosition);
+      yPosition += lineHeight;
+    }
+    yPosition += 2;
+  };
+
+  // Parse hex color to RGB
+  const hexToRgb = (hex: string): number[] => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [
+      parseInt(result[1], 16),
+      parseInt(result[2], 16),
+      parseInt(result[3], 16)
+    ] : [37, 99, 235]; // default blue
+  };
+
+  const primaryRgb = hexToRgb(settings.primaryColor);
+
+  // Title
+  addWrappedText(`${orderTitle} - ${t.allJournalEntries}`, settings.titleFontSize, true, primaryRgb);
   
-  // Use html2canvas-like approach with jsPDF's html method
-  await new Promise<void>((resolve, reject) => {
-    pdf.html(body, {
-      callback: () => resolve(),
-      x: settings.pageMargin,
-      y: settings.pageMargin,
-      width: contentWidth,
-      windowWidth: 800,
-      html2canvas: {
-        scale: 0.264, // Convert px to mm (roughly 96dpi to mm)
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
+  // Draw title underline
+  pdf.setDrawColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
+  pdf.setLineWidth(0.5);
+  pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 8;
+
+  // Order Details Section
+  const orderDetailsFields = [
+    { label: t.status, value: order.status ? t[order.status as keyof PDFTranslations] || order.status : null },
+    { label: t.priority, value: order.priority ? t[order.priority as keyof PDFTranslations] || order.priority : null },
+    { label: t.customer, value: order.customer },
+    { label: t.customerRef, value: order.customer_ref },
+    { label: t.location, value: order.location },
+    { label: t.dueDate, value: order.due_date ? formatDate(order.due_date, dateFormat) : null },
+  ].filter(f => f.value);
+
+  if (orderDetailsFields.length > 0) {
+    checkNewPage(30);
+    addWrappedText(t.orderDetails, 14, true, [51, 51, 51]);
+    
+    // Create table for order details
+    autoTable(pdf, {
+      startY: yPosition,
+      head: [],
+      body: orderDetailsFields.map(f => [f.label, f.value as string]),
+      theme: 'plain',
+      styles: {
+        fontSize: 10,
+        cellPadding: 3,
       },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 40 },
+        1: { cellWidth: contentWidth - 40 },
+      },
+      margin: { left: margin, right: margin },
     });
-  });
+    
+    yPosition = (pdf as any).lastAutoTable.finalY + 8;
+  }
 
-  document.body.removeChild(iframe);
-  
+  // Description
+  if (order.description) {
+    checkNewPage(20);
+    addWrappedText(`${t.description}:`, 11, true, [51, 51, 51]);
+    addWrappedText(order.description, 10, false, [102, 102, 102]);
+    yPosition += 5;
+  }
+
+  // Total Man Hours
+  const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
+  const uniqueTechnicians = new Set(order.time_entries?.map(e => e.technician_name) || []);
+  const technicianCount = uniqueTechnicians.size;
+
+  checkNewPage(15);
+  addWrappedText(`${t.totalManHours}: ${totalHours.toFixed(2)} ${t.hours} (${technicianCount} technician${technicianCount !== 1 ? 's' : ''})`, 11, true, [51, 51, 51]);
+  yPosition += 3;
+
+  // Hours by day
+  const hoursByDay = order.time_entries?.reduce((acc, entry) => {
+    const date = formatDate(entry.work_date, dateFormat);
+    acc[date] = (acc[date] || 0) + Number(entry.hours_worked || 0);
+    return acc;
+  }, {} as Record<string, number>) || {};
+
+  if (Object.keys(hoursByDay).length > 0) {
+    checkNewPage(20);
+    addWrappedText(`${t.hoursByDay}:`, 11, true, [51, 51, 51]);
+    
+    const hoursData = Object.entries(hoursByDay)
+      .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
+      .map(([date, hours]) => [date, `${hours.toFixed(2)} ${t.hours}`]);
+    
+    if (hoursData.length > 0) {
+      autoTable(pdf, {
+        startY: yPosition,
+        head: [],
+        body: hoursData,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 2 },
+        margin: { left: margin, right: margin },
+      });
+      yPosition = (pdf as any).lastAutoTable.finalY + 5;
+    }
+  }
+
+  // Summary
+  if (order.summary) {
+    checkNewPage(25);
+    addWrappedText(t.summary, 14, true, [51, 51, 51]);
+    addWrappedText(order.summary, 10, false, [51, 51, 51]);
+    yPosition += 5;
+  }
+
+  // Summary Entries
+  if (summaryEntries && summaryEntries.length > 0) {
+    checkNewPage(25);
+    addWrappedText(t.summaryEntries, 14, true, [51, 51, 51]);
+    
+    for (const entry of summaryEntries) {
+      checkNewPage(15);
+      addWrappedText(entry.content, 10, false, [51, 51, 51]);
+      yPosition += 3;
+    }
+    yPosition += 5;
+  }
+
+  // Journal Entries Section
+  if (entries.length > 0) {
+    checkNewPage(30);
+    addWrappedText(t.journalEntries, 14, true, [51, 51, 51]);
+    yPosition += 3;
+
+    for (const entry of entries) {
+      checkNewPage(25);
+      
+      const entryDate = formatDate(entry.created_at, dateFormat);
+      
+      // Entry date header
+      pdf.setFillColor(249, 250, 251);
+      pdf.rect(margin, yPosition - 3, contentWidth, 8, 'F');
+      addWrappedText(entryDate, 11, true, [102, 102, 102]);
+      yPosition += 2;
+      
+      // Entry content
+      addWrappedText(entry.content, 10, false, [51, 51, 51]);
+      
+      // Add separator line
+      pdf.setDrawColor(229, 231, 235);
+      pdf.setLineWidth(0.2);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 8;
+    }
+  }
+
   return pdf.output('blob');
 };
