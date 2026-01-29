@@ -1265,7 +1265,8 @@ const loadImageAsJpegDataUrl = async (url: string): Promise<string | null> => {
   }
 };
 
-// Generate native PDF with all elements matching the HTML export
+// Generate native PDF with all elements matching the HTML export EXACTLY
+// This must produce identical output to exportMultipleEntriesToPDF
 const generateNativePDFFromOrder = async (
   entries: JournalEntry[], 
   orderTitle: string, 
@@ -1288,21 +1289,24 @@ const generateNativePDFFromOrder = async (
     logoMaxHeight: layoutSettings?.logoMaxHeight || 25,
   };
 
+  // Default field config matching the single export format:
+  // Title -> Logo -> Order Details (Kund, Kundreferens, Adress) -> Man Hours -> Hours by Day -> Summary Entries -> Journal Entries
   const fieldConfig = layoutSettings?.fieldConfig || [
     { field: 'title', label: 'Title', visible: true, order: 1 },
     { field: 'logo', label: 'Logo', visible: true, order: 2 },
-    { field: 'status', label: t.status, visible: true, order: 3 },
-    { field: 'priority', label: t.priority, visible: true, order: 4 },
-    { field: 'customer', label: t.customer, visible: true, order: 5 },
-    { field: 'customer_ref', label: t.customerRef, visible: true, order: 6 },
-    { field: 'location', label: t.location, visible: true, order: 7 },
-    { field: 'due_date', label: t.dueDate, visible: true, order: 8 },
-    { field: 'description', label: t.description, visible: true, order: 9 },
-    { field: 'summary', label: t.summary, visible: true, order: 10 },
-    { field: 'summary_entries', label: t.summaryEntries, visible: true, order: 11 },
-    { field: 'man_hours', label: t.totalManHours, visible: true, order: 12 },
-    { field: 'hours_by_day', label: t.hoursByDay, visible: true, order: 13 },
-    { field: 'journal_entries', label: t.journalEntries, visible: true, order: 14 },
+    { field: 'customer', label: t.customer, visible: true, order: 3 },
+    { field: 'customer_ref', label: t.customerRef, visible: true, order: 4 },
+    { field: 'location', label: t.location, visible: true, order: 5 },
+    { field: 'man_hours', label: t.totalManHours, visible: true, order: 6 },
+    { field: 'hours_by_day', label: t.hoursByDay, visible: true, order: 7 },
+    { field: 'summary_entries', label: t.summaryEntries, visible: true, order: 8 },
+    { field: 'journal_entries', label: t.journalEntries, visible: true, order: 9 },
+    // These fields are hidden by default to match single-export PDF layout
+    { field: 'status', label: t.status, visible: false, order: 10 },
+    { field: 'priority', label: t.priority, visible: false, order: 11 },
+    { field: 'due_date', label: t.dueDate, visible: false, order: 12 },
+    { field: 'description', label: t.description, visible: false, order: 13 },
+    { field: 'summary', label: t.summary, visible: false, order: 14 },
   ];
 
   const isFieldVisible = (fieldName: string) => {
@@ -1405,20 +1409,19 @@ const generateNativePDFFromOrder = async (
     }
   }
 
-  // Order Details Section
+  // Order Details Section - matching single export table format
+  // Only show: Kund, Kundreferens, Adress (in a simple table like the reference PDF)
   const orderDetailsFields = [
-    { field: 'status', label: t.status, value: order.status ? t[order.status as keyof PDFTranslations] || order.status : null },
-    { field: 'priority', label: t.priority, value: order.priority ? t[order.priority as keyof PDFTranslations] || order.priority : null },
     { field: 'customer', label: t.customer, value: order.customer },
     { field: 'customer_ref', label: t.customerRef, value: order.customer_ref },
     { field: 'location', label: t.location, value: order.location },
-    { field: 'due_date', label: t.dueDate, value: order.due_date ? formatDate(order.due_date, dateFormat) : null },
   ].filter(f => isFieldVisible(f.field) && f.value);
 
   if (orderDetailsFields.length > 0) {
     checkNewPage(30);
     addWrappedText(t.orderDetails, 14, true, [51, 51, 51]);
     
+    // Use autoTable for clean table layout matching single export
     autoTable(pdf, {
       startY: yPosition,
       head: [],
@@ -1427,26 +1430,22 @@ const generateNativePDFFromOrder = async (
       styles: {
         fontSize: 10,
         cellPadding: 3,
+        lineColor: [229, 231, 235],
+        lineWidth: 0.1,
       },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: 40 },
         1: { cellWidth: contentWidth - 40 },
       },
       margin: { left: margin, right: margin },
+      tableLineColor: [229, 231, 235],
+      tableLineWidth: 0.1,
     });
     
     yPosition = (pdf as any).lastAutoTable.finalY + 8;
   }
 
-  // Description
-  if (order.description && isFieldVisible('description')) {
-    checkNewPage(20);
-    addWrappedText(`${t.description}:`, 11, true, [51, 51, 51]);
-    addWrappedText(order.description, 10, false, [51, 51, 51]);
-    yPosition += 5;
-  }
-
-  // Total Man Hours
+  // Total Man Hours - format matching single export exactly
   if (isFieldVisible('man_hours')) {
     const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
     const uniqueTechnicians = new Set(order.time_entries?.map(e => e.technician_name) || []);
@@ -1467,26 +1466,27 @@ const generateNativePDFFromOrder = async (
       }
     });
 
-    checkNewPage(15);
+    checkNewPage(20);
+    // Main man hours line with technician count
     addWrappedText(`${t.totalManHours}: ${totalHours.toFixed(2)} ${t.hours} (${technicianCount} technician${technicianCount !== 1 ? 's' : ''})`, 11, true, [51, 51, 51]);
     
-    // Stage breakdown
+    // Stage breakdown with bullet points
     for (const [stageName, stageEntries] of Object.entries(entriesByStage)) {
       const stageHours = stageEntries.reduce((sum: number, e: any) => sum + Number(e.hours_worked || 0), 0);
       const stageTechs = new Set(stageEntries.map((e: any) => e.technician_name)).size;
-      addWrappedText(`  • ${stageName}: ${stageHours.toFixed(2)} ${t.hours} (${stageTechs} tech${stageTechs !== 1 ? 's' : ''})`, 9, false, [102, 102, 102]);
+      addWrappedText(`• ${stageName}: ${stageHours.toFixed(2)} ${t.hours} (${stageTechs} tech${stageTechs !== 1 ? 's' : ''})`, 10, false, [51, 51, 51]);
     }
     
     if (noStageEntries.length > 0) {
       const noStageHours = noStageEntries.reduce((sum, e) => sum + Number(e.hours_worked || 0), 0);
       const noStageTechs = new Set(noStageEntries.map(e => e.technician_name)).size;
-      addWrappedText(`  • No Stage: ${noStageHours.toFixed(2)} ${t.hours} (${noStageTechs} tech${noStageTechs !== 1 ? 's' : ''})`, 9, false, [102, 102, 102]);
+      addWrappedText(`• No Stage: ${noStageHours.toFixed(2)} ${t.hours} (${noStageTechs} tech${noStageTechs !== 1 ? 's' : ''})`, 10, false, [51, 51, 51]);
     }
     
-    yPosition += 3;
+    yPosition += 5;
   }
 
-  // Hours by Day
+  // Hours by Day - displayed in a TABLE format like the single export
   if (isFieldVisible('hours_by_day') && order.time_entries && order.time_entries.length > 0) {
     const hoursByDay = order.time_entries.reduce((acc, entry) => {
       const date = formatDate(entry.work_date, dateFormat);
@@ -1498,29 +1498,49 @@ const generateNativePDFFromOrder = async (
       checkNewPage(20);
       addWrappedText(`${t.hoursByDay}:`, 11, true, [51, 51, 51]);
       
-      const sortedEntries = Object.entries(hoursByDay).sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime());
-      for (const [date, hours] of sortedEntries) {
-        addWrappedText(`  ${date}: ${hours.toFixed(2)} ${t.hours}`, 9, false, [102, 102, 102]);
-      }
-      yPosition += 5;
+      const sortedEntries = Object.entries(hoursByDay).sort(([a], [b]) => {
+        // Parse dates in MM/DD/YYYY format for proper sorting
+        const parseDate = (dateStr: string) => {
+          const parts = dateStr.split('/');
+          if (parts.length === 3) {
+            return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+          }
+          return new Date(dateStr);
+        };
+        return parseDate(a).getTime() - parseDate(b).getTime();
+      });
+      
+      // Use table format matching single export
+      autoTable(pdf, {
+        startY: yPosition,
+        head: [],
+        body: sortedEntries.map(([date, hours]) => [date, `${hours.toFixed(2)} ${t.hours}`]),
+        theme: 'plain',
+        styles: {
+          fontSize: 10,
+          cellPadding: 2,
+          lineColor: [229, 231, 235],
+        },
+        columnStyles: {
+          0: { cellWidth: 35 },
+          1: { cellWidth: 35 },
+        },
+        margin: { left: margin, right: margin },
+        tableWidth: 70,
+      });
+      
+      yPosition = (pdf as any).lastAutoTable.finalY + 8;
     }
   }
 
-  // Summary
-  if (order.summary && isFieldVisible('summary')) {
-    checkNewPage(25);
-    addWrappedText(t.summary, 14, true, [51, 51, 51]);
-    addWrappedText(order.summary, 10, false, [51, 51, 51]);
-    yPosition += 5;
-  }
-
-  // Summary Entries
+  // Summary Entries - placed BEFORE journal entries, matching single export order
   if (summaryEntries && summaryEntries.length > 0 && isFieldVisible('summary_entries')) {
     checkNewPage(25);
     addWrappedText(t.summaryEntries, 14, true, [51, 51, 51]);
     
     for (const entry of summaryEntries) {
       checkNewPage(15);
+      // Format each entry with bullet point
       addWrappedText(`• ${entry.content}`, 10, false, [51, 51, 51]);
       yPosition += 3;
     }
