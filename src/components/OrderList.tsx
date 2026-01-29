@@ -273,7 +273,7 @@ export const OrderList = ({
         .from('summary_entries')
         .select('*')
         .in('order_id', Array.from(selectedOrderIds))
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       // Fetch photos for all fetched journal entries
       const journalEntryIds = journalEntries.map((e) => e.id);
@@ -284,6 +284,42 @@ export const OrderList = ({
             .in('journal_entry_id', journalEntryIds)
             .order('created_at', { ascending: true })
         : { data: [] as any[] };
+
+      // IMPORTANT: For exact parity with single-export, fetch full order details
+      // (orders list payload does NOT include summary/time entries/stage names).
+      const orderIds = Array.from(selectedOrderIds);
+      const [ordersRes, timeEntriesRes, stagesRes] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('id, title, description, summary, status, priority, customer, customer_ref, location, due_date, created_at, updated_at, user_id')
+          .in('id', orderIds)
+          .is('deleted_at', null),
+        supabase
+          .from('time_entries')
+          .select('*')
+          .in('order_id', orderIds),
+        supabase
+          .from('order_stages')
+          .select('id, name')
+          .in('order_id', orderIds),
+      ]);
+
+      const fullOrdersById = new Map<string, any>();
+      (ordersRes.data || []).forEach((o) => fullOrdersById.set(o.id, o));
+
+      const stageNameById = new Map<string, string>();
+      (stagesRes.data || []).forEach((s) => {
+        stageNameById.set(s.id, s.name);
+      });
+
+      const timeEntriesByOrderId = (timeEntriesRes.data || []).reduce((acc, te) => {
+        if (!acc[te.order_id]) acc[te.order_id] = [];
+        acc[te.order_id].push({
+          ...te,
+          stage_name: te.stage_id ? stageNameById.get(te.stage_id) : undefined,
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
 
       // Get complete settings for PDF including layout options
       const { data: settings } = await supabase
@@ -337,13 +373,18 @@ export const OrderList = ({
 
       // Generate PDF for each order
       for (const order of selectedOrders) {
+        const fullOrder = fullOrdersById.get(order.id);
+        const orderForPdf = fullOrder
+          ? { ...fullOrder, time_entries: timeEntriesByOrderId[order.id] || [] }
+          : order;
+
         const orderEntries = entriesByOrder[order.id];
         if (orderEntries && orderEntries.length > 0) {
           try {
             const pdfBlob = await generatePDFBlob(
               orderEntries,
               order.title,
-              order,
+              orderForPdf,
               language,
               settings?.company_logo_url || undefined,
               photosByJournalEntryId,

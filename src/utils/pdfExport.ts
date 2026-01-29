@@ -1220,17 +1220,46 @@ export const generatePDFBlob = async (
   );
 };
 
-// Helper to load image and convert to base64
-const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+// Helper to load images safely for jsPDF.
+// We always rasterize to JPEG via canvas to avoid format/decoder edge-cases
+// (signed URLs, webp, partial loads) that can cause striped/garbled images.
+const loadImageAsJpegDataUrl = async (url: string): Promise<string | null> => {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { cache: 'no-store' });
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok) return null;
+    if (!contentType.toLowerCase().startsWith('image/')) return null;
+
     const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
+    const objectUrl = URL.createObjectURL(blob);
+
+    try {
+      const img = new Image();
+      // Note: signed URLs may not support CORS headers. We don't need pixel access
+      // when drawing from blob/object URL (same-origin), so this is safe.
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Image load failed'));
+        img.src = objectUrl;
+      });
+
+      if (!img.width || !img.height) return null;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Ensure a white background for transparent PNGs
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+
+      return canvas.toDataURL('image/jpeg', 0.92);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   } catch {
     return null;
   }
@@ -1331,39 +1360,6 @@ const generateNativePDFFromOrder = async (
 
   const primaryRgb = hexToRgb(settings.primaryColor);
 
-  // Add Company Logo FIRST (before title, matching HTML export)
-  if (logoUrl && settings.showLogo && isFieldVisible('logo')) {
-    try {
-      const logoBase64 = await loadImageAsBase64(logoUrl);
-      if (logoBase64) {
-        const img = new Image();
-        await new Promise<void>((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          img.src = logoBase64;
-        });
-        
-        if (img.width > 0) {
-          const maxHeight = settings.logoMaxHeight;
-          const maxWidth = 60;
-          const aspectRatio = img.width / img.height;
-          let imgWidth = maxWidth;
-          let imgHeight = imgWidth / aspectRatio;
-          
-          if (imgHeight > maxHeight) {
-            imgHeight = maxHeight;
-            imgWidth = imgHeight * aspectRatio;
-          }
-          
-          pdf.addImage(logoBase64, 'AUTO', margin, yPosition, imgWidth, imgHeight);
-          yPosition += imgHeight + 8;
-        }
-      }
-    } catch (e) {
-      // Continue without logo
-    }
-  }
-
   // Title
   if (isFieldVisible('title')) {
     addWrappedText(`${orderTitle} - ${t.allJournalEntries}`, settings.titleFontSize, true, primaryRgb);
@@ -1373,6 +1369,40 @@ const generateNativePDFFromOrder = async (
     pdf.setLineWidth(0.5);
     pdf.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 8;
+  }
+
+  // Company Logo (UNDER header, matching order-page export layout)
+  if (logoUrl && settings.showLogo && isFieldVisible('logo')) {
+    try {
+      const logoJpeg = await loadImageAsJpegDataUrl(logoUrl);
+      if (logoJpeg) {
+        const img = new Image();
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          img.src = logoJpeg;
+        });
+
+        if (img.width > 0) {
+          const maxHeight = settings.logoMaxHeight;
+          const maxWidth = 60;
+          const aspectRatio = img.width / img.height;
+          let imgWidth = maxWidth;
+          let imgHeight = imgWidth / aspectRatio;
+
+          if (imgHeight > maxHeight) {
+            imgHeight = maxHeight;
+            imgWidth = imgHeight * aspectRatio;
+          }
+
+          checkNewPage(imgHeight + 8);
+          pdf.addImage(logoJpeg, 'JPEG', margin, yPosition, imgWidth, imgHeight);
+          yPosition += imgHeight + 8;
+        }
+      }
+    } catch {
+      // Continue without logo
+    }
   }
 
   // Order Details Section
@@ -1522,13 +1552,13 @@ const generateNativePDFFromOrder = async (
       if (photos.length > 0) {
         for (const photo of photos) {
           try {
-            const photoBase64 = await loadImageAsBase64(photo.url);
-            if (photoBase64) {
+            const photoJpeg = await loadImageAsJpegDataUrl(photo.url);
+            if (photoJpeg) {
               const img = new Image();
               await new Promise<void>((resolve) => {
                 img.onload = () => resolve();
                 img.onerror = () => resolve();
-                img.src = photoBase64;
+                img.src = photoJpeg;
               });
               
               if (img.width > 0) {
@@ -1545,7 +1575,7 @@ const generateNativePDFFromOrder = async (
                 }
                 
                 checkNewPage(imgHeight + 15);
-                pdf.addImage(photoBase64, 'AUTO', margin, yPosition, imgWidth, imgHeight);
+                pdf.addImage(photoJpeg, 'JPEG', margin, yPosition, imgWidth, imgHeight);
                 yPosition += imgHeight + 5;
                 
                 if (photo.caption) {
