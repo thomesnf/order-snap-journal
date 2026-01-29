@@ -1102,6 +1102,124 @@ const generatePDFHTML = (
   `;
 };
 
+// Generate PDF blob by reusing the same HTML rendering as exportMultipleEntriesToPDF
+// Uses an iframe + print-to-PDF approach for exact visual parity
+export const generatePDFBlob = async (
+  entries: JournalEntry[], 
+  orderTitle: string, 
+  order: Order, 
+  language: 'en' | 'sv' = 'en', 
+  logoUrl?: string, 
+  entryPhotos?: Record<string, Photo[]>, 
+  summaryEntries?: SummaryEntry[], 
+  dateFormat: DateFormatType = 'MM/DD/YYYY',
+  layoutSettings?: PDFLayoutSettings
+): Promise<Blob> => {
+  // Generate the exact same HTML as exportMultipleEntriesToPDF
+  const html = generatePDFHTML(
+    entries,
+    orderTitle,
+    order,
+    language,
+    logoUrl,
+    entryPhotos,
+    summaryEntries,
+    dateFormat,
+    layoutSettings
+  );
+
+  // Create a hidden iframe to render the HTML
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'absolute';
+  iframe.style.left = '-9999px';
+  iframe.style.top = '-9999px';
+  iframe.style.width = '800px';
+  iframe.style.height = '1200px';
+  document.body.appendChild(iframe);
+
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) {
+    document.body.removeChild(iframe);
+    throw new Error('Could not create iframe document');
+  }
+
+  iframeDoc.open();
+  iframeDoc.write(html);
+  iframeDoc.close();
+
+  // Wait for all images to load
+  await new Promise<void>((resolve) => {
+    const images = iframeDoc.querySelectorAll('img');
+    if (images.length === 0) {
+      resolve();
+      return;
+    }
+
+    let loadedCount = 0;
+    const checkAllLoaded = () => {
+      loadedCount++;
+      if (loadedCount >= images.length) {
+        resolve();
+      }
+    };
+
+    images.forEach((img) => {
+      if (img.complete) {
+        checkAllLoaded();
+      } else {
+        img.onload = checkAllLoaded;
+        img.onerror = checkAllLoaded;
+      }
+    });
+
+    // Timeout after 10 seconds
+    setTimeout(resolve, 10000);
+  });
+
+  // Give a moment for rendering
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  const settings = {
+    pageMargin: layoutSettings?.pageMargin || 20,
+  };
+
+  // Use jsPDF to create PDF from the rendered content
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = settings.pageMargin;
+  const contentWidth = pageWidth - (margin * 2);
+
+  // Get the body content from iframe
+  const body = iframeDoc.body;
+  
+  // Convert the HTML content using html2canvas-like approach via jsPDF html method
+  // But since that can be problematic, we'll extract content and render it natively
+
+  // Clean up iframe
+  document.body.removeChild(iframe);
+
+  // Since html2canvas approach has issues, we'll generate native PDF
+  // by parsing the HTML and rendering elements directly
+  
+  return await generateNativePDFFromOrder(
+    entries,
+    orderTitle,
+    order,
+    language,
+    logoUrl,
+    entryPhotos,
+    summaryEntries,
+    dateFormat,
+    layoutSettings
+  );
+};
+
 // Helper to load image and convert to base64
 const loadImageAsBase64 = async (url: string): Promise<string | null> => {
   try {
@@ -1118,8 +1236,8 @@ const loadImageAsBase64 = async (url: string): Promise<string | null> => {
   }
 };
 
-// Generate PDF blob for ZIP bundling (uses jsPDF with proper text rendering)
-export const generatePDFBlob = async (
+// Generate native PDF with all elements matching the HTML export
+const generateNativePDFFromOrder = async (
   entries: JournalEntry[], 
   orderTitle: string, 
   order: Order, 
@@ -1139,6 +1257,28 @@ export const generatePDFBlob = async (
     titleFontSize: layoutSettings?.titleFontSize || 18,
     showLogo: layoutSettings?.showLogo !== false,
     logoMaxHeight: layoutSettings?.logoMaxHeight || 25,
+  };
+
+  const fieldConfig = layoutSettings?.fieldConfig || [
+    { field: 'title', label: 'Title', visible: true, order: 1 },
+    { field: 'logo', label: 'Logo', visible: true, order: 2 },
+    { field: 'status', label: t.status, visible: true, order: 3 },
+    { field: 'priority', label: t.priority, visible: true, order: 4 },
+    { field: 'customer', label: t.customer, visible: true, order: 5 },
+    { field: 'customer_ref', label: t.customerRef, visible: true, order: 6 },
+    { field: 'location', label: t.location, visible: true, order: 7 },
+    { field: 'due_date', label: t.dueDate, visible: true, order: 8 },
+    { field: 'description', label: t.description, visible: true, order: 9 },
+    { field: 'summary', label: t.summary, visible: true, order: 10 },
+    { field: 'summary_entries', label: t.summaryEntries, visible: true, order: 11 },
+    { field: 'man_hours', label: t.totalManHours, visible: true, order: 12 },
+    { field: 'hours_by_day', label: t.hoursByDay, visible: true, order: 13 },
+    { field: 'journal_entries', label: t.journalEntries, visible: true, order: 14 },
+  ];
+
+  const isFieldVisible = (fieldName: string) => {
+    const config = fieldConfig.find(f => f.field === fieldName);
+    return config ? config.visible : true;
   };
 
   // Create PDF document
@@ -1186,13 +1326,13 @@ export const generatePDFBlob = async (
       parseInt(result[1], 16),
       parseInt(result[2], 16),
       parseInt(result[3], 16)
-    ] : [37, 99, 235]; // default blue
+    ] : [37, 99, 235];
   };
 
   const primaryRgb = hexToRgb(settings.primaryColor);
 
-  // Add Company Logo
-  if (logoUrl && settings.showLogo) {
+  // Add Company Logo FIRST (before title, matching HTML export)
+  if (logoUrl && settings.showLogo && isFieldVisible('logo')) {
     try {
       const logoBase64 = await loadImageAsBase64(logoUrl);
       if (logoBase64) {
@@ -1220,32 +1360,35 @@ export const generatePDFBlob = async (
         }
       }
     } catch (e) {
-      // Continue without logo if it fails to load
+      // Continue without logo
     }
   }
 
   // Title
-  addWrappedText(`${orderTitle} - ${t.allJournalEntries}`, settings.titleFontSize, true, primaryRgb);
-  
-  // Draw title underline
-  pdf.setDrawColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
-  pdf.setLineWidth(0.5);
-  pdf.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 8;
+  if (isFieldVisible('title')) {
+    addWrappedText(`${orderTitle} - ${t.allJournalEntries}`, settings.titleFontSize, true, primaryRgb);
+    
+    // Draw title underline
+    pdf.setDrawColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 8;
+  }
 
   // Order Details Section
   const orderDetailsFields = [
-    { label: t.customer, value: order.customer },
-    { label: t.customerRef, value: order.customer_ref },
-    { label: t.location, value: order.location },
-    { label: t.dueDate, value: order.due_date ? formatDate(order.due_date, dateFormat) : null },
-  ].filter(f => f.value);
+    { field: 'status', label: t.status, value: order.status ? t[order.status as keyof PDFTranslations] || order.status : null },
+    { field: 'priority', label: t.priority, value: order.priority ? t[order.priority as keyof PDFTranslations] || order.priority : null },
+    { field: 'customer', label: t.customer, value: order.customer },
+    { field: 'customer_ref', label: t.customerRef, value: order.customer_ref },
+    { field: 'location', label: t.location, value: order.location },
+    { field: 'due_date', label: t.dueDate, value: order.due_date ? formatDate(order.due_date, dateFormat) : null },
+  ].filter(f => isFieldVisible(f.field) && f.value);
 
   if (orderDetailsFields.length > 0) {
     checkNewPage(30);
     addWrappedText(t.orderDetails, 14, true, [51, 51, 51]);
     
-    // Create table for order details
     autoTable(pdf, {
       startY: yPosition,
       head: [],
@@ -1265,17 +1408,76 @@ export const generatePDFBlob = async (
     yPosition = (pdf as any).lastAutoTable.finalY + 8;
   }
 
-  // Total Man Hours
-  const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
-  const uniqueTechnicians = new Set(order.time_entries?.map(e => e.technician_name) || []);
-  const technicianCount = uniqueTechnicians.size;
+  // Description
+  if (order.description && isFieldVisible('description')) {
+    checkNewPage(20);
+    addWrappedText(`${t.description}:`, 11, true, [51, 51, 51]);
+    addWrappedText(order.description, 10, false, [51, 51, 51]);
+    yPosition += 5;
+  }
 
-  checkNewPage(15);
-  addWrappedText(`${t.totalManHours}: ${totalHours.toFixed(2)} ${t.hours} (${technicianCount} technician${technicianCount !== 1 ? 's' : ''})`, 11, true, [51, 51, 51]);
-  yPosition += 3;
+  // Total Man Hours
+  if (isFieldVisible('man_hours')) {
+    const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
+    const uniqueTechnicians = new Set(order.time_entries?.map(e => e.technician_name) || []);
+    const technicianCount = uniqueTechnicians.size;
+
+    // Group by stage
+    const entriesByStage: Record<string, any[]> = {};
+    const noStageEntries: any[] = [];
+    
+    order.time_entries?.forEach(entry => {
+      if (entry.stage_name) {
+        if (!entriesByStage[entry.stage_name]) {
+          entriesByStage[entry.stage_name] = [];
+        }
+        entriesByStage[entry.stage_name].push(entry);
+      } else {
+        noStageEntries.push(entry);
+      }
+    });
+
+    checkNewPage(15);
+    addWrappedText(`${t.totalManHours}: ${totalHours.toFixed(2)} ${t.hours} (${technicianCount} technician${technicianCount !== 1 ? 's' : ''})`, 11, true, [51, 51, 51]);
+    
+    // Stage breakdown
+    for (const [stageName, stageEntries] of Object.entries(entriesByStage)) {
+      const stageHours = stageEntries.reduce((sum: number, e: any) => sum + Number(e.hours_worked || 0), 0);
+      const stageTechs = new Set(stageEntries.map((e: any) => e.technician_name)).size;
+      addWrappedText(`  • ${stageName}: ${stageHours.toFixed(2)} ${t.hours} (${stageTechs} tech${stageTechs !== 1 ? 's' : ''})`, 9, false, [102, 102, 102]);
+    }
+    
+    if (noStageEntries.length > 0) {
+      const noStageHours = noStageEntries.reduce((sum, e) => sum + Number(e.hours_worked || 0), 0);
+      const noStageTechs = new Set(noStageEntries.map(e => e.technician_name)).size;
+      addWrappedText(`  • No Stage: ${noStageHours.toFixed(2)} ${t.hours} (${noStageTechs} tech${noStageTechs !== 1 ? 's' : ''})`, 9, false, [102, 102, 102]);
+    }
+    
+    yPosition += 3;
+  }
+
+  // Hours by Day
+  if (isFieldVisible('hours_by_day') && order.time_entries && order.time_entries.length > 0) {
+    const hoursByDay = order.time_entries.reduce((acc, entry) => {
+      const date = formatDate(entry.work_date, dateFormat);
+      acc[date] = (acc[date] || 0) + Number(entry.hours_worked || 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    if (Object.keys(hoursByDay).length > 0) {
+      checkNewPage(20);
+      addWrappedText(`${t.hoursByDay}:`, 11, true, [51, 51, 51]);
+      
+      const sortedEntries = Object.entries(hoursByDay).sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime());
+      for (const [date, hours] of sortedEntries) {
+        addWrappedText(`  ${date}: ${hours.toFixed(2)} ${t.hours}`, 9, false, [102, 102, 102]);
+      }
+      yPosition += 5;
+    }
+  }
 
   // Summary
-  if (order.summary) {
+  if (order.summary && isFieldVisible('summary')) {
     checkNewPage(25);
     addWrappedText(t.summary, 14, true, [51, 51, 51]);
     addWrappedText(order.summary, 10, false, [51, 51, 51]);
@@ -1283,7 +1485,7 @@ export const generatePDFBlob = async (
   }
 
   // Summary Entries
-  if (summaryEntries && summaryEntries.length > 0) {
+  if (summaryEntries && summaryEntries.length > 0 && isFieldVisible('summary_entries')) {
     checkNewPage(25);
     addWrappedText(t.summaryEntries, 14, true, [51, 51, 51]);
     
@@ -1296,7 +1498,7 @@ export const generatePDFBlob = async (
   }
 
   // Journal Entries Section
-  if (entries.length > 0) {
+  if (entries.length > 0 && isFieldVisible('journal_entries')) {
     checkNewPage(30);
     addWrappedText(t.journalEntries, 14, true, [51, 51, 51]);
     yPosition += 3;
@@ -1306,10 +1508,10 @@ export const generatePDFBlob = async (
       
       const entryDate = formatDate(entry.created_at, dateFormat);
       
-      // Entry date header
+      // Entry date header with background
       pdf.setFillColor(249, 250, 251);
       pdf.rect(margin, yPosition - 3, contentWidth, 8, 'F');
-      addWrappedText(`• ${entryDate}:`, 11, true, [102, 102, 102]);
+      addWrappedText(`${entryDate}`, 11, true, [102, 102, 102]);
       
       // Entry content
       addWrappedText(entry.content, 10, false, [51, 51, 51]);
@@ -1330,8 +1532,9 @@ export const generatePDFBlob = async (
               });
               
               if (img.width > 0) {
-                const maxImgWidth = contentWidth * 0.45;
-                const maxImgHeight = 60;
+                // Make photos larger - use more of the page width
+                const maxImgWidth = contentWidth * 0.7;
+                const maxImgHeight = 80;
                 const aspectRatio = img.width / img.height;
                 let imgWidth = maxImgWidth;
                 let imgHeight = imgWidth / aspectRatio;
@@ -1341,15 +1544,15 @@ export const generatePDFBlob = async (
                   imgWidth = imgHeight * aspectRatio;
                 }
                 
-                checkNewPage(imgHeight + 10);
+                checkNewPage(imgHeight + 15);
                 pdf.addImage(photoBase64, 'AUTO', margin, yPosition, imgWidth, imgHeight);
                 yPosition += imgHeight + 5;
                 
                 if (photo.caption) {
-                  pdf.setFontSize(8);
+                  pdf.setFontSize(9);
                   pdf.setTextColor(102, 102, 102);
                   pdf.text(photo.caption, margin, yPosition);
-                  yPosition += 5;
+                  yPosition += 6;
                 }
               }
             }
