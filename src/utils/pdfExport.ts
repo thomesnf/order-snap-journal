@@ -1102,6 +1102,22 @@ const generatePDFHTML = (
   `;
 };
 
+// Helper to load image and convert to base64
+const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
+
 // Generate PDF blob for ZIP bundling (uses jsPDF with proper text rendering)
 export const generatePDFBlob = async (
   entries: JournalEntry[], 
@@ -1121,6 +1137,8 @@ export const generatePDFBlob = async (
     fontFamily: layoutSettings?.fontFamily || 'helvetica',
     pageMargin: layoutSettings?.pageMargin || 20,
     titleFontSize: layoutSettings?.titleFontSize || 18,
+    showLogo: layoutSettings?.showLogo !== false,
+    logoMaxHeight: layoutSettings?.logoMaxHeight || 25,
   };
 
   // Create PDF document
@@ -1173,6 +1191,39 @@ export const generatePDFBlob = async (
 
   const primaryRgb = hexToRgb(settings.primaryColor);
 
+  // Add Company Logo
+  if (logoUrl && settings.showLogo) {
+    try {
+      const logoBase64 = await loadImageAsBase64(logoUrl);
+      if (logoBase64) {
+        const img = new Image();
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          img.src = logoBase64;
+        });
+        
+        if (img.width > 0) {
+          const maxHeight = settings.logoMaxHeight;
+          const maxWidth = 60;
+          const aspectRatio = img.width / img.height;
+          let imgWidth = maxWidth;
+          let imgHeight = imgWidth / aspectRatio;
+          
+          if (imgHeight > maxHeight) {
+            imgHeight = maxHeight;
+            imgWidth = imgHeight * aspectRatio;
+          }
+          
+          pdf.addImage(logoBase64, 'AUTO', margin, yPosition, imgWidth, imgHeight);
+          yPosition += imgHeight + 8;
+        }
+      }
+    } catch (e) {
+      // Continue without logo if it fails to load
+    }
+  }
+
   // Title
   addWrappedText(`${orderTitle} - ${t.allJournalEntries}`, settings.titleFontSize, true, primaryRgb);
   
@@ -1184,8 +1235,6 @@ export const generatePDFBlob = async (
 
   // Order Details Section
   const orderDetailsFields = [
-    { label: t.status, value: order.status ? t[order.status as keyof PDFTranslations] || order.status : null },
-    { label: t.priority, value: order.priority ? t[order.priority as keyof PDFTranslations] || order.priority : null },
     { label: t.customer, value: order.customer },
     { label: t.customerRef, value: order.customer_ref },
     { label: t.location, value: order.location },
@@ -1216,14 +1265,6 @@ export const generatePDFBlob = async (
     yPosition = (pdf as any).lastAutoTable.finalY + 8;
   }
 
-  // Description
-  if (order.description) {
-    checkNewPage(20);
-    addWrappedText(`${t.description}:`, 11, true, [51, 51, 51]);
-    addWrappedText(order.description, 10, false, [102, 102, 102]);
-    yPosition += 5;
-  }
-
   // Total Man Hours
   const totalHours = order.time_entries?.reduce((sum, entry) => sum + Number(entry.hours_worked || 0), 0) || 0;
   const uniqueTechnicians = new Set(order.time_entries?.map(e => e.technician_name) || []);
@@ -1232,34 +1273,6 @@ export const generatePDFBlob = async (
   checkNewPage(15);
   addWrappedText(`${t.totalManHours}: ${totalHours.toFixed(2)} ${t.hours} (${technicianCount} technician${technicianCount !== 1 ? 's' : ''})`, 11, true, [51, 51, 51]);
   yPosition += 3;
-
-  // Hours by day
-  const hoursByDay = order.time_entries?.reduce((acc, entry) => {
-    const date = formatDate(entry.work_date, dateFormat);
-    acc[date] = (acc[date] || 0) + Number(entry.hours_worked || 0);
-    return acc;
-  }, {} as Record<string, number>) || {};
-
-  if (Object.keys(hoursByDay).length > 0) {
-    checkNewPage(20);
-    addWrappedText(`${t.hoursByDay}:`, 11, true, [51, 51, 51]);
-    
-    const hoursData = Object.entries(hoursByDay)
-      .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
-      .map(([date, hours]) => [date, `${hours.toFixed(2)} ${t.hours}`]);
-    
-    if (hoursData.length > 0) {
-      autoTable(pdf, {
-        startY: yPosition,
-        head: [],
-        body: hoursData,
-        theme: 'plain',
-        styles: { fontSize: 9, cellPadding: 2 },
-        margin: { left: margin, right: margin },
-      });
-      yPosition = (pdf as any).lastAutoTable.finalY + 5;
-    }
-  }
 
   // Summary
   if (order.summary) {
@@ -1276,7 +1289,7 @@ export const generatePDFBlob = async (
     
     for (const entry of summaryEntries) {
       checkNewPage(15);
-      addWrappedText(entry.content, 10, false, [51, 51, 51]);
+      addWrappedText(`• ${entry.content}`, 10, false, [51, 51, 51]);
       yPosition += 3;
     }
     yPosition += 5;
@@ -1296,11 +1309,55 @@ export const generatePDFBlob = async (
       // Entry date header
       pdf.setFillColor(249, 250, 251);
       pdf.rect(margin, yPosition - 3, contentWidth, 8, 'F');
-      addWrappedText(entryDate, 11, true, [102, 102, 102]);
-      yPosition += 2;
+      addWrappedText(`• ${entryDate}:`, 11, true, [102, 102, 102]);
       
       // Entry content
       addWrappedText(entry.content, 10, false, [51, 51, 51]);
+      yPosition += 3;
+      
+      // Add photos for this journal entry
+      const photos = entryPhotos?.[entry.id] || [];
+      if (photos.length > 0) {
+        for (const photo of photos) {
+          try {
+            const photoBase64 = await loadImageAsBase64(photo.url);
+            if (photoBase64) {
+              const img = new Image();
+              await new Promise<void>((resolve) => {
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+                img.src = photoBase64;
+              });
+              
+              if (img.width > 0) {
+                const maxImgWidth = contentWidth * 0.45;
+                const maxImgHeight = 60;
+                const aspectRatio = img.width / img.height;
+                let imgWidth = maxImgWidth;
+                let imgHeight = imgWidth / aspectRatio;
+                
+                if (imgHeight > maxImgHeight) {
+                  imgHeight = maxImgHeight;
+                  imgWidth = imgHeight * aspectRatio;
+                }
+                
+                checkNewPage(imgHeight + 10);
+                pdf.addImage(photoBase64, 'AUTO', margin, yPosition, imgWidth, imgHeight);
+                yPosition += imgHeight + 5;
+                
+                if (photo.caption) {
+                  pdf.setFontSize(8);
+                  pdf.setTextColor(102, 102, 102);
+                  pdf.text(photo.caption, margin, yPosition);
+                  yPosition += 5;
+                }
+              }
+            }
+          } catch (e) {
+            // Continue if photo fails to load
+          }
+        }
+      }
       
       // Add separator line
       pdf.setDrawColor(229, 231, 235);
