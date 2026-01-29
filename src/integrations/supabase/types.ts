@@ -519,7 +519,10 @@ export type Database = {
           pdf_field_config: Json | null
           pdf_font_family: string | null
           pdf_logo_max_height: number | null
+          pdf_order_details_columns: number | null
           pdf_page_margin: number | null
+          pdf_photo_columns: number | null
+          pdf_photo_scale: number | null
           pdf_primary_color: string | null
           pdf_show_logo: boolean | null
           pdf_title_font_size: number | null
@@ -538,7 +541,10 @@ export type Database = {
           pdf_field_config?: Json | null
           pdf_font_family?: string | null
           pdf_logo_max_height?: number | null
+          pdf_order_details_columns?: number | null
           pdf_page_margin?: number | null
+          pdf_photo_columns?: number | null
+          pdf_photo_scale?: number | null
           pdf_primary_color?: string | null
           pdf_show_logo?: boolean | null
           pdf_title_font_size?: number | null
@@ -557,7 +563,10 @@ export type Database = {
           pdf_field_config?: Json | null
           pdf_font_family?: string | null
           pdf_logo_max_height?: number | null
+          pdf_order_details_columns?: number | null
           pdf_page_margin?: number | null
+          pdf_photo_columns?: number | null
+          pdf_photo_scale?: number | null
           pdf_primary_color?: string | null
           pdf_show_logo?: boolean | null
           pdf_title_font_size?: number | null

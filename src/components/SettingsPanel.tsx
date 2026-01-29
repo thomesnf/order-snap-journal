@@ -75,6 +75,9 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
     logoMaxHeight: 80,
     pageMargin: 20,
     titleFontSize: 24,
+    photoScale: 100,
+    photoColumns: 2,
+    orderDetailsColumns: 2,
   });
   
   interface PDFFieldConfig {
@@ -120,7 +123,7 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
   const fetchSettings = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config, pdf_title_font_size, backup_schedule_enabled, backup_schedule_frequency, backup_schedule_day, backup_schedule_time')
+      .select('company_logo_url, app_logo_url, date_format, pdf_primary_color, pdf_font_family, pdf_show_logo, pdf_logo_max_height, pdf_page_margin, pdf_field_config, pdf_title_font_size, pdf_photo_scale, pdf_photo_columns, pdf_order_details_columns, backup_schedule_enabled, backup_schedule_frequency, backup_schedule_day, backup_schedule_time')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .single();
     
@@ -135,6 +138,9 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
         logoMaxHeight: data.pdf_logo_max_height || 80,
         pageMargin: data.pdf_page_margin || 20,
         titleFontSize: data.pdf_title_font_size || 24,
+        photoScale: data.pdf_photo_scale ?? 100,
+        photoColumns: data.pdf_photo_columns ?? 2,
+        orderDetailsColumns: data.pdf_order_details_columns ?? 2,
       });
       if (data.pdf_field_config) {
         setPdfFieldConfig(data.pdf_field_config as unknown as PDFFieldConfig[]);
@@ -1392,6 +1398,75 @@ export const SettingsPanel = ({ onBack }: SettingsPanelProps) => {
                     value={pdfSettings.titleFontSize}
                     onChange={(e) => handlePdfSettingChange('titleFontSize', parseInt(e.target.value))}
                   />
+                </div>
+
+                {/* Photo Scale */}
+                <div className="space-y-3">
+                  <Label className="text-base">
+                    Photo Scale: {pdfSettings.photoScale}%
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Scale of journal entry photos in PDF exports (50-150%)
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-muted-foreground">50%</span>
+                    <input
+                      type="range"
+                      min="50"
+                      max="150"
+                      step="5"
+                      value={pdfSettings.photoScale}
+                      onChange={(e) => handlePdfSettingChange('photoScale', parseInt(e.target.value))}
+                      className="flex-1 h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <span className="text-sm text-muted-foreground">150%</span>
+                  </div>
+                </div>
+
+                {/* Photo Columns */}
+                <div className="space-y-3">
+                  <Label className="text-base">
+                    Photos per Row
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Number of photo columns in journal entries (side by side)
+                  </p>
+                  <Select 
+                    value={pdfSettings.photoColumns.toString()} 
+                    onValueChange={(value) => handlePdfSettingChange('photoColumns', parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 column</SelectItem>
+                      <SelectItem value="2">2 columns (side by side)</SelectItem>
+                      <SelectItem value="3">3 columns</SelectItem>
+                      <SelectItem value="4">4 columns</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Order Details Columns */}
+                <div className="space-y-3">
+                  <Label className="text-base">
+                    Order Details Layout
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Number of columns for order details section
+                  </p>
+                  <Select 
+                    value={pdfSettings.orderDetailsColumns.toString()} 
+                    onValueChange={(value) => handlePdfSettingChange('orderDetailsColumns', parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 column (stacked)</SelectItem>
+                      <SelectItem value="2">2 columns (side by side)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Field Configuration */}
