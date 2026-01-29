@@ -452,7 +452,12 @@ export const exportMultipleEntriesToPDF = async (
     </div>
   ` : '';
 
-  const entriesHTML = entries.map(entry => {
+  // Sort entries chronologically (oldest first) for reading in order
+  const sortedEntries = [...entries].sort((a, b) => 
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+  
+  const entriesHTML = sortedEntries.map(entry => {
     const date = formatDate(entry.created_at, dateFormat);
     const photos = entryPhotos?.[entry.id] || [];
     const photosHTML = photos.length > 0 ? `
@@ -908,7 +913,12 @@ const generatePDFHTML = (
     </div>
   ` : '';
 
-  const entriesHTML = entries.map(entry => {
+  // Sort entries chronologically (oldest first) for reading in order
+  const sortedEntriesForHTML = [...entries].sort((a, b) => 
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+  
+  const entriesHTML = sortedEntriesForHTML.map(entry => {
     const date = formatDate(entry.created_at, dateFormat);
     const photos = entryPhotos?.[entry.id] || [];
     const photosHTML = photos.length > 0 ? `
@@ -1602,7 +1612,12 @@ const generateNativePDFFromOrder = async (
     addWrappedText(t.journalEntries, 14, true, [51, 51, 51]);
     yPosition += 3;
 
-    for (const entry of entries) {
+    // Sort entries chronologically (oldest first) for reading in order
+    const sortedJournalEntries = [...entries].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    for (const entry of sortedJournalEntries) {
       checkNewPage(25);
       
       const entryDate = formatDate(entry.created_at, dateFormat);
