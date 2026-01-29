@@ -119,6 +119,9 @@ interface PDFLayoutSettings {
   pageMargin?: number;
   titleFontSize?: number;
   fieldConfig?: PDFFieldConfig[];
+  photoScale?: number;
+  photoColumns?: number;
+  orderDetailsColumns?: number;
 }
 
 export const exportJournalEntryToPDF = async (
@@ -291,6 +294,9 @@ export const exportMultipleEntriesToPDF = async (
     showLogo: layoutSettings?.showLogo !== false,
     logoMaxHeight: layoutSettings?.logoMaxHeight || 80,
     pageMargin: layoutSettings?.pageMargin || 20,
+    photoScale: layoutSettings?.photoScale ?? 100,
+    photoColumns: layoutSettings?.photoColumns ?? 2,
+    orderDetailsColumns: layoutSettings?.orderDetailsColumns ?? 2,
   };
   
   // Calculate total man hours from time_entries
@@ -566,7 +572,7 @@ export const exportMultipleEntriesToPDF = async (
           }
           .detail-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(${settings.orderDetailsColumns}, 1fr);
             gap: 15px;
             margin: 10px 0;
           }
@@ -653,7 +659,7 @@ export const exportMultipleEntriesToPDF = async (
           }
           .entry-photos {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(${settings.photoColumns}, 1fr);
             gap: 15px;
             margin-top: 15px;
           }
@@ -661,7 +667,7 @@ export const exportMultipleEntriesToPDF = async (
             page-break-inside: avoid;
           }
           .photo-item img {
-            width: 100%;
+            width: ${settings.photoScale}%;
             height: auto;
             object-fit: contain;
             border-radius: 8px;
@@ -776,6 +782,9 @@ const generatePDFHTML = (
     showLogo: layoutSettings?.showLogo !== false,
     logoMaxHeight: layoutSettings?.logoMaxHeight || 80,
     pageMargin: layoutSettings?.pageMargin || 20,
+    photoScale: layoutSettings?.photoScale ?? 100,
+    photoColumns: layoutSettings?.photoColumns ?? 2,
+    orderDetailsColumns: layoutSettings?.orderDetailsColumns ?? 2,
   };
   
   // Calculate total man hours from time_entries
@@ -1004,7 +1013,7 @@ const generatePDFHTML = (
           .order-details h2 { margin-top: 0; margin-bottom: 10px; }
           .detail-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(${settings.orderDetailsColumns}, 1fr);
             gap: 10px;
           }
           .field-item { padding: 5px 0; }
@@ -1064,13 +1073,13 @@ const generatePDFHTML = (
           .entry-content { line-height: 1.5; }
           .entry-photos {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(${settings.photoColumns}, 1fr);
             gap: 10px;
             margin-top: 10px;
           }
           .photo-item { page-break-inside: avoid; }
           .photo-item img {
-            width: 100%;
+            width: ${settings.photoScale}%;
             height: auto;
             object-fit: contain;
             border-radius: 6px;
@@ -1287,6 +1296,9 @@ const generateNativePDFFromOrder = async (
     titleFontSize: layoutSettings?.titleFontSize || 18,
     showLogo: layoutSettings?.showLogo !== false,
     logoMaxHeight: layoutSettings?.logoMaxHeight || 25,
+    photoScale: layoutSettings?.photoScale ?? 100,
+    photoColumns: layoutSettings?.photoColumns ?? 2,
+    orderDetailsColumns: layoutSettings?.orderDetailsColumns ?? 2,
   };
 
   // Default field config matching the single export format:
@@ -1421,26 +1433,63 @@ const generateNativePDFFromOrder = async (
     checkNewPage(30);
     addWrappedText(t.orderDetails, 14, true, [51, 51, 51]);
     
-    // Use autoTable for clean table layout matching single export
-    autoTable(pdf, {
-      startY: yPosition,
-      head: [],
-      body: orderDetailsFields.map(f => [f.label, f.value as string]),
-      theme: 'plain',
-      styles: {
-        fontSize: 10,
-        cellPadding: 3,
-        lineColor: [229, 231, 235],
-        lineWidth: 0.1,
-      },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 40 },
-        1: { cellWidth: contentWidth - 40 },
-      },
-      margin: { left: margin, right: margin },
-      tableLineColor: [229, 231, 235],
-      tableLineWidth: 0.1,
-    });
+    // Use autoTable for clean table layout - supports 1 or 2 columns
+    if (settings.orderDetailsColumns === 1) {
+      // Single column layout - stacked
+      autoTable(pdf, {
+        startY: yPosition,
+        head: [],
+        body: orderDetailsFields.map(f => [f.label, f.value as string]),
+        theme: 'plain',
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+          lineColor: [229, 231, 235],
+          lineWidth: 0.1,
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 40 },
+          1: { cellWidth: contentWidth - 40 },
+        },
+        margin: { left: margin, right: margin },
+        tableLineColor: [229, 231, 235],
+        tableLineWidth: 0.1,
+      });
+    } else {
+      // Two column layout - side by side pairs
+      const rows: string[][] = [];
+      for (let i = 0; i < orderDetailsFields.length; i += 2) {
+        const field1 = orderDetailsFields[i];
+        const field2 = orderDetailsFields[i + 1];
+        if (field2) {
+          rows.push([field1.label, field1.value as string, field2.label, field2.value as string]);
+        } else {
+          rows.push([field1.label, field1.value as string, '', '']);
+        }
+      }
+      
+      autoTable(pdf, {
+        startY: yPosition,
+        head: [],
+        body: rows,
+        theme: 'plain',
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+          lineColor: [229, 231, 235],
+          lineWidth: 0.1,
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: contentWidth * 0.2 },
+          1: { cellWidth: contentWidth * 0.3 },
+          2: { fontStyle: 'bold', cellWidth: contentWidth * 0.2 },
+          3: { cellWidth: contentWidth * 0.3 },
+        },
+        margin: { left: margin, right: margin },
+        tableLineColor: [229, 231, 235],
+        tableLineWidth: 0.1,
+      });
+    }
     
     yPosition = (pdf as any).lastAutoTable.finalY + 8;
   }
@@ -1567,9 +1616,21 @@ const generateNativePDFFromOrder = async (
       addWrappedText(entry.content, 10, false, [51, 51, 51]);
       yPosition += 3;
       
-      // Add photos for this journal entry
+      // Add photos for this journal entry with multi-column support
       const photos = entryPhotos?.[entry.id] || [];
       if (photos.length > 0) {
+        const numColumns = settings.photoColumns;
+        const gutter = 4; // Gap between photos in mm
+        const totalGutters = (numColumns - 1) * gutter;
+        const baseColWidth = (contentWidth - totalGutters) / numColumns;
+        const scaleFactor = settings.photoScale / 100;
+        const colWidth = baseColWidth * scaleFactor;
+        const maxImgHeight = 60 * scaleFactor;
+        
+        let photoIndex = 0;
+        let currentRowStartY = yPosition;
+        let maxRowHeight = 0;
+        
         for (const photo of photos) {
           try {
             const photoJpeg = await loadImageAsJpegDataUrl(photo.url);
@@ -1582,11 +1643,8 @@ const generateNativePDFFromOrder = async (
               });
               
               if (img.width > 0) {
-                // Make photos larger - use more of the page width
-                const maxImgWidth = contentWidth * 0.7;
-                const maxImgHeight = 80;
                 const aspectRatio = img.width / img.height;
-                let imgWidth = maxImgWidth;
+                let imgWidth = colWidth;
                 let imgHeight = imgWidth / aspectRatio;
                 
                 if (imgHeight > maxImgHeight) {
@@ -1594,21 +1652,53 @@ const generateNativePDFFromOrder = async (
                   imgWidth = imgHeight * aspectRatio;
                 }
                 
-                checkNewPage(imgHeight + 15);
-                pdf.addImage(photoJpeg, 'JPEG', margin, yPosition, imgWidth, imgHeight);
-                yPosition += imgHeight + 5;
+                // Calculate column position
+                const colIndex = photoIndex % numColumns;
                 
+                // Check if starting a new row
+                if (colIndex === 0) {
+                  // If not the first row, add the max height from previous row
+                  if (photoIndex > 0) {
+                    yPosition = currentRowStartY + maxRowHeight + 8;
+                    if (photo.caption) yPosition += 6;
+                  }
+                  currentRowStartY = yPosition;
+                  maxRowHeight = 0;
+                  
+                  // Check if we need a new page for this row
+                  checkNewPage(imgHeight + 15);
+                  currentRowStartY = yPosition;
+                }
+                
+                // Calculate X position for this column
+                const xPosition = margin + colIndex * (baseColWidth + gutter);
+                
+                pdf.addImage(photoJpeg, 'JPEG', xPosition, currentRowStartY, imgWidth, imgHeight);
+                
+                // Track max height in this row (including caption if present)
+                let totalPhotoHeight = imgHeight;
                 if (photo.caption) {
                   pdf.setFontSize(9);
                   pdf.setTextColor(102, 102, 102);
-                  pdf.text(photo.caption, margin, yPosition);
-                  yPosition += 6;
+                  pdf.text(photo.caption, xPosition, currentRowStartY + imgHeight + 4, { maxWidth: colWidth });
+                  totalPhotoHeight += 8;
                 }
+                
+                if (totalPhotoHeight > maxRowHeight) {
+                  maxRowHeight = totalPhotoHeight;
+                }
+                
+                photoIndex++;
               }
             }
           } catch (e) {
             // Continue if photo fails to load
           }
+        }
+        
+        // After all photos, update yPosition based on last row
+        if (photoIndex > 0) {
+          yPosition = currentRowStartY + maxRowHeight + 5;
         }
       }
       
